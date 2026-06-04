@@ -59,10 +59,12 @@
 
   /* 상세 결과 */
   #report{ display:none; }
-  #report .back{ margin:16px; }
+  #report .back{ margin:16px; display:flex; gap:8px; flex-wrap:wrap; }
   #report .back button{ padding:9px 16px; border:1.5px solid var(--lav); background:#fff; color:var(--lav-d);
     border-radius:9px; font-family:'Gowun Batang',serif; font-weight:700; cursor:pointer; font-size:14px; }
-  #report .rbrand{ background:linear-gradient(135deg,#d8cfe6 0%,#c4d4cc 100%);
+  #report .back button.saveimg{ background:var(--lav-d); border-color:var(--lav-d); color:#fff; }
+  #report .back button:disabled{ opacity:.6; cursor:default; }
+  #report #shot{ background:var(--paper); padding-bottom:6px; }  #report .rbrand{ background:linear-gradient(135deg,#d8cfe6 0%,#c4d4cc 100%);
     padding:20px; text-align:center; border-radius:14px; box-shadow:var(--shadow); margin:16px; }
   #report .rbrand .name{ font-family:'Gowun Batang',serif; font-weight:700; font-size:22px; letter-spacing:2px; color:#473f55; }
   #report .rbrand .sub{ font-family:'Gowun Batang',serif; font-size:12px; color:#5d5568; letter-spacing:2px; margin-top:3px; }
@@ -123,6 +125,7 @@
     opacity:0; transition:all .25s; pointer-events:none; z-index:50; }
   .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 <body>
 
@@ -291,8 +294,10 @@
         <td class="${d.ok?'o':'x'}">${d.ok?'O':'X'}</td>
         <td class="qcell${qtext?' has':''}">${qtext}</td></tr>`;
     }
+    window.CURNAME = st.name || '학생'; window.CURCODE = st.code || '';
     document.getElementById('report').innerHTML=`
-      <div class="back"><button onclick="closeReport()">← 목록으로</button></div>
+      <div class="back"><button onclick="closeReport()">← 목록으로</button><button class="saveimg" onclick="saveImage()">이미지로 저장</button></div>
+      <div id="shot">
       <div class="rbrand"><div class="name">이수경국어</div><div class="sub">Shueguk · H WORK</div></div>
       <div class="tbar">${escapeHtml(st.code)}</div>
       <section><h2>학생 정보</h2>
@@ -302,7 +307,8 @@
       <section><h2>채점 결과</h2>
         <div class="scoreline"><span class="big">${r.got} / ${r.total}</span> <span class="pct">(${pct}점)</span></div></section>
       <section><h2>문항별 채점</h2>
-        <table class="detail"><colgroup><col style="width:12%"><col style="width:18%"><col style="width:18%"><col style="width:17%"><col style="width:35%"></colgroup><tr><th>문항</th><th>학생 답</th><th>정답</th><th>정오</th><th>질문</th></tr>${rows}</table></section>`;
+        <table class="detail"><colgroup><col style="width:12%"><col style="width:18%"><col style="width:18%"><col style="width:17%"><col style="width:35%"></colgroup><tr><th>문항</th><th>학생 답</th><th>정답</th><th>정오</th><th>질문</th></tr>${rows}</table></section>
+      </div>`;
     document.getElementById('listView').style.display='none';
     document.getElementById('report').style.display='block';
     window.scrollTo(0,0);
@@ -311,6 +317,30 @@
     document.getElementById('report').style.display='none';
     document.getElementById('listView').style.display='block';
     window.scrollTo(0,0);
+  }
+
+  // 현재 성적표를 이미지(PNG)로 저장
+  function saveImage(){
+    if(typeof html2canvas==='undefined'){ toast('이미지 도구를 불러오지 못했습니다 · 잠시 후 다시'); return; }
+    const shot=document.getElementById('shot');
+    if(!shot){ return; }
+    const btn=document.querySelector('#report .saveimg'); const label=btn?btn.textContent:'';
+    if(btn){ btn.disabled=true; btn.textContent='저장 중…'; }
+    html2canvas(shot, { backgroundColor:'#f7f6f3', scale:2, useCORS:true })
+      .then(function(canvas){
+        const base=((window.CURNAME||'학생')+'_'+(window.CURCODE||'')+'_제출현황')
+          .replace(/[\\/:*?"<>|\s]+/g,'_');
+        canvas.toBlob(function(blob){
+          if(!blob){ toast('이미지 생성 실패'); return; }
+          const url=URL.createObjectURL(blob);
+          const a=document.createElement('a'); a.href=url; a.download=base+'.png';
+          document.body.appendChild(a); a.click(); a.remove();
+          setTimeout(function(){ URL.revokeObjectURL(url); }, 5000);
+          toast('이미지를 저장했습니다');
+        }, 'image/png');
+      })
+      .catch(function(e){ toast('이미지 저장 실패 · 다시 시도해 주세요'); })
+      .then(function(){ if(btn){ btn.disabled=false; btn.textContent=label; } });
   }
 
   // 선택한 시험(제목)의 문항별 오답률을 모아 높은 순으로 보여준다
