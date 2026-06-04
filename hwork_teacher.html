@@ -111,7 +111,9 @@
   .rate{ font-weight:700; color:var(--bad); min-width:40px; text-align:right; }
   .qbadge{ display:inline-block; background:var(--lav); color:#fff; font-size:11px; font-weight:700;
     padding:1px 7px; border-radius:10px; margin-left:4px; white-space:nowrap; }
-  #report table.detail td.qtext{ text-align:left; padding-left:12px; word-break:break-all; line-height:1.5; }
+  #report table.detail td.qcell{ text-align:left; padding-left:10px; color:var(--lav-d); font-size:12.5px;
+    word-break:break-all; line-height:1.5; }
+  #report table.detail td.qcell.has{ background:#f3f0f8; }
 
   .toast{ position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px);
     background:var(--ink); color:#fff; padding:11px 22px; border-radius:99px; font-size:13px;
@@ -277,18 +279,14 @@
     const st=rep.student, r=rep.result;
     const pct=r.total? Math.round(r.got/r.total*100):0;
     let rows='';
+    const qmap = rep.questions || {};
     for(let q=1;q<=r.total;q++){ const d=r.detail[q]||{};
       const mine=(d.mine&&String(d.mine).length)?escapeHtml(d.mine):'<span class="blank">무응답</span>';
+      const qtext = qmap[q] ? escapeHtml(qmap[q]) : '';
       rows+=`<tr class="${d.ok?'':'wrong'}"><td class="qn">${q}</td>
         <td class="mine">${mine}</td><td class="ansc">${escapeHtml(d.ans||'')}</td>
-        <td class="${d.ok?'o':'x'}">${d.ok?'O':'X'}</td></tr>`;
-    }
-    let qHtml='';
-    if(rep.questions && Object.keys(rep.questions).length){
-      const qrows=Object.keys(rep.questions).map(Number).sort((a,b)=>a-b)
-        .map(qn=>`<tr><td class="qn">${qn}</td><td class="qtext">${escapeHtml(rep.questions[qn])}</td></tr>`).join('');
-      qHtml=`<section><h2>학생 질문</h2>
-        <table class="detail qtbl"><tr><th>문항</th><th>질문 내용</th></tr>${qrows}</table></section>`;
+        <td class="${d.ok?'o':'x'}">${d.ok?'O':'X'}</td>
+        <td class="qcell${qtext?' has':''}">${qtext}</td></tr>`;
     }
     document.getElementById('report').innerHTML=`
       <div class="back"><button onclick="closeReport()">← 목록으로</button></div>
@@ -301,8 +299,7 @@
       <section><h2>채점 결과</h2>
         <div class="scoreline"><span class="big">${r.got} / ${r.total}</span> <span class="pct">(${pct}점)</span></div></section>
       <section><h2>문항별 채점</h2>
-        <table class="detail"><tr><th>문항</th><th>학생 답</th><th>정답</th><th>정오</th></tr>${rows}</table></section>
-      ${qHtml}`;
+        <table class="detail"><tr><th>문항</th><th>학생 답</th><th>정답</th><th>정오</th><th>질문</th></tr>${rows}</table></section>`;
     document.getElementById('listView').style.display='none';
     document.getElementById('report').style.display='block';
     window.scrollTo(0,0);
