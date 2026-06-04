@@ -87,6 +87,13 @@
     font-size:16px; font-family:inherit; background:#fafafb; }
   .tans:focus{ outline:none; border-color:var(--lav); background:#fff; }
   .qtype{ font-size:11px; color:var(--muted); margin-bottom:5px; }
+  .qask{ margin-top:9px; padding:6px 13px; border:1.5px solid var(--line); background:#fff; color:var(--lav-d);
+    border-radius:18px; font-size:12.5px; font-family:inherit; cursor:pointer; }
+  .qask:active{ transform:scale(.96); }
+  .qask.has{ background:var(--lav); border-color:var(--lav); color:#fff; font-weight:700; }
+  .qnote{ width:100%; margin-top:9px; padding:10px 12px; border:1.5px solid var(--lav); border-radius:10px;
+    font-size:14px; font-family:inherit; background:#fff; resize:vertical; min-height:46px; line-height:1.5; }
+  .qnote:focus{ outline:none; border-color:var(--lav-d); }
 
   .footer{
     position:fixed; bottom:0; left:50%; transform:translateX(-50%); width:100%; max-width:480px;
@@ -190,6 +197,7 @@
   let allHw=[];      // [{teacher, code}]
   let meta=null;     // 선택된 H WORK 메타(정답 없음)
   const picks={};    // q -> 답
+  const questions={};// q -> 질문 내용
 
   function escapeHtml(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
   function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show');
@@ -238,6 +246,7 @@
   function resetAfterCode(){
     meta=null;
     for(const k in picks) delete picks[k];
+    for(const k in questions) delete questions[k];
     document.getElementById('quiz').innerHTML='';
     const sSel=document.getElementById('schoolSel');
     sSel.disabled=true; sSel.innerHTML='<option value="">먼저 H WORK을 고르세요</option>';
@@ -305,7 +314,9 @@
     }else{
       body=`<div class="qtype">${tlabel}</div><input type="text" class="tans" placeholder="답 입력" oninput="pickText(${q},this.value)">`;
     }
-    div.innerHTML=`<span class="num">${q}</span><div class="qbody">${body}</div>`;
+    div.innerHTML=`<span class="num">${q}</span><div class="qbody">${body}
+      <button type="button" class="qask" id="ask${q}" onclick="toggleAsk(${q})">질문</button>
+      <textarea class="qnote" id="note${q}" placeholder="이 문항에 대해 궁금한 점을 적어 주세요" oninput="setNote(${q},this.value)" style="display:none;"></textarea></div>`;
     return div;
   }
 
@@ -332,6 +343,18 @@
     updateProgress();
   }
 
+  function toggleAsk(q){
+    const t=document.getElementById('note'+q);
+    const show = (t.style.display==='none' || !t.style.display);
+    t.style.display = show ? 'block' : 'none';
+    if(show) t.focus();
+  }
+  function setNote(q,v){
+    const val=v.trim();
+    if(val) questions[q]=val; else delete questions[q];
+    document.getElementById('ask'+q).classList.toggle('has', !!val);
+  }
+
   function updateProgress(){
     const total=meta?meta.count:0;
     const n=Object.keys(picks).length;
@@ -356,7 +379,7 @@
     for(let q=1;q<=meta.count;q++) if(picks[q]==null) missing.push(q);
     if(missing.length && !confirm(`미응답 ${missing.length}문항이 있습니다 (${missing.slice(0,5).join(', ')}${missing.length>5?'…':''}).\n그대로 제출할까요?`)) return;
 
-    const payload={ action:'submit', data:{ teacher, code, school, grade, name, answers:picks } };
+    const payload={ action:'submit', data:{ teacher, code, school, grade, name, answers:picks, questions:questions } };
     const btn=document.getElementById('submit'); btn.disabled=true; btn.textContent='채점 중…';
     try{
       const res=await fetch(API_URL,{ method:'POST', body:JSON.stringify(payload) });

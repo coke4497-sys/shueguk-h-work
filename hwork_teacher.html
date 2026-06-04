@@ -109,6 +109,9 @@
   .qbar{ flex:1; height:8px; border-radius:4px; background:#eee; overflow:hidden; }
   .qbar > i{ display:block; height:100%; background:var(--bad); }
   .rate{ font-weight:700; color:var(--bad); min-width:40px; text-align:right; }
+  .qbadge{ display:inline-block; background:var(--lav); color:#fff; font-size:11px; font-weight:700;
+    padding:1px 7px; border-radius:10px; margin-left:4px; white-space:nowrap; }
+  #report table.detail td.qtext{ text-align:left; padding-left:12px; word-break:break-all; line-height:1.5; }
 
   .toast{ position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px);
     background:var(--ink); color:#fff; padding:11px 22px; border-radius:99px; font-size:13px;
@@ -244,7 +247,7 @@
     empty.style.display='none'; tbl.style.display='table';
     body.innerHTML=rows.map(r=>`<tr class="r" onclick="openReport(${r.row})">
       <td>${escapeHtml(r.teacher||'')}</td><td>${escapeHtml(r.code||'')}</td>
-      <td class="nm">${escapeHtml(r.name||'')}</td>
+      <td class="nm">${escapeHtml(r.name||'')}${Number(r.qCount)>0?` <span class="qbadge">질문 ${r.qCount}</span>`:''}</td>
       <td class="sc">${escapeHtml(r.got)} / ${escapeHtml(r.total)}</td>
       <td>${escapeHtml(r.school||'')}</td><td>${escapeHtml(r.grade||'')}</td>
       <td class="date">${escapeHtml(shortDate(r.submittedAt))}</td></tr>`).join('');
@@ -280,6 +283,13 @@
         <td class="mine">${mine}</td><td class="ansc">${escapeHtml(d.ans||'')}</td>
         <td class="${d.ok?'o':'x'}">${d.ok?'O':'X'}</td></tr>`;
     }
+    let qHtml='';
+    if(rep.questions && Object.keys(rep.questions).length){
+      const qrows=Object.keys(rep.questions).map(Number).sort((a,b)=>a-b)
+        .map(qn=>`<tr><td class="qn">${qn}</td><td class="qtext">${escapeHtml(rep.questions[qn])}</td></tr>`).join('');
+      qHtml=`<section><h2>학생 질문</h2>
+        <table class="detail qtbl"><tr><th>문항</th><th>질문 내용</th></tr>${qrows}</table></section>`;
+    }
     document.getElementById('report').innerHTML=`
       <div class="back"><button onclick="closeReport()">← 목록으로</button></div>
       <div class="rbrand"><div class="name">이수경국어</div><div class="sub">Shueguk · H WORK</div></div>
@@ -291,7 +301,8 @@
       <section><h2>채점 결과</h2>
         <div class="scoreline"><span class="big">${r.got} / ${r.total}</span> <span class="pct">(${pct}점)</span></div></section>
       <section><h2>문항별 채점</h2>
-        <table class="detail"><tr><th>문항</th><th>학생 답</th><th>정답</th><th>정오</th></tr>${rows}</table></section>`;
+        <table class="detail"><tr><th>문항</th><th>학생 답</th><th>정답</th><th>정오</th></tr>${rows}</table></section>
+      ${qHtml}`;
     document.getElementById('listView').style.display='none';
     document.getElementById('report').style.display='block';
     window.scrollTo(0,0);
