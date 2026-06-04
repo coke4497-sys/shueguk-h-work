@@ -88,6 +88,28 @@
   #report .mine{ word-break:break-all; text-align:left; padding-left:12px; }
   #report .ansc{ text-align:left; padding-left:12px; }
 
+  /* 문항별 오답률 */
+  .qbtn{ margin:0 16px 8px; display:none; }
+  .qbtn button{ width:100%; padding:12px; border:1.5px solid var(--lav); background:#fff; color:var(--lav-d);
+    border-radius:10px; font-family:'Gowun Batang',serif; font-weight:700; font-size:14.5px; cursor:pointer; }
+  .qbtn button:hover{ background:var(--lav-bg); }
+  .qbtn button:disabled{ opacity:.6; cursor:default; }
+  .qpanel{ margin:0 16px 14px; background:#fff; border-radius:12px; box-shadow:var(--shadow); overflow:hidden; display:none; }
+  .qpanel .qhead{ background:#dcd5e6; color:#473f55; font-family:'Gowun Batang',serif; font-weight:700;
+    font-size:14px; padding:11px 16px; display:flex; justify-content:space-between; align-items:center; }
+  .qpanel .qhead .x{ cursor:pointer; color:#6b6478; font-size:13px; font-weight:400; }
+  .qpanel .qnote{ font-size:12px; color:var(--muted); padding:9px 16px 2px; }
+  table.qrank{ width:100%; border-collapse:collapse; }
+  table.qrank th{ background:#efeef1; color:#473f55; font-size:12.5px; padding:9px 8px; }
+  table.qrank td{ padding:9px 8px; text-align:center; font-size:13.5px; border-bottom:1px solid var(--line); }
+  table.qrank td.q{ font-weight:700; color:#4a4356; width:48px; }
+  table.qrank td.ansc{ text-align:left; padding-left:12px; color:var(--muted); word-break:break-all; }
+  table.qrank tr.hi td{ background:#fcebea; }
+  .ratecell{ display:flex; align-items:center; gap:8px; justify-content:flex-start; min-width:120px; }
+  .qbar{ flex:1; height:8px; border-radius:4px; background:#eee; overflow:hidden; }
+  .qbar > i{ display:block; height:100%; background:var(--bad); }
+  .rate{ font-weight:700; color:var(--bad); min-width:40px; text-align:right; }
+
   .toast{ position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px);
     background:var(--ink); color:#fff; padding:11px 22px; border-radius:99px; font-size:13px;
     opacity:0; transition:all .25s; pointer-events:none; z-index:50; }
@@ -112,6 +134,12 @@
     <button onclick="reload()">새로고침</button>
   </div>
   <div class="summary" id="summary"></div>
+  <div class="qbtn" id="qbtn"><button onclick="analyzeQuestions()">이 시험 문항별 오답률 분석</button></div>
+  <div class="qpanel" id="qpanel">
+    <div class="qhead"><span id="qhTitle">문항별 오답률</span><span class="x" onclick="closeQ()">닫기</span></div>
+    <div class="qnote">오답률 = 틀린 학생 수 ÷ 제출 학생 수 · 높은 순으로 정렬</div>
+    <div id="qbody"></div>
+  </div>
   <div class="list-wrap">
     <div class="loading" id="loading">불러오는 중…</div>
     <table class="list" id="listTbl" style="display:none;">
@@ -129,6 +157,7 @@
   const API_URL = "https://script.google.com/macros/s/AKfycbyrc0j6EmVLrlfZeSchetAcEzWPEFAEV1RHStr6ZTJPDJeH6pcvRDemfWU64puojmSDPg/exec";
 
   let ALL=[];
+  let CUR=[];
   function escapeHtml(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
   function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show');
     clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),2200); }
@@ -170,6 +199,8 @@
     const g=document.getElementById('fGrade').value;
     const q=document.getElementById('q').value.trim();
     const tbl=document.getElementById('listTbl'), body=document.getElementById('listBody'), empty=document.getElementById('empty');
+    document.getElementById('qbtn').style.display='none';
+    document.getElementById('qpanel').style.display='none';
 
     // 담당 강사를 고르기 전에는 목록을 보여주지 않음
     if(!t){
@@ -183,6 +214,7 @@
     const rows=ALL.filter(r=>
       (r.teacher===t) && (!c||r.code===c) && (!s||r.school===s) && (!g||r.grade===g) &&
       (!q||(r.name||'').includes(q)) );
+    CUR=rows;
 
     // 요약
     let sumLine=`제출 <b>${rows.length}</b>건`;
@@ -201,6 +233,7 @@
       <td class="sc">${escapeHtml(r.got)} / ${escapeHtml(r.total)}</td>
       <td>${escapeHtml(r.school||'')}</td><td>${escapeHtml(r.grade||'')}</td>
       <td class="date">${escapeHtml(shortDate(r.submittedAt))}</td></tr>`).join('');
+    if(c && rows.length) document.getElementById('qbtn').style.display='block';
   }
 
   function shortDate(s){
@@ -254,6 +287,53 @@
     document.getElementById('listView').style.display='block';
     window.scrollTo(0,0);
   }
+
+  // 선택한 시험(제목)의 문항별 오답률을 모아 높은 순으로 보여준다
+  async function analyzeQuestions(){
+    if(!CUR || !CUR.length){ toast('분석할 제출이 없습니다'); return; }
+    const code=document.getElementById('fCode').value;
+    const btn=document.querySelector('#qbtn button'); const label=btn.textContent;
+    btn.disabled=true; btn.textContent='분석 중… ('+CUR.length+'명)';
+    try{
+      const reports=await Promise.all(CUR.map(r=>
+        fetch(API_URL+'?action=report&row='+encodeURIComponent(r.row))
+          .then(x=>x.json()).then(j=>j.ok?j.report:null).catch(()=>null)
+      ));
+      const valid=reports.filter(Boolean);
+      if(!valid.length){ toast('데이터를 불러오지 못했습니다'); return; }
+      const total=Math.max(...valid.map(v=>Number(v.result.total)||0));
+      const N=valid.length;
+      const stat=[];
+      for(let qn=1; qn<=total; qn++){
+        let wrong=0, ans='';
+        valid.forEach(v=>{ const d=v.result.detail[qn]; if(d){ if(d.ok===false) wrong++; if(!ans && d.ans) ans=d.ans; } });
+        stat.push({ q:qn, wrong:wrong, n:N, rate: N? wrong/N : 0, ans:ans });
+      }
+      stat.sort((a,b)=> (b.rate-a.rate) || (a.q-b.q));
+      renderQ(stat, code, N);
+    } finally {
+      btn.disabled=false; btn.textContent=label;
+    }
+  }
+
+  function renderQ(stat, code, N){
+    document.getElementById('qhTitle').textContent=(code||'')+' · 문항별 오답률';
+    const rows=stat.map(s=>{
+      const pct=Math.round(s.rate*100);
+      const hi = s.rate>=0.5 ? ' class="hi"' : '';
+      return `<tr${hi}>
+        <td class="q">${s.q}</td>
+        <td><div class="ratecell"><div class="qbar"><i style="width:${pct}%"></i></div><span class="rate">${pct}%</span></div></td>
+        <td>${s.wrong} / ${s.n}</td>
+        <td class="ansc">${escapeHtml(s.ans||'')}</td></tr>`;
+    }).join('');
+    document.getElementById('qbody').innerHTML=`<table class="qrank">
+      <thead><tr><th>문항</th><th>오답률</th><th>틀림/응시</th><th>정답</th></tr></thead>
+      <tbody>${rows}</tbody></table>`;
+    document.getElementById('qpanel').style.display='block';
+    document.getElementById('qpanel').scrollIntoView({behavior:'smooth', block:'nearest'});
+  }
+  function closeQ(){ document.getElementById('qpanel').style.display='none'; }
 
   reload();
 </script>
