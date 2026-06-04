@@ -78,9 +78,12 @@
   #report .big{ font-family:'Gowun Batang',serif; font-size:30px; font-weight:700; color:var(--lav-d); }
   #report .scoreline{ text-align:center; margin:6px 0 2px; }
   #report .scoreline .pct{ font-size:14px; color:var(--muted); }
+  #report table.detail{ table-layout:fixed; }
+  #report table.detail th,#report table.detail td{ padding:9px 4px; word-break:break-all; }
   #report table.detail th{ background:#dcd5e6; color:#473f55; }
   #report table.detail td{ border-bottom:1px solid var(--line); }
-  #report table.detail td.qn{ background:#e8e3f0; font-weight:700; color:#4a4356; width:48px; }
+  #report table.detail td.qn{ background:#e8e3f0; font-weight:700; color:#4a4356; }
+  #report table.detail td.mine,#report table.detail td.ansc{ font-size:12.5px; }
   #report table.detail tr.wrong td{ background:#fcebea; }
   #report td.o{ color:var(--ok); font-weight:700; }
   #report td.x{ color:var(--bad); font-weight:700; }
@@ -299,7 +302,7 @@
       <section><h2>채점 결과</h2>
         <div class="scoreline"><span class="big">${r.got} / ${r.total}</span> <span class="pct">(${pct}점)</span></div></section>
       <section><h2>문항별 채점</h2>
-        <table class="detail"><tr><th>문항</th><th>학생 답</th><th>정답</th><th>정오</th><th>질문</th></tr>${rows}</table></section>`;
+        <table class="detail"><colgroup><col style="width:12%"><col style="width:18%"><col style="width:18%"><col style="width:17%"><col style="width:35%"></colgroup><tr><th>문항</th><th>학생 답</th><th>정답</th><th>정오</th><th>질문</th></tr>${rows}</table></section>`;
     document.getElementById('listView').style.display='none';
     document.getElementById('report').style.display='block';
     window.scrollTo(0,0);
