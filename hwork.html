@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>이수경국어 · H WORK 제출</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --sage:#a9c0b4; --sage-d:#7fa08f;
+    --lav:#b8b0cc; --lav-d:#8d83a8;
+    --ink:#3f3a44; --muted:#8a8590;
+    --line:#e4e0e8; --paper:#f7f6f3; --card:#ffffff;
+    --ok:#1b8a3a; --ok-bg:#e3f2e8; --bad:#d0473f; --bar:#9b8fb5;
+    --shadow:0 2px 10px rgba(63,58,68,.06);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:'Gowun Dodum',-apple-system,sans-serif;
+    background:var(--paper); color:var(--ink);
+    max-width:480px; margin:0 auto; padding:0 0 110px; line-height:1.5;
+  }
+  .brand{
+    background:linear-gradient(135deg,#d8cfe6 0%,#c4d4cc 100%);
+    padding:22px 20px 18px; text-align:center; border-radius:0 0 22px 22px; box-shadow:var(--shadow);
+  }
+  .brand .name{ font-family:'Gowun Batang',serif; font-weight:700; font-size:27px; letter-spacing:3px; color:#473f55; }
+  .brand .sub{ font-family:'Gowun Batang',serif; font-size:14px; color:#5d5568; letter-spacing:4px; margin-top:5px; }
+  .title-bar{
+    background:var(--card); margin:16px 16px 0; padding:13px 18px; border-radius:12px; box-shadow:var(--shadow);
+    font-family:'Gowun Batang',serif; font-size:15px; font-weight:700; border-left:5px solid var(--lav);
+  }
+  .card{ background:var(--card); margin:16px; padding:18px; border-radius:14px; box-shadow:var(--shadow); }
+  .card h3{ margin:0 0 14px; font-size:15px; font-family:'Gowun Batang',serif; display:flex; align-items:center; gap:8px; }
+  .card h3::before{ content:""; width:8px; height:8px; border-radius:50%; background:var(--sage); }
+  label{ display:block; font-size:13px; color:var(--muted); margin:12px 0 5px; }
+  input[type=text]{
+    width:100%; padding:13px 14px; border:1.5px solid var(--line); border-radius:10px;
+    font-size:16px; font-family:inherit; background:#fafafb;
+  }
+  input[type=text]:focus{ outline:none; border-color:var(--lav); background:#fff; }
+  .sel{
+    width:100%; padding:13px 12px; border:1.5px solid var(--line); border-radius:10px;
+    font-size:16px; font-family:inherit; background:#fafafb; color:var(--ink);
+    -webkit-appearance:none; appearance:none;
+  }
+  .sel:focus{ outline:none; border-color:var(--lav); background:#fff; }
+  .sel:disabled{ background:#f0eef1; color:var(--muted); }
+
+  .progress-wrap{ position:sticky; top:0; z-index:20; background:var(--paper); padding:10px 16px 8px; backdrop-filter:blur(4px); }
+  .progress-info{ display:flex; justify-content:space-between; font-size:12px; color:var(--muted); margin-bottom:6px; }
+  .progress-info b{ color:var(--lav-d); font-size:14px; }
+  .bar{ height:7px; background:var(--line); border-radius:99px; overflow:hidden; }
+  .bar > i{ display:block; height:100%; width:0; background:linear-gradient(90deg,var(--sage),var(--lav)); transition:width .3s; }
+
+  .sec-label{ margin:14px 16px 4px; font-size:12px; letter-spacing:1px; color:var(--lav-d); font-weight:700; }
+  .q{
+    background:var(--card); margin:8px 16px; padding:12px 14px; border-radius:13px; box-shadow:var(--shadow);
+    display:flex; align-items:center; gap:10px;
+  }
+  .q.answered{ box-shadow:0 0 0 1.5px var(--sage) inset, var(--shadow); }
+  .q .num{ width:30px; flex-shrink:0; text-align:center; font-family:'Gowun Batang',serif; font-weight:700; font-size:16px; }
+  .qbody{ flex:1; min-width:0; }
+  .choices{ display:flex; gap:7px; }
+  .choices button{
+    flex:1; aspect-ratio:1; min-width:0; border:1.5px solid var(--line); background:#fff; border-radius:50%;
+    font-size:15px; color:var(--muted); font-family:'Gowun Batang',serif; cursor:pointer; transition:all .12s;
+  }
+  .choices button:active{ transform:scale(.9); }
+  .choices button.sel{ background:var(--sage-d); border-color:var(--sage-d); color:#fff; font-weight:700; box-shadow:0 2px 6px rgba(127,160,143,.4); }
+  .ox{ display:flex; gap:8px; }
+  .ox button{
+    flex:1; padding:11px 0; border:1.5px solid var(--line); background:#fff; border-radius:10px;
+    font-size:17px; color:var(--muted); font-family:'Gowun Batang',serif; cursor:pointer;
+  }
+  .ox button.sel{ background:var(--sage-d); border-color:var(--sage-d); color:#fff; font-weight:700; }
+  .tans{ width:100%; padding:11px 13px; border:1.5px solid var(--line); border-radius:10px;
+    font-size:16px; font-family:inherit; background:#fafafb; }
+  .tans:focus{ outline:none; border-color:var(--lav); background:#fff; }
+  .qtype{ font-size:11px; color:var(--muted); margin-bottom:5px; }
+
+  .footer{
+    position:fixed; bottom:0; left:50%; transform:translateX(-50%); width:100%; max-width:480px;
+    padding:12px 16px 22px; background:linear-gradient(to top,var(--paper) 70%,transparent);
+  }
+  #submit{
+    width:100%; padding:17px; border:none; border-radius:13px; background:var(--lav-d); color:#fff;
+    font-size:17px; font-weight:700; font-family:'Gowun Batang',serif; cursor:pointer; letter-spacing:2px;
+    box-shadow:0 4px 14px rgba(141,131,168,.4);
+  }
+  #submit:active{ opacity:.85; }
+  #submit:disabled{ background:var(--muted); box-shadow:none; }
+
+  .notice{ margin:16px; padding:14px 16px; border-radius:12px; font-size:13.5px; line-height:1.6; white-space:pre-wrap; }
+  .notice.bad{ background:#fcebea; border-left:4px solid var(--bad); color:#a33; }
+  .notice.info{ background:var(--ok-bg); border-left:4px solid var(--ok); color:#1b6a30; }
+
+  .toast{
+    position:fixed; bottom:96px; left:50%; transform:translateX(-50%) translateY(20px);
+    background:var(--ink); color:#fff; padding:11px 20px; border-radius:99px; font-size:13px;
+    opacity:0; transition:all .25s; pointer-events:none; z-index:50; white-space:nowrap;
+  }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+
+  /* ── 결과 ── */
+  #report{ display:none; }
+  #report .rbrand{ background:linear-gradient(135deg,#d8cfe6 0%,#c4d4cc 100%); padding:22px; text-align:center;
+    border-radius:0 0 22px 22px; box-shadow:var(--shadow); }
+  #report .rbrand .name{ font-family:'Gowun Batang',serif; font-weight:700; font-size:24px; letter-spacing:2px; color:#473f55; }
+  #report .rbrand .sub{ font-family:'Gowun Batang',serif; font-size:13px; color:#5d5568; letter-spacing:2px; margin-top:4px; }
+  #report .tbar{ background:#e8e3f0; margin:16px; padding:11px 18px; border-radius:10px;
+    font-family:'Gowun Batang',serif; font-size:15px; font-weight:700; color:#4a4356; text-align:center; }
+  #report section{ margin:16px; }
+  #report h2{ font-family:'Gowun Batang',serif; font-size:16px; margin:0 0 10px; display:flex; align-items:center; gap:8px; }
+  #report h2::before{ content:""; width:9px;height:9px;border-radius:2px;background:var(--lav); }
+  #report table{ width:100%; border-collapse:collapse; background:#fff; border-radius:10px; overflow:hidden; box-shadow:var(--shadow); }
+  #report th,#report td{ padding:10px 8px; text-align:center; font-size:13.5px; }
+  #report .info th{ background:#cdd9e0; color:#3c4a52; font-weight:700; }
+  #report .info td{ background:#efeef1; }
+  #report .big{ font-family:'Gowun Batang',serif; font-size:30px; font-weight:700; color:var(--lav-d); }
+  #report .scoreline{ text-align:center; margin:6px 0 2px; }
+  #report .scoreline .pct{ font-size:14px; color:var(--muted); }
+  #report table.detail th{ background:#dcd5e6; color:#473f55; }
+  #report table.detail td{ border-bottom:1px solid var(--line); }
+  #report table.detail td.qn{ background:#e8e3f0; font-weight:700; color:#4a4356; width:48px; }
+  #report table.detail tr.wrong td{ background:#fcebea; }
+  #report td.o{ color:var(--ok); font-weight:700; }
+  #report td.x{ color:var(--bad); font-weight:700; }
+  #report .blank{ color:var(--muted); font-size:12px; }
+  #report .mine{ word-break:break-all; }
+</style>
+</head>
+<body>
+
+<div id="main">
+  <div class="brand">
+    <div class="name">이수경국어</div>
+    <div class="sub">Shueguk · H WORK</div>
+  </div>
+  <div class="title-bar">H WORK 제출</div>
+
+  <div class="notice bad" id="topErr" style="display:none;"></div>
+
+  <div class="card">
+    <h3>제출 정보</h3>
+    <label>담당 강사</label>
+    <select id="teacherSel" class="sel" onchange="onTeacher()"><option value="">불러오는 중…</option></select>
+    <label>H WORK 제목</label>
+    <select id="codeSel" class="sel" onchange="onCode()" disabled><option value="">먼저 담당 강사를 고르세요</option></select>
+    <label>학교</label>
+    <select id="schoolSel" class="sel" onchange="onSchool()" disabled><option value="">먼저 H WORK을 고르세요</option></select>
+    <input type="text" id="schoolOther" placeholder="학교명을 직접 입력" style="display:none; margin-top:8px;" autocomplete="off">
+    <label>학년</label>
+    <select id="gradeSel" class="sel">
+      <option value="">학년 선택</option>
+      <option value="중1">중1</option><option value="중2">중2</option><option value="중3">중3</option>
+      <option value="고1">고1</option><option value="고2">고2</option><option value="고3">고3</option>
+    </select>
+    <label>이름</label>
+    <input type="text" id="name" placeholder="이름" autocomplete="off">
+  </div>
+
+  <div class="progress-wrap">
+    <div class="progress-info"><span>답안 작성 현황</span><span><b id="cnt">0</b> / <span id="tot">0</span></span></div>
+    <div class="bar"><i id="barFill"></i></div>
+  </div>
+
+  <div id="quiz"></div>
+</div>
+
+<div class="footer" id="footer">
+  <button id="submit" onclick="submit()">제출하기</button>
+</div>
+
+<div id="report"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+  const API_URL = "https://script.google.com/macros/s/AKfycbyrc0j6EmVLrlfZeSchetAcEzWPEFAEV1RHStr6ZTJPDJeH6pcvRDemfWU64puojmSDPg/exec";
+
+  let allHw=[];      // [{teacher, code}]
+  let meta=null;     // 선택된 H WORK 메타(정답 없음)
+  const picks={};    // q -> 답
+
+  function escapeHtml(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+  function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show');
+    clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),2200); }
+  function showErr(m){ const d=document.getElementById('topErr'); d.style.display='block'; d.textContent=m; }
+  function uniq(a){ return [...new Set(a)]; }
+
+  async function init(){
+    try{
+      const res=await fetch(API_URL+'?action=list');
+      const json=await res.json();
+      if(!json.ok){ showErr('목록을 불러오지 못했습니다: '+(json.error||'')); return; }
+      allHw=json.list||[];
+      const teachers=uniq(allHw.map(h=>h.teacher));
+      const sel=document.getElementById('teacherSel');
+      if(!teachers.length){ sel.innerHTML='<option value="">등록된 H WORK이 없습니다</option>'; return; }
+      sel.innerHTML='<option value="">담당 강사 선택</option>'+teachers.map(t=>`<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
+    }catch(err){ showErr('서버 연결에 실패했습니다. 인터넷 연결을 확인해 주세요.\n('+err+')'); }
+  }
+
+  function onTeacher(){
+    const t=document.getElementById('teacherSel').value;
+    const codeSel=document.getElementById('codeSel');
+    resetAfterCode();
+    if(!t){ codeSel.disabled=true; codeSel.innerHTML='<option value="">먼저 담당 강사를 고르세요</option>'; return; }
+    const codes=allHw.filter(h=>h.teacher===t).map(h=>h.code);
+    codeSel.disabled=false;
+    codeSel.innerHTML='<option value="">H WORK 선택</option>'+codes.map(c=>`<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+  }
+
+  function resetAfterCode(){
+    meta=null;
+    for(const k in picks) delete picks[k];
+    document.getElementById('quiz').innerHTML='';
+    const sSel=document.getElementById('schoolSel');
+    sSel.disabled=true; sSel.innerHTML='<option value="">먼저 H WORK을 고르세요</option>';
+    document.getElementById('schoolOther').style.display='none';
+    document.getElementById('tot').textContent='0';
+    updateProgress();
+  }
+
+  async function onCode(){
+    const teacher=document.getElementById('teacherSel').value;
+    const code=document.getElementById('codeSel').value;
+    resetAfterCode();
+    if(!code) return;
+    toast('불러오는 중…');
+    try{
+      const res=await fetch(API_URL+'?action=meta&teacher='+encodeURIComponent(teacher)+'&code='+encodeURIComponent(code));
+      const json=await res.json();
+      if(!json.ok){ showErr('H WORK을 불러오지 못했습니다: '+(json.error||'')); return; }
+      meta=json.meta;
+      fillSchools(meta.schools||[]);
+      buildQuiz(meta);
+    }catch(err){ showErr('서버 연결 실패: '+err); }
+  }
+
+  function fillSchools(schools){
+    const sel=document.getElementById('schoolSel');
+    sel.disabled=false;
+    sel.innerHTML='<option value="">학교 선택</option>'
+      + schools.map(s=>`<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('')
+      + '<option value="__OTHER__">명단에 없음 (직접 입력)</option>';
+    document.getElementById('schoolOther').style.display='none';
+  }
+  function onSchool(){
+    const v=document.getElementById('schoolSel').value;
+    document.getElementById('schoolOther').style.display = (v==='__OTHER__')?'block':'none';
+  }
+
+  function buildQuiz(meta){
+    const quiz=document.getElementById('quiz');
+    quiz.innerHTML='';
+    const label=document.createElement('div');
+    label.className='sec-label';
+    label.textContent=`전체 ${meta.count}문항`;
+    quiz.appendChild(label);
+    for(let q=1;q<=meta.count;q++){
+      const type=(meta.items[q]&&meta.items[q].type)||'choice5';
+      quiz.appendChild(makeQ(q,type));
+    }
+    document.getElementById('tot').textContent=meta.count;
+    updateProgress();
+  }
+
+  function makeQ(q,type){
+    const div=document.createElement('div');
+    div.className='q'; div.id='q'+q;
+    let body='';
+    const tlabel = type==='ox'?'OX':(type==='text'?'서술형':'5지선다');
+    if(type==='choice5'){
+      body='<div class="qtype">'+tlabel+'</div><div class="choices">';
+      for(let j=1;j<=5;j++) body+=`<button onclick="pickChoice(${q},${j},this)">${j}</button>`;
+      body+='</div>';
+    }else if(type==='ox'){
+      body=`<div class="qtype">${tlabel}</div><div class="ox">
+        <button onclick="pickOX(${q},'O',this)">O</button>
+        <button onclick="pickOX(${q},'X',this)">X</button></div>`;
+    }else{
+      body=`<div class="qtype">${tlabel}</div><input type="text" class="tans" placeholder="답 입력" oninput="pickText(${q},this.value)">`;
+    }
+    div.innerHTML=`<span class="num">${q}</span><div class="qbody">${body}</div>`;
+    return div;
+  }
+
+  function pickChoice(q,j,btn){
+    picks[q]=j;
+    const wrap=btn.parentElement;
+    wrap.querySelectorAll('button').forEach(b=>b.classList.remove('sel'));
+    btn.classList.add('sel');
+    document.getElementById('q'+q).classList.add('answered');
+    updateProgress();
+  }
+  function pickOX(q,v,btn){
+    picks[q]=v;
+    const wrap=btn.parentElement;
+    wrap.querySelectorAll('button').forEach(b=>b.classList.remove('sel'));
+    btn.classList.add('sel');
+    document.getElementById('q'+q).classList.add('answered');
+    updateProgress();
+  }
+  function pickText(q,v){
+    const val=v.trim();
+    if(val) picks[q]=val; else delete picks[q];
+    document.getElementById('q'+q).classList.toggle('answered', !!val);
+    updateProgress();
+  }
+
+  function updateProgress(){
+    const total=meta?meta.count:0;
+    const n=Object.keys(picks).length;
+    document.getElementById('cnt').textContent=n;
+    document.getElementById('barFill').style.width=(total? n/total*100:0)+'%';
+  }
+
+  async function submit(){
+    if(!meta){ toast('H WORK을 선택해 주세요'); return; }
+    const teacher=document.getElementById('teacherSel').value;
+    const code=document.getElementById('codeSel').value;
+    const grade=document.getElementById('gradeSel').value;
+    const name=document.getElementById('name').value.trim();
+    let school=document.getElementById('schoolSel').value;
+    if(school==='__OTHER__') school=document.getElementById('schoolOther').value.trim()||'명단에 없음';
+
+    if(!school){ toast('학교를 선택해 주세요'); window.scrollTo({top:0,behavior:'smooth'}); return; }
+    if(!grade){ toast('학년을 선택해 주세요'); window.scrollTo({top:0,behavior:'smooth'}); return; }
+    if(!name){ toast('이름을 입력해 주세요'); document.getElementById('name').focus(); return; }
+
+    const missing=[];
+    for(let q=1;q<=meta.count;q++) if(picks[q]==null) missing.push(q);
+    if(missing.length && !confirm(`미응답 ${missing.length}문항이 있습니다 (${missing.slice(0,5).join(', ')}${missing.length>5?'…':''}).\n그대로 제출할까요?`)) return;
+
+    const payload={ action:'submit', data:{ teacher, code, school, grade, name, answers:picks } };
+    const btn=document.getElementById('submit'); btn.disabled=true; btn.textContent='채점 중…';
+    try{
+      const res=await fetch(API_URL,{ method:'POST', body:JSON.stringify(payload) });
+      const json=await res.json();
+      if(json.ok){ renderReport(json); }
+      else{ btn.disabled=false; btn.textContent='제출하기'; toast('채점 오류: '+(json.error||'알 수 없음')); }
+    }catch(err){ btn.disabled=false; btn.textContent='제출하기'; toast('제출 실패: 다시 시도해 주세요'); }
+  }
+
+  function renderReport(res){
+    const st=res.student, r=res.result;
+    const pct=r.total? Math.round(r.got/r.total*100):0;
+    let rows='';
+    for(let q=1;q<=r.total;q++){ const d=r.detail[q]||{};
+      const mine=(d.mine&&String(d.mine).length)?escapeHtml(d.mine):'<span class="blank">무응답</span>';
+      rows+=`<tr class="${d.ok?'':'wrong'}"><td class="qn">${q}</td>
+        <td class="mine">${mine}</td><td>${escapeHtml(d.ans||'')}</td>
+        <td class="${d.ok?'o':'x'}">${d.ok?'O':'X'}</td></tr>`;
+    }
+    document.getElementById('report').innerHTML=`
+      <div class="rbrand"><div class="name">이수경국어</div><div class="sub">Shueguk · H WORK</div></div>
+      <div class="tbar">${escapeHtml(st.code)}</div>
+      <section><h2>제출 정보</h2>
+        <table class="info"><tr><th>이름</th><th>학교</th><th>학년</th><th>담당 강사</th></tr>
+        <tr><td>${escapeHtml(st.name)}</td><td>${escapeHtml(st.school)}</td><td>${escapeHtml(st.grade)}</td><td>${escapeHtml(st.teacher)}</td></tr></table></section>
+      <section><h2>채점 결과</h2>
+        <div class="scoreline"><span class="big">${r.got} / ${r.total}</span> <span class="pct">(${pct}점)</span></div></section>
+      <section><h2>문항별 채점</h2>
+        <table class="detail"><tr><th>문항</th><th>내 답</th><th>정답</th><th>정오</th></tr>${rows}</table></section>`;
+    document.getElementById('main').style.display='none';
+    document.getElementById('footer').style.display='none';
+    document.getElementById('report').style.display='block';
+    window.scrollTo(0,0);
+  }
+
+  init();
+</script>
+</body>
+</html>

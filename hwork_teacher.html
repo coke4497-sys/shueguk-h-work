@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>이수경국어 · H WORK 확인</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --sage:#a9c0b4; --sage-d:#7fa08f;
+    --lav:#b8b0cc; --lav-d:#8d83a8; --lav-bg:#e8e3f0;
+    --ink:#3f3a44; --muted:#8a8590;
+    --line:#e4e0e8; --paper:#f7f6f3; --card:#ffffff;
+    --head:#cdd9e0; --head2:#dcd5e6;
+    --ok:#1b8a3a; --ok-bg:#e3f2e8; --bad:#d0473f; --bar:#9b8fb5;
+    --shadow:0 2px 12px rgba(63,58,68,.07);
+  }
+  *{box-sizing:border-box;}
+  body{ font-family:'Gowun Dodum',-apple-system,sans-serif; background:var(--paper); color:var(--ink);
+    max-width:820px; margin:0 auto; padding:0 0 50px; line-height:1.5; }
+  .brand{ background:linear-gradient(135deg,#d8cfe6 0%,#c4d4cc 100%);
+    padding:20px 24px 16px; border-radius:0 0 22px 22px; box-shadow:var(--shadow);
+    display:flex; align-items:baseline; gap:12px; }
+  .brand .name{ font-family:'Gowun Batang',serif; font-weight:700; font-size:24px; letter-spacing:2px; color:#473f55; }
+  .brand .sub{ font-family:'Gowun Batang',serif; font-size:13px; color:#5d5568; letter-spacing:2px; }
+  .title-bar{ background:var(--lav-bg); margin:16px; padding:11px 18px; border-radius:10px;
+    font-family:'Gowun Batang',serif; font-size:15px; font-weight:700; color:#4a4356; text-align:center; }
+
+  .filter{ margin:16px; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .filter input, .filter select{ padding:10px 12px; border:1.5px solid var(--line); border-radius:9px;
+    font-size:14px; font-family:inherit; background:#fff; color:var(--ink); }
+  .filter input{ flex:1; min-width:130px; }
+  .filter button{ padding:10px 16px; border:none; border-radius:9px; background:var(--lav-d); color:#fff;
+    font-family:'Gowun Batang',serif; font-weight:700; font-size:14px; cursor:pointer; }
+  .summary{ margin:0 16px 8px; font-size:13px; color:var(--muted); }
+  .summary b{ color:var(--lav-d); }
+
+  .list-wrap{ margin:16px; background:var(--card); border-radius:12px; box-shadow:var(--shadow); overflow:auto; }
+  table.list{ width:100%; border-collapse:collapse; min-width:620px; }
+  table.list th{ background:var(--head2); color:#473f55; font-size:13px; padding:11px 8px; white-space:nowrap; }
+  table.list td{ padding:11px 8px; font-size:13.5px; text-align:center; border-bottom:1px solid var(--line); white-space:nowrap; }
+  table.list tr.r{ cursor:pointer; }
+  table.list tr.r:hover{ background:var(--lav-bg); }
+  table.list .nm{ font-weight:700; color:var(--ink); }
+  table.list .sc{ color:var(--lav-d); font-weight:700; }
+  table.list .date{ color:var(--muted); font-size:12px; }
+  .empty{ padding:40px; text-align:center; color:var(--muted); font-size:14px; }
+  .loading{ padding:30px; text-align:center; color:var(--muted); }
+  .diag{ margin:16px; padding:12px 16px; border-radius:10px; font-size:13px; line-height:1.6; white-space:pre-wrap; display:none; }
+  .diag.bad{ background:#fcebea; border:1px solid var(--bad); color:#a33; }
+
+  /* 상세 결과 */
+  #report{ display:none; }
+  #report .back{ margin:16px; }
+  #report .back button{ padding:9px 16px; border:1.5px solid var(--lav); background:#fff; color:var(--lav-d);
+    border-radius:9px; font-family:'Gowun Batang',serif; font-weight:700; cursor:pointer; font-size:14px; }
+  #report .rbrand{ background:linear-gradient(135deg,#d8cfe6 0%,#c4d4cc 100%);
+    padding:20px; text-align:center; border-radius:14px; box-shadow:var(--shadow); margin:16px; }
+  #report .rbrand .name{ font-family:'Gowun Batang',serif; font-weight:700; font-size:22px; letter-spacing:2px; color:#473f55; }
+  #report .rbrand .sub{ font-family:'Gowun Batang',serif; font-size:12px; color:#5d5568; letter-spacing:2px; margin-top:3px; }
+  #report .tbar{ background:#e8e3f0; margin:16px; padding:11px 18px; border-radius:10px;
+    font-family:'Gowun Batang',serif; font-size:15px; font-weight:700; color:#4a4356; text-align:center; }
+  #report section{ margin:16px; }
+  #report h2{ font-family:'Gowun Batang',serif; font-size:16px; margin:0 0 10px; display:flex; align-items:center; gap:8px; }
+  #report h2::before{ content:""; width:9px;height:9px;border-radius:2px;background:var(--lav); }
+  #report table{ width:100%; border-collapse:collapse; background:#fff; border-radius:10px; overflow:hidden; box-shadow:var(--shadow); }
+  #report th,#report td{ padding:10px 8px; text-align:center; font-size:13.5px; }
+  #report .info th{ background:#cdd9e0; color:#3c4a52; font-weight:700; }
+  #report .info td{ background:#efeef1; }
+  #report .big{ font-family:'Gowun Batang',serif; font-size:30px; font-weight:700; color:var(--lav-d); }
+  #report .scoreline{ text-align:center; margin:6px 0 2px; }
+  #report .scoreline .pct{ font-size:14px; color:var(--muted); }
+  #report table.detail th{ background:#dcd5e6; color:#473f55; }
+  #report table.detail td{ border-bottom:1px solid var(--line); }
+  #report table.detail td.qn{ background:#e8e3f0; font-weight:700; color:#4a4356; width:48px; }
+  #report table.detail tr.wrong td{ background:#fcebea; }
+  #report td.o{ color:var(--ok); font-weight:700; }
+  #report td.x{ color:var(--bad); font-weight:700; }
+  #report .blank{ color:var(--muted); font-size:12px; }
+  #report .mine{ word-break:break-all; text-align:left; padding-left:12px; }
+  #report .ansc{ text-align:left; padding-left:12px; }
+
+  .toast{ position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px);
+    background:var(--ink); color:#fff; padding:11px 22px; border-radius:99px; font-size:13px;
+    opacity:0; transition:all .25s; pointer-events:none; z-index:50; }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<div class="brand">
+  <span class="name">이수경국어</span><span class="sub">Shueguk · H WORK 확인</span>
+</div>
+<div class="title-bar">제출 현황 · 채점 결과 조회</div>
+
+<div id="listView">
+  <div class="diag bad" id="diag"></div>
+  <div class="filter">
+    <select id="fTeacher" class="" onchange="applyFilter()"><option value="">전체 강사</option></select>
+    <select id="fCode" onchange="applyFilter()"><option value="">전체 제목</option></select>
+    <select id="fSchool" onchange="applyFilter()"><option value="">전체 학교</option></select>
+    <select id="fGrade" onchange="applyFilter()"><option value="">전체 학년</option></select>
+    <input type="text" id="q" placeholder="이름 검색" oninput="applyFilter()">
+    <button onclick="reload()">새로고침</button>
+  </div>
+  <div class="summary" id="summary"></div>
+  <div class="list-wrap">
+    <div class="loading" id="loading">불러오는 중…</div>
+    <table class="list" id="listTbl" style="display:none;">
+      <thead><tr><th>강사</th><th>제목</th><th>이름</th><th>점수</th><th>학교</th><th>학년</th><th>제출일</th></tr></thead>
+      <tbody id="listBody"></tbody>
+    </table>
+    <div class="empty" id="empty" style="display:none;">제출된 H WORK이 없습니다.</div>
+  </div>
+</div>
+
+<div id="report"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+  const API_URL = "https://script.google.com/macros/s/AKfycbyrc0j6EmVLrlfZeSchetAcEzWPEFAEV1RHStr6ZTJPDJeH6pcvRDemfWU64puojmSDPg/exec";
+
+  let ALL=[];
+  function escapeHtml(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+  function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show');
+    clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),2200); }
+  function showDiag(m){ const d=document.getElementById('diag'); d.style.display='block'; d.textContent=m; }
+  function hideDiag(){ document.getElementById('diag').style.display='none'; }
+  function uniq(a){ return [...new Set(a.filter(x=>x!=null && x!==''))]; }
+  function fillSel(id, values, allLabel){
+    const sel=document.getElementById(id); const cur=sel.value;
+    sel.innerHTML=`<option value="">${allLabel}</option>`+values.map(v=>`<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
+    if(values.indexOf(cur)!==-1) sel.value=cur;
+  }
+
+  async function reload(){
+    document.getElementById('loading').style.display='block';
+    document.getElementById('listTbl').style.display='none';
+    document.getElementById('empty').style.display='none';
+    hideDiag();
+    try{
+      const res=await fetch(API_URL+'?action=responses');
+      const json=await res.json();
+      if(!json.ok){ showDiag('목록 오류: '+(json.error||'')); document.getElementById('loading').style.display='none'; return; }
+      ALL=json.list||[];
+      fillSel('fTeacher', uniq(ALL.map(r=>r.teacher)), '전체 강사');
+      fillSel('fCode',    uniq(ALL.map(r=>r.code)),    '전체 제목');
+      fillSel('fSchool',  uniq(ALL.map(r=>r.school)),  '전체 학교');
+      fillSel('fGrade',   uniq(ALL.map(r=>r.grade)),   '전체 학년');
+      document.getElementById('loading').style.display='none';
+      applyFilter();
+    }catch(err){
+      document.getElementById('loading').style.display='none';
+      showDiag('서버 연결에 실패했습니다. 인터넷 연결과 배포 주소를 확인해 주세요.\n('+err+')');
+    }
+  }
+
+  function applyFilter(){
+    const t=document.getElementById('fTeacher').value;
+    const c=document.getElementById('fCode').value;
+    const s=document.getElementById('fSchool').value;
+    const g=document.getElementById('fGrade').value;
+    const q=document.getElementById('q').value.trim();
+    const tbl=document.getElementById('listTbl'), body=document.getElementById('listBody'), empty=document.getElementById('empty');
+
+    // 담당 강사를 고르기 전에는 목록을 보여주지 않음
+    if(!t){
+      tbl.style.display='none';
+      empty.style.display='block';
+      empty.textContent='위에서 담당 강사를 선택하면 제출 목록이 표시됩니다.';
+      document.getElementById('summary').innerHTML='';
+      return;
+    }
+
+    const rows=ALL.filter(r=>
+      (r.teacher===t) && (!c||r.code===c) && (!s||r.school===s) && (!g||r.grade===g) &&
+      (!q||(r.name||'').includes(q)) );
+
+    // 요약
+    let sumLine=`제출 <b>${rows.length}</b>건`;
+    if(rows.length){
+      let acc=0,n=0;
+      rows.forEach(r=>{ const tot=Number(r.total)||0; if(tot>0){ acc+=Number(r.got)/tot; n++; } });
+      if(n) sumLine+=` · 평균 정답률 <b>${Math.round(acc/n*100)}%</b>`;
+    }
+    document.getElementById('summary').innerHTML=sumLine;
+
+    if(!rows.length){ tbl.style.display='none'; empty.style.display='block'; empty.textContent='조건에 맞는 제출이 없습니다.'; return; }
+    empty.style.display='none'; tbl.style.display='table';
+    body.innerHTML=rows.map(r=>`<tr class="r" onclick="openReport(${r.row})">
+      <td>${escapeHtml(r.teacher||'')}</td><td>${escapeHtml(r.code||'')}</td>
+      <td class="nm">${escapeHtml(r.name||'')}</td>
+      <td class="sc">${escapeHtml(r.got)} / ${escapeHtml(r.total)}</td>
+      <td>${escapeHtml(r.school||'')}</td><td>${escapeHtml(r.grade||'')}</td>
+      <td class="date">${escapeHtml(shortDate(r.submittedAt))}</td></tr>`).join('');
+  }
+
+  function shortDate(s){
+    if(!s) return '';
+    const d=new Date(s);
+    if(isNaN(d.getTime())) return String(s).replace(/\s+/g,' ').trim();
+    const opt={ timeZone:'Asia/Seoul' };
+    const datePart=d.toLocaleDateString('ko-KR', Object.assign({ year:'numeric', month:'long', day:'numeric' }, opt));
+    const timePart=d.toLocaleTimeString('ko-KR', Object.assign({ hour:'2-digit', minute:'2-digit', hour12:false }, opt));
+    return datePart+' '+timePart;
+  }
+
+  async function openReport(row){
+    toast('불러오는 중…');
+    try{
+      const res=await fetch(API_URL+'?action=report&row='+encodeURIComponent(row));
+      const json=await res.json();
+      if(!json.ok){ toast('조회 오류: '+(json.error||'')); return; }
+      renderReport(json.report);
+    }catch(err){ toast('서버 연결 실패'); }
+  }
+
+  function renderReport(rep){
+    const st=rep.student, r=rep.result;
+    const pct=r.total? Math.round(r.got/r.total*100):0;
+    let rows='';
+    for(let q=1;q<=r.total;q++){ const d=r.detail[q]||{};
+      const mine=(d.mine&&String(d.mine).length)?escapeHtml(d.mine):'<span class="blank">무응답</span>';
+      rows+=`<tr class="${d.ok?'':'wrong'}"><td class="qn">${q}</td>
+        <td class="mine">${mine}</td><td class="ansc">${escapeHtml(d.ans||'')}</td>
+        <td class="${d.ok?'o':'x'}">${d.ok?'O':'X'}</td></tr>`;
+    }
+    document.getElementById('report').innerHTML=`
+      <div class="back"><button onclick="closeReport()">← 목록으로</button></div>
+      <div class="rbrand"><div class="name">이수경국어</div><div class="sub">Shueguk · H WORK</div></div>
+      <div class="tbar">${escapeHtml(st.code)}</div>
+      <section><h2>학생 정보</h2>
+        <table class="info"><tr><th>이름</th><th>학교</th><th>학년</th><th>담당 강사</th><th>제출일</th></tr>
+        <tr><td>${escapeHtml(st.name)}</td><td>${escapeHtml(st.school)}</td><td>${escapeHtml(st.grade)}</td>
+        <td>${escapeHtml(st.teacher)}</td><td>${escapeHtml(shortDate(rep.submittedAt))}</td></tr></table></section>
+      <section><h2>채점 결과</h2>
+        <div class="scoreline"><span class="big">${r.got} / ${r.total}</span> <span class="pct">(${pct}점)</span></div></section>
+      <section><h2>문항별 채점</h2>
+        <table class="detail"><tr><th>문항</th><th>학생 답</th><th>정답</th><th>정오</th></tr>${rows}</table></section>`;
+    document.getElementById('listView').style.display='none';
+    document.getElementById('report').style.display='block';
+    window.scrollTo(0,0);
+  }
+  function closeReport(){
+    document.getElementById('report').style.display='none';
+    document.getElementById('listView').style.display='block';
+    window.scrollTo(0,0);
+  }
+
+  reload();
+</script>
+</body>
+</html>

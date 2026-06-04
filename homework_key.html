@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>이수경국어 · H WORK 출제</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --sage:#a9c0b4; --sage-d:#7fa08f;
+    --lav:#b8b0cc; --lav-d:#8d83a8; --lav-bg:#e8e3f0;
+    --ink:#3f3a44; --muted:#8a8590;
+    --line:#e4e0e8; --paper:#f7f6f3; --card:#ffffff;
+    --head:#cdd9e0; --head2:#dcd5e6;
+    --ok:#1b8a3a; --ok-bg:#e3f2e8;
+    --warn:#c98a2b; --warn-bg:#f8efdd;
+    --shadow:0 2px 12px rgba(63,58,68,.07);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  body{
+    font-family:'Gowun Dodum',-apple-system,sans-serif;
+    background:var(--paper); color:var(--ink);
+    max-width:880px; margin:0 auto; padding:0 0 60px; line-height:1.5;
+  }
+  .brand{
+    background:linear-gradient(135deg,#d8cfe6 0%,#c4d4cc 100%);
+    padding:20px 24px 16px; border-radius:0 0 22px 22px; box-shadow:var(--shadow);
+    display:flex; align-items:baseline; gap:12px;
+  }
+  .brand .name{ font-family:'Gowun Batang',serif; font-weight:700; font-size:24px; letter-spacing:2px; color:#473f55; }
+  .brand .sub{ font-family:'Gowun Batang',serif; font-size:13px; color:#5d5568; letter-spacing:2px; }
+  .title-bar{
+    background:var(--lav-bg); margin:16px; padding:11px 18px; border-radius:10px;
+    font-family:'Gowun Batang',serif; font-size:15px; font-weight:700; color:#4a4356; text-align:center;
+  }
+  section{ margin:16px; background:var(--card); border-radius:14px; box-shadow:var(--shadow); padding:18px 20px; }
+  h2{ font-family:'Gowun Batang',serif; font-size:16px; margin:0 0 14px; display:flex; align-items:center; gap:8px; }
+  h2::before{ content:""; width:9px;height:9px;border-radius:2px;background:var(--lav); }
+  label{ display:block; font-size:13px; color:var(--muted); margin:10px 0 5px; }
+  input[type=text], input[type=number]{
+    width:100%; padding:11px 13px; border:1.5px solid var(--line); border-radius:9px;
+    font-size:15px; font-family:inherit; background:#fafafb; color:var(--ink);
+  }
+  input:focus{ outline:none; border-color:var(--lav); background:#fff; }
+  .row{ display:flex; gap:14px; flex-wrap:wrap; }
+  .row > div{ flex:1; min-width:150px; }
+  .hint{ font-size:12.5px; color:var(--muted); background:var(--lav-bg); padding:9px 12px; border-radius:8px; margin:10px 0 0; line-height:1.6; }
+  .hint b{ color:var(--lav-d); }
+
+  /* 학교 목록 (칩) */
+  .schooladd{ display:flex; gap:8px; }
+  .schooladd input{ flex:1; }
+  .schooladd button{ padding:0 18px; border:none; border-radius:9px; background:var(--sage-d); color:#fff;
+    font-family:'Gowun Batang',serif; font-weight:700; font-size:14px; cursor:pointer; white-space:nowrap; }
+  .chips{ display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+  .chip{ display:inline-flex; align-items:center; gap:7px; background:var(--lav-bg); color:#4a4356;
+    border:1px solid var(--lav); padding:5px 6px 5px 12px; border-radius:20px; font-size:13px; }
+  .chip button{ border:none; background:rgba(141,131,168,.25); color:#5d5568; width:18px; height:18px;
+    border-radius:50%; cursor:pointer; font-size:12px; line-height:1; display:flex; align-items:center; justify-content:center; padding:0; }
+  .chip button:hover{ background:rgba(141,131,168,.45); }
+
+  .secbar{ display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; }
+  .secbar .mini{ font-size:12px; color:var(--muted); }
+
+  /* 일괄 지정 */
+  .bulk{ font-size:12.5px; color:var(--muted); margin:6px 0 12px; display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+  .bulk button{ padding:5px 11px; border:1.3px solid var(--line); background:#fff; border-radius:8px;
+    font-size:12px; font-family:inherit; cursor:pointer; color:var(--ink); }
+  .bulk button:hover{ border-color:var(--sage); }
+
+  /* 문항 그리드 */
+  .qgrid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(168px,1fr)); gap:8px; margin-top:6px; }
+  .qcard{ border:1.5px solid var(--line); border-radius:10px; padding:9px 10px; background:#fafafb; }
+  .qcard.done{ border-color:var(--sage); }
+  .qhead{ display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; gap:6px; }
+  .qhead .qno{ font-family:'Gowun Batang',serif; font-weight:700; font-size:15px; flex-shrink:0; }
+  .tsel{ display:flex; gap:3px; }
+  .tsel button{ padding:3px 7px; font-size:11px; border:1.2px solid var(--line); background:#fff;
+    border-radius:7px; color:var(--muted); font-family:inherit; cursor:pointer; }
+  .tsel button.on{ background:var(--lav); color:#fff; border-color:var(--lav); font-weight:700; }
+
+  .choices{ display:flex; gap:4px; }
+  .choices button{
+    flex:1; aspect-ratio:1; border:1.3px solid var(--line); background:#fff; border-radius:50%;
+    font-size:13px; color:var(--muted); font-family:'Gowun Batang',serif; cursor:pointer; padding:0; transition:all .12s;
+  }
+  .choices button:active{ transform:scale(.9); }
+  .choices button.sel{ background:var(--sage-d); color:#fff; border-color:var(--sage-d); font-weight:700; }
+
+  .ox{ display:flex; gap:6px; }
+  .ox button{ flex:1; padding:9px 0; border:1.3px solid var(--line); background:#fff; border-radius:9px;
+    font-family:'Gowun Batang',serif; font-size:16px; color:var(--muted); cursor:pointer; }
+  .ox button.sel{ background:var(--sage-d); color:#fff; border-color:var(--sage-d); font-weight:700; }
+
+  .tans{ width:100%; padding:8px 10px; border:1.3px solid var(--line); border-radius:8px;
+    font-size:13px; font-family:inherit; background:#fff; }
+  .tans:focus{ outline:none; border-color:var(--lav); }
+
+  .toolbar{ display:flex; gap:8px; flex-wrap:wrap; margin:16px; }
+  .toolbar button{
+    padding:13px 20px; border:none; border-radius:11px; font-family:'Gowun Batang',serif;
+    font-size:15px; font-weight:700; cursor:pointer; letter-spacing:1px;
+  }
+  #saveBtn{ background:var(--lav-d); color:#fff; box-shadow:0 4px 14px rgba(141,131,168,.35); flex:1; min-width:160px; }
+  #saveBtn:disabled{ background:var(--muted); box-shadow:none; }
+  #genBtn{ background:#fff; color:var(--lav-d); border:1.5px solid var(--lav); }
+  #copyBtn{ background:#fff; color:var(--sage-d); border:1.5px solid var(--sage); }
+  .savemsg{ display:none; margin:0 16px 8px; padding:11px 15px; border-radius:10px; font-size:13.5px; line-height:1.6; white-space:pre-wrap; }
+  .savemsg.ok{ background:var(--ok-bg); border-left:4px solid var(--ok); color:#1b6a30; }
+  .savemsg.bad{ background:#fcebea; border-left:4px solid var(--bad,#d0473f); color:#a33; }
+
+  #out{ margin:16px; display:none; }
+  #out textarea{
+    width:100%; height:150px; border:1.5px solid var(--line); border-radius:10px;
+    font-family:ui-monospace,monospace; font-size:12px; padding:12px; background:#fff; resize:vertical;
+  }
+  .summary{ font-size:13px; color:var(--muted); margin-top:8px; }
+  .summary b{ color:var(--lav-d); }
+  .copybox{ background:var(--ok-bg); border-left:4px solid var(--ok); padding:10px 14px; border-radius:8px;
+    font-size:13px; color:#1b6a30; margin-top:10px; line-height:1.6; }
+
+  .toast{
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px);
+    background:var(--ink); color:#fff; padding:11px 22px; border-radius:99px; font-size:13px;
+    opacity:0; transition:all .25s; pointer-events:none; z-index:50;
+  }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<div class="brand">
+  <span class="name">이수경국어</span><span class="sub">Shueguk · H WORK 출제</span>
+</div>
+<div class="title-bar">H WORK 정답 등록 (자동 채점용)</div>
+
+<!-- H WORK 정보 -->
+<section>
+  <h2>H WORK 정보</h2>
+  <div class="row">
+    <div>
+      <label>담당 강사</label>
+      <input type="text" id="teacher" placeholder="예: 이수경" autocomplete="off">
+    </div>
+    <div>
+      <label>제목</label>
+      <input type="text" id="code" placeholder="예: 1주차-비문학독해" autocomplete="off">
+    </div>
+    <div style="max-width:140px;">
+      <label>문항 수 (20~70)</label>
+      <input type="number" id="count" min="20" max="70" value="20" inputmode="numeric">
+    </div>
+  </div>
+
+  <label style="margin-top:14px;">학교 목록 <span style="color:var(--lav-d);">(학생이 드롭다운에서 고름)</span></label>
+  <div class="schooladd">
+    <input type="text" id="schoolInput" placeholder="학교명 입력 후 Enter 또는 추가" autocomplete="off">
+    <button type="button" onclick="addSchool()">추가</button>
+  </div>
+  <div class="chips" id="chips"></div>
+  <div class="hint">학생 화면에서는 이 학교들이 드롭다운으로 뜨고, 목록에 없으면 <b>「명단에 없음」</b>을 골라 직접 입력할 수 있습니다.</div>
+  <div class="hint" style="margin-top:8px;">문항마다 유형을 <b>5지선다·OX·서술형</b> 중에서 고릅니다. 서술형은 <b>정답 키워드</b>를 적으면 자동 채점됩니다 — 공백·대소문자 무시, <b>쉼표(,)로 나눈 키워드는 모두 있어야 정답</b>, 같은 자리 대체 표현은 <b>빗금(/)</b>. 점수는 <b>맞은 문항 / 총 문항</b>.</div>
+</section>
+
+<!-- 정답 입력 -->
+<section style="margin-top:0;">
+  <div class="secbar">
+    <h2 style="margin-bottom:0;">정답 입력</h2>
+    <span class="mini" id="mini"></span>
+  </div>
+  <div class="bulk">
+    모든 문항 유형 일괄:
+    <button onclick="bulkType('choice5')">5지선다</button>
+    <button onclick="bulkType('ox')">OX</button>
+    <button onclick="bulkType('text')">서술형</button>
+  </div>
+  <div class="qgrid" id="qgrid"></div>
+</section>
+
+<div class="toolbar">
+  <button id="saveBtn" onclick="saveToSheet()">시트에 저장</button>
+  <button id="genBtn" onclick="generate()">미리보기·검사</button>
+  <button id="copyBtn" onclick="copyOut()">복사(백업)</button>
+</div>
+<div class="savemsg" id="saveMsg"></div>
+<div id="out">
+  <textarea id="outText" readonly></textarea>
+  <div class="summary" id="summary"></div>
+  <div class="copybox">
+    <b>「시트에 저장」</b>을 누르면 H WORK이 곧바로 등록되어, 학생 제출 페이지에서 선택할 수 있게 됩니다. (복사·붙여넣기는 필요 없습니다. 「복사」는 만일을 위한 백업용입니다.)
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  // 채점·저장 서버 주소 (Apps Script 웹앱 /exec)
+  const API_URL = "https://script.google.com/macros/s/AKfycbyrc0j6EmVLrlfZeSchetAcEzWPEFAEV1RHStr6ZTJPDJeH6pcvRDemfWU64puojmSDPg/exec";
+
+  function escapeHtml(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+  /* ── 학교 목록 ── */
+  const schools=[];
+  function renderChips(){
+    const c=document.getElementById('chips');
+    if(!schools.length){ c.innerHTML='<span style="font-size:12.5px;color:var(--muted);">아직 등록된 학교가 없습니다.</span>'; return; }
+    c.innerHTML=schools.map((s,i)=>`<span class="chip">${escapeHtml(s)}<button onclick="removeSchool(${i})" title="삭제">×</button></span>`).join('');
+  }
+  function addSchool(){
+    const inp=document.getElementById('schoolInput');
+    const v=inp.value.trim();
+    if(!v) return;
+    if(schools.includes(v)){ toast('이미 추가된 학교입니다'); inp.value=''; return; }
+    schools.push(v); inp.value=''; inp.focus(); renderChips();
+  }
+  function removeSchool(i){ schools.splice(i,1); renderChips(); }
+  document.getElementById('schoolInput').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); addSchool(); }});
+
+  /* ── 문항별 정답 ── */
+  const items = {};
+  function ensure(q){ if(!items[q]) items[q]={type:'choice5', ans:null}; return items[q]; }
+  function curCount(){ let v=Number(document.getElementById('count').value)||20; return Math.max(20, Math.min(70, v)); }
+  function label(t){ return t==='choice5'?'5지선다':(t==='ox'?'OX':'서술형'); }
+
+  function isFilled(q){ const it=ensure(q);
+    if(it.type==='text') return (it.ans!=null && String(it.ans).trim()!=='');
+    return it.ans!=null; }
+
+  function cardInner(q){
+    const it=ensure(q);
+    const head=`<div class="qhead"><span class="qno">${q}번</span>
+      <div class="tsel">
+        <button class="${it.type==='choice5'?'on':''}" onclick="setType(${q},'choice5')">5지</button>
+        <button class="${it.type==='ox'?'on':''}" onclick="setType(${q},'ox')">OX</button>
+        <button class="${it.type==='text'?'on':''}" onclick="setType(${q},'text')">서술</button>
+      </div></div>`;
+    let area='';
+    if(it.type==='choice5'){
+      area='<div class="choices">';
+      for(let j=1;j<=5;j++) area+=`<button class="${it.ans===j?'sel':''}" onclick="setChoice(${q},${j})">${j}</button>`;
+      area+='</div>';
+    }else if(it.type==='ox'){
+      area=`<div class="ox">
+        <button class="${it.ans==='O'?'sel':''}" onclick="setOX(${q},'O')">O</button>
+        <button class="${it.ans==='X'?'sel':''}" onclick="setOX(${q},'X')">X</button></div>`;
+    }else{
+      const v=(it.ans==null?'':String(it.ans)).replace(/"/g,'&quot;');
+      area=`<input type="text" class="tans" value="${v}" oninput="setText(${q},this.value)" placeholder="정답 키워드 (모두필요: 쉼표 · 택일: /)">`;
+    }
+    return head+area;
+  }
+  function refreshCard(q){
+    const el=document.getElementById('c'+q);
+    if(!el) return;
+    el.innerHTML=cardInner(q);
+    el.className='qcard'+(isFilled(q)?' done':'');
+  }
+  function render(){
+    const count=curCount();
+    const grid=document.getElementById('qgrid');
+    grid.innerHTML='';
+    for(let q=1;q<=count;q++){
+      ensure(q);
+      const card=document.createElement('div');
+      card.className='qcard'+(isFilled(q)?' done':'');
+      card.id='c'+q;
+      card.innerHTML=cardInner(q);
+      grid.appendChild(card);
+    }
+    updateMini();
+  }
+
+  function setType(q,t){ const it=ensure(q); if(it.type!==t){ it.type=t; it.ans=null; } refreshCard(q); updateMini(); }
+  function setChoice(q,j){ const it=ensure(q); it.ans=(it.ans===j?null:j); refreshCard(q); updateMini(); }
+  function setOX(q,v){ const it=ensure(q); it.ans=(it.ans===v?null:v); refreshCard(q); updateMini(); }
+  function setText(q,v){ ensure(q).ans=v; updateMini(); }   // 입력 중에는 다시 그리지 않음(포커스 유지)
+
+  function bulkType(t){
+    const count=curCount();
+    for(let q=1;q<=count;q++){ const it=ensure(q); if(it.type!==t){ it.type=t; it.ans=null; } }
+    render(); toast('모든 문항을 '+label(t)+'(으)로 변경');
+  }
+
+  function updateMini(){
+    const count=curCount();
+    let filled=0,c5=0,ox=0,tx=0;
+    for(let q=1;q<=count;q++){ const it=ensure(q);
+      if(it.type==='choice5') c5++; else if(it.type==='ox') ox++; else tx++;
+      if(isFilled(q)) filled++;
+    }
+    document.getElementById('mini').textContent=`입력 ${filled}/${count} · 5지 ${c5} · OX ${ox} · 서술 ${tx}`;
+  }
+
+  const countEl=document.getElementById('count');
+  countEl.addEventListener('change', ()=>{ const v=curCount(); countEl.value=v; render(); });
+
+  function val(id){ return document.getElementById(id).value.trim(); }
+
+  function buildData(){
+    const count=curCount();
+    const data={ teacher:val('teacher'), code:val('code'), count:count, schools:schools.slice(), items:{} };
+    const missing=[];
+    for(let q=1;q<=count;q++){ const it=ensure(q);
+      data.items[q]={ type:it.type, ans:(it.ans==null?null:it.ans) };
+      if(!isFilled(q)) missing.push(q);
+    }
+    return { data, missing };
+  }
+
+  function generate(){
+    const { data, missing }=buildData();
+    const count=data.count;
+    const out=document.getElementById('out');
+    out.style.display='block';
+    document.getElementById('outText').value=JSON.stringify(data);
+
+    let msg='';
+    if(!data.teacher) msg+='<span style="color:var(--warn)">담당 강사 미입력. </span>';
+    if(!data.code) msg+='<span style="color:var(--warn)">제목 미입력. </span>';
+    if(!data.schools.length) msg+='<span style="color:var(--warn)">학교 목록 비어 있음. </span>';
+    if(missing.length) msg+=`<span style="color:var(--warn)">정답 미입력 ${missing.length}문항(${missing.slice(0,8).join(', ')}${missing.length>8?'…':''})</span>`;
+    if(!msg) msg='<span style="color:var(--ok)">입력 완료</span>';
+    document.getElementById('summary').innerHTML=`총 <b>${count}</b>문항 · 학교 <b>${data.schools.length}</b>곳 · ${msg}`;
+    out.scrollIntoView({behavior:'smooth'});
+  }
+
+  function setSaveMsg(kind, text){
+    const d=document.getElementById('saveMsg');
+    if(!text){ d.style.display='none'; d.textContent=''; return; }
+    d.className='savemsg '+(kind==='ok'?'ok':'bad');
+    d.style.display='block'; d.textContent=text;
+    d.scrollIntoView({behavior:'smooth', block:'nearest'});
+  }
+
+  async function saveToSheet(){
+    const { data, missing }=buildData();
+    if(!data.teacher){ toast('담당 강사를 입력하세요'); return; }
+    if(!data.code){ toast('제목을 입력하세요'); return; }
+    if(missing.length && !confirm(`정답 미입력 ${missing.length}문항이 있습니다. 그래도 저장할까요?`)) return;
+
+    const btn=document.getElementById('saveBtn');
+    const old=btn.textContent; btn.disabled=true; btn.textContent='저장 중...';
+    setSaveMsg('', '');
+    try{
+      const res=await fetch(API_URL, { method:'POST', body: JSON.stringify({ action:'saveHomework', data }) });
+      const json=await res.json();
+      if(json.ok){ setSaveMsg('ok', '저장 완료 ✓  ('+(json.msg? json.msg.replace('저장되었습니다: ',''):(data.teacher+' / '+data.code))+')\n학생 제출 페이지에서 바로 선택할 수 있습니다.'); }
+      else{ setSaveMsg('bad', '저장 실패: '+(json.error||'알 수 없는 오류')); }
+    }catch(err){
+      setSaveMsg('bad', '서버 연결에 실패했습니다.\n· 인터넷 연결을 확인해 주세요.\n· 배포 주소(코드 맨 위 API_URL)가 맞는지 확인해 주세요.\n('+err+')');
+    }finally{ btn.disabled=false; btn.textContent=old; }
+  }
+
+  function copyOut(){
+    const t=document.getElementById('outText');
+    if(!t.value){ toast('먼저 「데이터 생성」을 눌러 주세요'); return; }
+    navigator.clipboard.writeText(t.value).then(
+      ()=>toast('복사되었습니다'),
+      ()=>{ t.select(); document.execCommand('copy'); toast('복사되었습니다'); }
+    );
+  }
+
+  function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show');
+    clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),2000); }
+
+  renderChips();
+  render();
+</script>
+</body>
+</html>
