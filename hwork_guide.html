@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>이수경국어 H WORK 시스템 · 운영 안내</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --sage:#a9c0b4; --sage-d:#7fa08f; --lav:#b8b0cc; --lav-d:#8d83a8; --lav-bg:#e8e3f0;
+    --ink:#3f3a44; --muted:#8a8590; --line:#e4e0e8; --paper:#f7f6f3; --card:#fff;
+    --ok:#1b8a3a; --ok-bg:#e3f2e8; --warn:#c98a2b; --warn-bg:#f8efdd;
+    --shadow:0 2px 12px rgba(63,58,68,.07);
+  }
+  *{box-sizing:border-box;}
+  body{ font-family:'Gowun Dodum',-apple-system,sans-serif; background:var(--paper); color:var(--ink);
+    max-width:760px; margin:0 auto; padding:0 0 60px; line-height:1.7; }
+  .brand{ background:linear-gradient(135deg,#d8cfe6 0%,#c4d4cc 100%);
+    padding:24px; border-radius:0 0 22px 22px; box-shadow:var(--shadow); }
+  .brand .name{ font-family:'Gowun Batang',serif; font-weight:700; font-size:25px; letter-spacing:2px; color:#473f55; }
+  .brand .sub{ font-family:'Gowun Batang',serif; font-size:13px; color:#5d5568; letter-spacing:2px; margin-top:4px; }
+  h2{ font-family:'Gowun Batang',serif; font-size:18px; color:#473f55; margin:28px 16px 12px;
+    display:flex; align-items:center; gap:9px; }
+  h2::before{ content:""; width:10px; height:10px; border-radius:3px; background:var(--lav); }
+  .box{ margin:0 16px 14px; background:var(--card); border-radius:14px; box-shadow:var(--shadow); padding:18px 22px; font-size:14.5px; }
+  .box b{ color:var(--lav-d); }
+  code{ background:#f0eef3; padding:2px 7px; border-radius:5px; font-family:ui-monospace,monospace; font-size:13px; color:#6b4fa0; word-break:break-all; }
+  ol,ul{ margin:8px 0; padding-left:22px; }
+  li{ margin-bottom:9px; }
+  .urlbox{ background:var(--lav-bg); border-radius:10px; padding:14px 16px; margin:10px 0; }
+  .urlbox .label{ font-size:12.5px; color:var(--lav-d); font-weight:700; margin-bottom:5px; }
+  .urlbox .blank{ background:#fff; border:1px dashed var(--lav); border-radius:7px; padding:10px 12px;
+    font-family:ui-monospace,monospace; font-size:12.5px; color:#4a4356; min-height:38px; word-break:break-all; }
+  .note{ background:var(--warn-bg); border-left:4px solid var(--warn); padding:10px 14px; border-radius:8px;
+    font-size:13.5px; color:#7a5a1e; margin:12px 0; }
+  .ok-note{ background:var(--ok-bg); border-left:4px solid var(--ok); padding:10px 14px; border-radius:8px;
+    font-size:13.5px; color:#1b6a30; margin:12px 0; }
+  table{ width:100%; border-collapse:collapse; font-size:13.5px; margin-top:6px; }
+  th{ text-align:left; background:#f0eef3; padding:9px 11px; color:#473f55; }
+  td{ padding:9px 11px; border-bottom:1px solid var(--line); vertical-align:top; }
+  .fn{ font-family:ui-monospace,monospace; color:#6b4fa0; font-size:12.5px; }
+  .flow{ background:#fff; border-radius:12px; box-shadow:var(--shadow); padding:18px; text-align:center; font-size:13.5px; line-height:2.1; margin:0 16px; }
+  .flow b{ color:var(--lav-d); }
+  .pill{ display:inline-block; font-size:11px; font-weight:700; color:#fff; padding:2px 9px; border-radius:20px; margin-right:6px; vertical-align:middle; }
+  .pill.sage{ background:var(--sage-d); } .pill.lav{ background:var(--lav-d); } .pill.blue{ background:#7e93a8; }
+</style>
+</head>
+<body>
+
+<div class="brand">
+  <div class="name">이수경국어 H WORK 시스템</div>
+  <div class="sub">Shueguk · 운영 안내</div>
+</div>
+
+<h2>이 문서는</h2>
+<div class="box">
+  학생이 모바일로 숙제(H WORK) 답안을 제출하면 <b>자동 채점</b>되어 결과가 나오고, 모든 제출이 구글 스프레드시트에 저장되는 시스템의 <b>운영 안내서</b>입니다. 화면(출제·학생·확인)은 GitHub에 올라가 있고, 채점·저장은 Apps Script가, 데이터 보관은 구글 스프레드시트가 맡습니다. 모의고사 OMR 시스템과는 <b>완전히 별개</b>로 동작합니다(서로 영향 없음).
+</div>
+
+<h2>주소 정리 (꼭 적어두세요)</h2>
+<div class="box">
+  <div class="urlbox">
+    <div class="label"><span class="pill lav">HW 출제</span>출제용 — 강사가 숙제를 만들고 등록</div>
+    <div class="blank">https://coke4497-sys.github.io/shueguk-h-work/homework_key.html</div>
+  </div>
+  <div class="urlbox">
+    <div class="label"><span class="pill sage">H WORK</span>학생 제출용 — 학생에게 공유</div>
+    <div class="blank">https://coke4497-sys.github.io/shueguk-h-work/hwork.html</div>
+  </div>
+  <div class="urlbox">
+    <div class="label"><span class="pill blue">HW CHECK</span>강사 확인용 — 제출·채점 결과 조회</div>
+    <div class="blank">https://coke4497-sys.github.io/shueguk-h-work/hwork_teacher.html</div>
+  </div>
+  <div class="note">학생에게는 <b>학생 제출용(H WORK)</b> 주소만 공유하세요. 출제용·확인용은 강사만 씁니다.</div>
+  <div class="urlbox">
+    <div class="label">채점 서버 (API) — 평소엔 신경 안 써도 됨, 코드 수정 시에만</div>
+    <div class="blank">https://script.google.com/macros/s/AKfycbyrc0j6EmVLrlfZeSchetAcEzWPEFAEV1RHStr6ZTJPDJeH6pcvRDemfWU64puojmSDPg/exec</div>
+  </div>
+  <div class="urlbox">
+    <div class="label">데이터 스프레드시트</div>
+    <div class="blank">ID 1nFZ2HVAnCyCv_NOoAPXhA1VC_T7BBqwUWNWBta4-qFE (시트: HWORK목록 · 제출기록)</div>
+  </div>
+  <div class="urlbox">
+    <div class="label">GitHub 저장소 (화면 파일 보관·수정)</div>
+    <div class="blank">github.com/coke4497-sys/shueguk-h-work</div>
+  </div>
+</div>
+
+<h2>홈 화면 앱 아이콘</h2>
+<div class="box">
+  <p><b>아이폰</b> — 사파리로 주소를 연 뒤, 아래 가운데 공유 버튼 → <b>「홈 화면에 추가」</b>. 색으로 구분된 아이콘이 깔립니다.
+  <span class="pill sage">H WORK</span>학생, <span class="pill lav">HW 출제</span>출제, <span class="pill blue">HW CHECK</span>확인.</p>
+  <p style="margin-top:10px;"><b>안드로이드</b> — 크롬으로 주소를 연 뒤, 오른쪽 위 점 세 개 → <b>「홈 화면에 추가」</b>.</p>
+</div>
+
+<h2>시스템 구성</h2>
+<div class="box">
+  <table>
+    <tr><th>파일</th><th>역할</th><th>위치</th></tr>
+    <tr><td class="fn">homework_key.html</td><td>출제 도구(정답 등록) <span class="pill lav" style="margin:0">화면</span></td><td>GitHub</td></tr>
+    <tr><td class="fn">hwork.html</td><td>학생 제출 + 결과 <span class="pill sage" style="margin:0">화면</span></td><td>GitHub</td></tr>
+    <tr><td class="fn">hwork_teacher.html</td><td>강사 확인(목록·채점결과) <span class="pill blue" style="margin:0">화면</span></td><td>GitHub</td></tr>
+    <tr><td class="fn">Code.gs</td><td>채점·저장 코드(API)</td><td>Apps Script</td></tr>
+    <tr><td class="fn">icon-*.png</td><td>홈 화면 아이콘 3종</td><td>GitHub</td></tr>
+  </table>
+  <p style="margin-top:14px;">스프레드시트 안의 시트 두 개: <code>HWORK목록</code>(출제한 숙제 정답 보관), <code>제출기록</code>(학생 제출 자동 저장). 둘 다 코드가 자동으로 관리하니 직접 손댈 필요는 없습니다.</p>
+</div>
+
+<h2>새 H WORK 출제하기 (매주 하는 일)</h2>
+<div class="box">
+  <ol>
+    <li><span class="pill lav">HW 출제</span> 앱(또는 출제용 주소)을 엽니다.</li>
+    <li><b>담당 강사 · 제목 · 문항 수(20~70)</b>를 입력하고, <b>학교 목록</b>에 해당 학교들을 추가합니다.</li>
+    <li>문항마다 유형(<b>5지선다 · OX · 서술형</b>)을 고르고 정답을 입력합니다. 위쪽 「모든 문항 유형 일괄」 버튼으로 빠르게 세팅한 뒤 일부만 바꿔도 됩니다.</li>
+    <li>아래 <b>「시트에 저장」</b>을 누릅니다. 초록색 <b>"저장 완료 ✓"</b>가 뜨면 등록 완료입니다.</li>
+  </ol>
+  <div class="ok-note">이게 전부입니다. 학생 화면을 새로고침하면, 학생이 <b>담당 강사 → 제목</b>을 고를 때 방금 만든 숙제가 자동으로 나타납니다. 같은 강사·제목으로 다시 저장하면 <b>덮어쓰기</b> 됩니다(수정 가능).</div>
+</div>
+
+<h2>서술형(키워드) 채점 규칙 — 중요</h2>
+<div class="box">
+  서술형 정답은 다음 규칙으로 자동 채점됩니다(공백·영문 대소문자는 무시).
+  <ul style="margin-top:10px;">
+    <li><b>쉼표(,)</b> = 나눈 키워드를 <b>모두</b> 포함해야 정답 (순서는 상관없음).<br>예: <code>전차, 개찰구</code> → 두 단어가 모두 있어야 정답.</li>
+    <li><b>빗금(/)</b> = 같은 자리의 <b>대체 표현</b>(하나만 맞아도 정답).<br>예: <code>은유/메타포</code> → 둘 중 하나면 정답.</li>
+    <li>조합도 가능: <code>전차/전차들, 개찰구</code> → (전차 또는 전차들) <b>그리고</b> 개찰구.</li>
+  </ul>
+  <div class="note">점수는 항상 <b>맞은 문항 / 총 문항</b>으로 계산됩니다(배점 없음). 학생에게는 "정답 키워드를 쉼표로 구분해 적으라"고 안내하면 채점이 더 정확합니다.</div>
+</div>
+
+<h2>학생 / 강사 사용법</h2>
+<div class="box">
+  <p><b>학생</b> — 학생 제출용 주소 접속 → <b>담당 강사 → 제목</b> 선택 → <b>학교</b>(목록에서 고르거나 「명단에 없음」 후 직접 입력) → <b>학년</b>(중1~고3) → <b>이름</b> 입력 → 답안 체크 → 제출 → 결과(맞은 개수·문항별 정오) 즉시 확인.</p>
+  <p style="margin-top:10px;"><b>강사</b> — 강사 확인용 주소 접속 → <b>담당 강사 선택</b>(선택해야 목록이 보입니다) → 제목·학교·학년·이름으로 더 좁히기 → 학생을 누르면 채점 결과 조회. 표 위에 제출 건수·평균 정답률도 표시됩니다.</p>
+</div>
+
+<h2>전체 흐름</h2>
+<div class="flow">
+  강사: <b>HW 출제</b>로 정답 등록(「시트에 저장」)<br>
+  ↓<br>
+  학생: <b>H WORK</b> 접속 → 강사·제목 선택 → 답안 제출<br>
+  ↓<br>
+  자동: 채점 → <b>제출기록</b> 시트에 저장 → 결과 즉시 표시<br>
+  ↓<br>
+  강사: <b>HW CHECK</b>에서 제출·채점 결과 조회
+</div>
+
+<h2>화면이나 코드를 고쳤을 때</h2>
+<div class="box">
+  <p><b>화면(HTML)을 고쳤을 때</b> — 고친 파일을 GitHub 저장소에 <b>같은 이름으로 다시 업로드</b>(Add file → Upload files → Commit) 후 1~2분 기다렸다 새로고침합니다. 옛 화면이 남아 있으면 강력 새로고침(Ctrl+Shift+R)이 도움이 됩니다.</p>
+  <p style="margin-top:10px;"><b>채점 코드(Code.gs)를 고쳤을 때</b> — 코드 수정은 바로 반영되지 않습니다. Apps Script에서
+  <b>배포 → 배포 관리 → (연필) 편집 → 버전: 「새 버전」 → 배포</b>로 다시 배포하세요. 이렇게 하면 <b>주소(API)가 그대로</b>라 화면을 안 고쳐도 됩니다.</p>
+  <div class="note">만약 「새 배포」로 만들어 <b>API 주소가 바뀌면</b>, 세 HTML 파일 맨 위 <code>const API_URL = "..."</code> 의 주소를 새 주소로 바꿔 저장한 뒤 GitHub에 다시 올려야 합니다. 그리고 이 문서의 「채점 서버」 칸도 갱신하세요.</div>
+</div>
+
+<h2>문제가 생기면</h2>
+<div class="box">
+  <ul>
+    <li><b>출제한 숙제가 학생 화면에 안 보일 때</b> — 출제 앱에서 「시트에 저장」 후 초록색 완료 메시지가 떴는지 확인하고, 학생 화면을 새로고침합니다.</li>
+    <li><b>목록이 아예 안 뜨고 "서버 연결 실패"가 뜰 때</b> — 인터넷 연결을 확인하고, 그래도 안 되면 위 「코드를 고쳤을 때」를 참고해 API 주소가 맞는지 확인합니다.</li>
+    <li><b>점수가 이상할 때</b> — 출제 앱에서 그 숙제의 정답·유형을 확인하고, 서술형이면 위 채점 규칙(쉼표=모두, 빗금=택일)에 맞게 적혔는지 확인한 뒤 다시 저장합니다. (이미 제출된 기록은 소급되지 않으니, 확인은 다시 제출해 비교하세요.)</li>
+    <li><b>"확인되지 않은 앱" 경고(Apps Script 배포 시)</b> — 본인이 만든 앱이라 나오는 정상 경고입니다. 고급 → 계속으로 진행합니다.</li>
+  </ul>
+</div>
+
+</body>
+</html>
