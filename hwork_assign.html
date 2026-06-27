@@ -162,6 +162,15 @@
 
   function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
   function norm(x){ return String(x==null?'':x).replace(/\s/g,''); }
+  // 마감 날짜를 '2026년 6월 30일'로 표시 (시트가 날짜형으로 저장해 길게 와도 정리)
+  function fmtDue(s){
+    if(!s) return '';
+    var m = String(s).match(/(\d{4})-(\d{2})-(\d{2})/);
+    if(m) return m[1]+'년 '+(+m[2])+'월 '+(+m[3])+'일';
+    var d = new Date(s);
+    if(!isNaN(d.getTime())) return d.getFullYear()+'년 '+(d.getMonth()+1)+'월 '+d.getDate()+'일';
+    return String(s);
+  }
 
   /* ===== 잠금 ===== */
   (function(){ try{ if(localStorage.getItem(LOCK_KEY)==='1'){ unlock(); } }catch(e){} })();
@@ -275,7 +284,7 @@
           var tgt = (a.type==='전체') ? '전 학년' : (a.target||'—');
           return '<div class="a-item">' +
             '<span class="a-tag">'+esc(a.type||'전체')+'</span>' +
-            '<span class="a-target">'+esc(tgt)+(a.memo?(' · '+esc(a.memo)):'')+(a.due?(' · ~'+esc(a.due)):'')+'</span>' +
+            '<span class="a-target">'+esc(tgt)+(a.memo?(' · '+esc(a.memo)):'')+(a.due?(' · ~'+esc(fmtDue(a.due))):'')+'</span>' +
             '<span class="a-date">'+esc(a.date||'')+'</span>' +
             '<button type="button" class="a-del" onclick="delAssign('+a.rowIndex+')">삭제</button>' +
           '</div>';
