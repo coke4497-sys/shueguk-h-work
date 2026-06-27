@@ -183,7 +183,14 @@
     if(inited) return; inited=true;
     loadHomeworks();
     loadRoster();
-    picker = StudentPicker.create(document.getElementById('picker'), { endpoint: REPORT_API });
+    picker = StudentPicker.create(document.getElementById('picker'), {
+      endpoint: REPORT_API,
+      onChange: function(sel){
+        // 대상을 선택하면 이전의 '대상을 먼저 선택' 경고를 즉시 지움
+        var s = document.getElementById('assignStatus');
+        if (sel && s.classList.contains('err')){ s.textContent=''; s.className='status'; }
+      }
+    });
     document.getElementById('teacherSel').addEventListener('change', onTeacher);
     document.getElementById('codeSel').addEventListener('change', onCode);
   }
