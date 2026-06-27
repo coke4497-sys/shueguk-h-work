@@ -178,6 +178,7 @@
   var HW = [];          // 과제 목록 [{teacher, code}]
   var ROSTER = [];      // 학생 명단
   var picker = null, inited = false;
+  var currentSel = null;   // 위젯이 onChange로 알려주는 최신 선택값(전체/학년/개인/일부)
 
   function init(){
     if(inited) return; inited=true;
@@ -186,6 +187,7 @@
     picker = StudentPicker.create(document.getElementById('picker'), {
       endpoint: REPORT_API,
       onChange: function(sel){
+        currentSel = sel;   // 선택값을 직접 보관 (배정 시 이 값을 사용)
         // 대상을 선택하면 이전의 '대상을 먼저 선택' 경고를 즉시 지움
         var s = document.getElementById('assignStatus');
         if (sel && s.classList.contains('err')){ s.textContent=''; s.className='status'; }
@@ -241,7 +243,7 @@
   /* ===== 배정 저장/목록/삭제 ===== */
   function saveAssign(){
     var it = curItem(); if(!it){ return; }
-    var sel = picker && picker.getSelection();
+    var sel = currentSel || (picker && picker.getSelection());
     if(!sel){ setAssignStatus('대상을 먼저 선택해 주세요.', 'err'); return; }
     var btn=document.getElementById('assignBtn'); btn.disabled=true; var lb=btn.textContent; btn.textContent='배정 중…';
     setAssignStatus('배정하는 중…');
