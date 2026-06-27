@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<title>H WORK 배정·현황 · 슈국 티쳐스</title>
+<meta name="description" content="H WORK을 선택한 학생에게 배정하고 제출/미제출 현황을 확인합니다 (교사용)" />
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap" rel="stylesheet" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='48' fill='%23DCE9E4'/%3E%3C/svg%3E" />
+<!-- 공용 학생 선택 위젯 (지필고사 리포트에 위치) -->
+<link rel="stylesheet" href="https://coke4497-sys.github.io/shueguk-report/student-picker.css" />
+<style>
+  :root{
+    --bg:#E4EFEA; --surface:#FFFFFF; --ink:#2A332F; --ink-soft:#65726B;
+    --accent:#3A6B5E; --line:#D7E3DD; --line-soft:#E5EDE8; --radius:18px;
+    --bad:#c0463e; --ok:#1b8a3a; --warn:#b07d2b;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:"Gowun Dodum","Apple SD Gothic Neo","Malgun Gothic",-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
+    font-size:16px; line-height:1.7; -webkit-font-smoothing:antialiased; padding:0 0 80px;
+  }
+  .wrap{max-width:620px;margin:0 auto;padding:0 20px;}
+  .back{display:inline-flex;align-items:center;gap:6px;margin:24px 0 0;color:var(--ink-soft);text-decoration:none;font-size:14px;}
+  .back svg{width:16px;height:16px;} .back:hover{color:var(--accent);}
+  header{padding:16px 4px 20px;text-align:center;}
+  .tagline{font-family:"Gowun Batang",serif;font-size:1.5rem;font-weight:700;color:var(--accent);margin:0;}
+  .intro{color:var(--ink-soft);font-size:.92rem;margin:9px auto 0;max-width:27em;}
+
+  .card{background:var(--surface);border:1px solid var(--line-soft);border-radius:var(--radius);padding:22px 20px;margin-bottom:16px;}
+  .card h2{font-family:"Gowun Batang",serif;font-size:1.1rem;font-weight:700;margin:0 0 4px;display:flex;align-items:center;gap:8px;}
+  .card h2 .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);display:inline-block;}
+  .card .sub{color:var(--ink-soft);font-size:.84rem;margin:0 0 16px;}
+
+  label{display:block;font-size:13px;color:var(--ink-soft);margin:16px 0 7px;font-weight:700;}
+  select,input[type=text],input[type=date]{
+    width:100%;padding:12px 13px;border:1.5px solid var(--line);border-radius:10px;
+    font:inherit;font-size:15px;background:#fafbfa;color:var(--ink);
+  }
+  select:focus,input:focus{outline:none;border-color:var(--accent);background:#fff;}
+  .row2{display:flex;gap:10px;} .row2>div{flex:1;min-width:0;}
+
+  .submit{width:100%;margin-top:18px;padding:15px;border:none;border-radius:12px;background:var(--accent);color:#fff;
+    font-family:"Gowun Batang",serif;font-size:16px;font-weight:700;letter-spacing:1px;cursor:pointer;transition:opacity .15s;}
+  .submit:active{opacity:.85;} .submit:disabled{background:#9fb3aa;cursor:default;}
+  .status{font-size:13px;margin-top:12px;min-height:1.2em;color:var(--ink-soft);text-align:center;}
+  .status.ok{color:var(--ok);} .status.err{color:var(--bad);}
+  .gate-note{font-size:13px;color:var(--ink-soft);background:#EBF0ED;border-radius:10px;padding:12px 14px;}
+
+  /* 배정 목록 */
+  .alist{margin-top:16px;}
+  .a-item{display:flex;align-items:center;gap:10px;border:1px solid var(--line-soft);border-radius:11px;padding:11px 13px;margin-bottom:8px;background:#fcfdfc;font-size:13.5px;}
+  .a-tag{font-size:11.5px;font-weight:700;padding:2px 9px;border-radius:20px;background:#E1EDE7;color:var(--accent);flex:none;}
+  .a-target{color:var(--ink);}
+  .a-date{color:#9aa6a0;font-size:12px;margin-left:auto;flex:none;}
+  .a-del{border:1.5px solid var(--line);background:#fff;color:var(--ink-soft);font:inherit;font-size:12px;font-weight:700;padding:6px 11px;border-radius:8px;cursor:pointer;flex:none;}
+  .a-del:hover{border-color:var(--bad);color:var(--bad);}
+
+  /* 현황 */
+  .stat-row{display:flex;gap:10px;margin:4px 0 14px;}
+  .stat{flex:1;background:#F2F7F4;border-radius:12px;padding:13px;text-align:center;}
+  .stat .n{font-family:"Gowun Batang",serif;font-size:24px;font-weight:700;line-height:1.1;}
+  .stat .l{font-size:12px;color:var(--ink-soft);margin-top:3px;}
+  .stat.assigned .n{color:var(--accent);} .stat.done .n{color:var(--ok);} .stat.todo .n{color:var(--bad);}
+  .warn-box{background:#fbf3e3;border:1px solid #ecd9af;color:#8a6520;font-size:12.5px;border-radius:10px;padding:10px 13px;margin-bottom:12px;line-height:1.6;}
+  .grp-title{font-size:13px;font-weight:700;color:var(--ink-soft);margin:16px 0 8px;}
+  .chips{display:flex;flex-wrap:wrap;gap:7px;}
+  .pchip{font-size:13px;padding:6px 12px;border-radius:18px;border:1px solid var(--line-soft);background:#fff;}
+  .pchip.todo{background:#fbeceb;border-color:#f0cfcc;color:#9a3a33;}
+  .pchip.done{background:#e9f3ec;border-color:#cfe6d6;color:#2f6b41;}
+  .pchip .sc{color:#8a9690;font-size:11.5px;}
+  .pchip.warn{background:#fbf3e3;border-color:#ecd9af;color:#8a6520;}
+  .muted{color:#9aa6a0;font-size:13px;}
+
+  /* 잠금 */
+  .lock{position:fixed;inset:0;background:var(--bg);z-index:100;display:flex;align-items:center;justify-content:center;padding:24px;}
+  .lock-card{background:#fff;border:1px solid var(--line-soft);border-radius:18px;padding:34px 28px;text-align:center;max-width:330px;width:100%;}
+  .lock-card .t{font-family:"Gowun Batang",serif;font-weight:700;font-size:20px;color:var(--accent);}
+  .lock-card .d{font-size:13px;color:var(--ink-soft);margin:10px 0 18px;}
+  .lock-card input{width:100%;padding:13px;border:1.5px solid var(--line);border-radius:10px;font:inherit;font-size:16px;text-align:center;}
+  .lock-card input:focus{outline:none;border-color:var(--accent);}
+  .lock-card button{width:100%;margin-top:11px;padding:13px;border:none;border-radius:11px;background:var(--accent);color:#fff;font-family:"Gowun Batang",serif;font-weight:700;font-size:16px;cursor:pointer;}
+  .lock-err{color:var(--bad);font-size:12.5px;min-height:1.1em;margin-top:10px;}
+  body.locked{overflow:hidden;} body:not(.locked) .lock{display:none;}
+  @media (prefers-reduced-motion:reduce){*{transition:none !important;}}
+</style>
+</head>
+<body class="locked">
+
+<div class="lock" id="lockScreen">
+  <div class="lock-card">
+    <div class="t">H WORK 배정·현황</div>
+    <div class="d">선생님 전용 페이지입니다.<br>비밀번호를 입력해 주세요.</div>
+    <input type="password" id="lockInput" placeholder="비밀번호" inputmode="numeric" autocomplete="off" />
+    <button type="button" onclick="checkLock()">확인</button>
+    <div class="lock-err" id="lockErr"></div>
+  </div>
+</div>
+
+<main class="wrap">
+  <a class="back" href="https://coke4497-sys.github.io/shueguk-hub/hwork.html">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>
+    H WORK 메뉴로 가기
+  </a>
+
+  <header>
+    <p class="tagline">H WORK 배정·현황</p>
+    <p class="intro">과제를 선택한 학생에게 배정하고, 제출/미제출 현황을 확인합니다.</p>
+  </header>
+
+  <!-- 과제 선택 -->
+  <section class="card">
+    <h2><span class="dot"></span>과제 선택</h2>
+    <p class="sub">먼저 배정·확인할 H WORK을 고르세요.</p>
+    <div class="row2">
+      <div>
+        <label for="teacherSel">담당 강사</label>
+        <select id="teacherSel"><option value="">불러오는 중…</option></select>
+      </div>
+      <div>
+        <label for="codeSel">제목</label>
+        <select id="codeSel" disabled><option value="">강사를 먼저 선택</option></select>
+      </div>
+    </div>
+  </section>
+
+  <!-- 배정 -->
+  <section class="card" id="assignCard" style="display:none;">
+    <h2><span class="dot"></span>학생 배정</h2>
+    <p class="sub">이 과제를 받을 학생을 선택하세요. (전 학년 / 학년 / 개인 / 일부)</p>
+    <div id="picker"></div>
+    <div class="row2">
+      <div><label for="due">마감 <span style="font-weight:400;color:#9aa6a0">(선택)</span></label><input type="date" id="due" /></div>
+      <div><label for="memo">비고 <span style="font-weight:400;color:#9aa6a0">(선택)</span></label><input type="text" id="memo" placeholder="예: 1회차" /></div>
+    </div>
+    <button type="button" class="submit" id="assignBtn" onclick="saveAssign()">이 학생들에게 배정</button>
+    <div class="status" id="assignStatus"></div>
+
+    <div class="alist" id="assignList"></div>
+  </section>
+
+  <!-- 현황 -->
+  <section class="card" id="statusCard" style="display:none;">
+    <h2><span class="dot"></span>제출 현황</h2>
+    <p class="sub">배정된 학생과 실제 제출을 대조합니다. (이름+학교 기준)</p>
+    <button type="button" class="submit" id="statusBtn" onclick="loadStatus()" style="background:#5a8275;">현황 불러오기 / 새로고침</button>
+    <div id="statusBody" style="margin-top:16px;"></div>
+  </section>
+</main>
+
+<script src="https://coke4497-sys.github.io/shueguk-report/student-picker.js"></script>
+<script>
+  /* ===== 설정 ===== */
+  var HW_API     = "https://script.google.com/macros/s/AKfycbyrc0j6EmVLrlfZeSchetAcEzWPEFAEV1RHStr6ZTJPDJeH6pcvRDemfWU64puojmSDPg/exec";      // H WORK 백엔드 (목록·제출)
+  var REPORT_API = "https://script.google.com/macros/s/AKfycbzhCncBwn-JlqXARC3wfrWUCuNHzlNK2df0bdhx-w78Xr8mzYUcIYZOJdRi9N4bHtsb/exec";        // 리포트 백엔드 (명단·배정)
+  var SERVER_PW  = "sh";
+  var PASS_ENC   = "MTAxMDEx";
+  var LOCK_KEY   = "shueguk_teacher_unlocked";
+  var TOOL       = "H WORK";
+
+  function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  function norm(x){ return String(x==null?'':x).replace(/\s/g,''); }
+
+  /* ===== 잠금 ===== */
+  (function(){ try{ if(localStorage.getItem(LOCK_KEY)==='1'){ unlock(); } }catch(e){} })();
+  function unlock(){ document.body.classList.remove('locked'); init(); }
+  function checkLock(){
+    var v=document.getElementById('lockInput').value, ok=false;
+    try{ ok=(btoa(v)===PASS_ENC); }catch(e){ ok=false; }
+    if(ok){ try{ localStorage.setItem(LOCK_KEY,'1'); }catch(e){} unlock(); }
+    else { document.getElementById('lockErr').textContent='비밀번호가 올바르지 않습니다.'; document.getElementById('lockInput').value=''; }
+  }
+  document.getElementById('lockInput').addEventListener('keydown', function(e){ if(e.key==='Enter') checkLock(); });
+
+  /* ===== 상태 ===== */
+  var HW = [];          // 과제 목록 [{teacher, code}]
+  var ROSTER = [];      // 학생 명단
+  var picker = null, inited = false;
+
+  function init(){
+    if(inited) return; inited=true;
+    loadHomeworks();
+    loadRoster();
+    picker = StudentPicker.create(document.getElementById('picker'), { endpoint: REPORT_API });
+    document.getElementById('teacherSel').addEventListener('change', onTeacher);
+    document.getElementById('codeSel').addEventListener('change', onCode);
+  }
+
+  function fetchJSON(url){ return fetch(url, {cache:'no-store'}).then(function(r){ return r.json(); }); }
+
+  function loadHomeworks(){
+    fetchJSON(HW_API + '?action=list&t=' + Date.now()).then(function(d){
+      if(!d || !d.ok){ document.getElementById('teacherSel').innerHTML='<option value="">목록 오류</option>'; return; }
+      HW = d.list || [];
+      var teachers = uniq(HW.map(function(h){ return h.teacher; }));
+      var sel = document.getElementById('teacherSel');
+      sel.innerHTML = '<option value="">담당 강사 선택</option>' + teachers.map(function(t){ return '<option value="'+esc(t)+'">'+esc(t)+'</option>'; }).join('');
+    }).catch(function(){ document.getElementById('teacherSel').innerHTML='<option value="">연결 실패</option>'; });
+  }
+  function loadRoster(){
+    fetchJSON(REPORT_API + '?action=roster&t=' + Date.now()).then(function(d){
+      if(d && d.result==='success') ROSTER = d.students || [];
+    }).catch(function(){});
+  }
+  function uniq(a){ var seen={},out=[]; a.forEach(function(x){ if(x && !seen[x]){ seen[x]=1; out.push(x); } }); return out; }
+
+  function onTeacher(){
+    var t = document.getElementById('teacherSel').value;
+    var codeSel = document.getElementById('codeSel');
+    if(!t){ codeSel.disabled=true; codeSel.innerHTML='<option value="">강사를 먼저 선택</option>'; afterSelect(); return; }
+    var codes = uniq(HW.filter(function(h){ return h.teacher===t; }).map(function(h){ return h.code; }));
+    codeSel.disabled=false;
+    codeSel.innerHTML='<option value="">제목 선택</option>'+codes.map(function(c){ return '<option value="'+esc(c)+'">'+esc(c)+'</option>'; }).join('');
+    afterSelect();
+  }
+  function onCode(){ afterSelect(); }
+
+  function curItem(){
+    var t=document.getElementById('teacherSel').value, c=document.getElementById('codeSel').value;
+    if(!t || !c) return null;
+    return { teacher:t, code:c, key: t + ' / ' + c };
+  }
+  function afterSelect(){
+    var it = curItem();
+    document.getElementById('assignCard').style.display = it ? 'block' : 'none';
+    document.getElementById('statusCard').style.display = it ? 'block' : 'none';
+    document.getElementById('statusBody').innerHTML='';
+    document.getElementById('assignStatus').textContent='';
+    if(it){ loadAssignList(); }
+  }
+
+  /* ===== 배정 저장/목록/삭제 ===== */
+  function saveAssign(){
+    var it = curItem(); if(!it){ return; }
+    var sel = picker && picker.getSelection();
+    if(!sel){ setAssignStatus('대상을 먼저 선택해 주세요.', 'err'); return; }
+    var btn=document.getElementById('assignBtn'); btn.disabled=true; var lb=btn.textContent; btn.textContent='배정 중…';
+    setAssignStatus('배정하는 중…');
+    fetch(REPORT_API, {
+      method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body: JSON.stringify({ action:'addAssignment', pw:SERVER_PW, tool:TOOL, item:it.key, type:sel.type, target:sel.target,
+        due:document.getElementById('due').value, memo:document.getElementById('memo').value.trim() })
+    }).then(function(r){ return r.json(); }).then(function(res){
+      btn.disabled=false; btn.textContent=lb;
+      if(res.result==='success'){
+        setAssignStatus('✓ 배정됨 — '+sel.summary, 'ok');
+        if(picker) picker.reset();
+        document.getElementById('memo').value='';
+        loadAssignList();
+      } else { setAssignStatus('배정 실패: '+(res.message==='unauthorized'?'권한 없음':(res.message||'오류')), 'err'); }
+    }).catch(function(){ btn.disabled=false; btn.textContent=lb; setAssignStatus('배정 실패 — 인터넷 확인', 'err'); });
+  }
+  function setAssignStatus(m,k){ var s=document.getElementById('assignStatus'); s.textContent=m||''; s.className='status'+(k?(' '+k):''); }
+
+  function loadAssignList(){
+    var it = curItem(); if(!it) return;
+    var box = document.getElementById('assignList');
+    box.innerHTML='<p class="muted">배정 내역 불러오는 중…</p>';
+    fetchJSON(REPORT_API + '?action=assignList&pw='+encodeURIComponent(SERVER_PW)+'&tool='+encodeURIComponent(TOOL)+'&item='+encodeURIComponent(it.key)+'&t='+Date.now())
+      .then(function(d){
+        if(!d || d.result!=='success'){ box.innerHTML='<p class="muted">배정 내역을 불러오지 못했어요.</p>'; return; }
+        if(!d.assignments.length){ box.innerHTML='<p class="muted">아직 이 과제에 배정된 대상이 없어요.</p>'; return; }
+        box.innerHTML = '<div class="grp-title">이 과제의 배정 내역</div>' + d.assignments.map(function(a){
+          var tgt = (a.type==='전체') ? '전 학년' : (a.target||'—');
+          return '<div class="a-item">' +
+            '<span class="a-tag">'+esc(a.type||'전체')+'</span>' +
+            '<span class="a-target">'+esc(tgt)+(a.memo?(' · '+esc(a.memo)):'')+(a.due?(' · ~'+esc(a.due)):'')+'</span>' +
+            '<span class="a-date">'+esc(a.date||'')+'</span>' +
+            '<button type="button" class="a-del" onclick="delAssign('+a.rowIndex+')">삭제</button>' +
+          '</div>';
+        }).join('');
+      }).catch(function(){ box.innerHTML='<p class="muted">배정 내역을 불러오지 못했어요.</p>'; });
+  }
+  function delAssign(rowIndex){
+    if(!confirm('이 배정을 삭제할까요?')) return;
+    fetch(REPORT_API, {
+      method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body: JSON.stringify({ action:'deleteAssignment', pw:SERVER_PW, rowIndex:rowIndex })
+    }).then(function(r){ return r.json(); }).then(function(res){
+      if(res.result==='success'){ loadAssignList(); } else { alert('삭제 실패: '+(res.message||'오류')); }
+    }).catch(function(){ alert('삭제 실패 — 인터넷 확인'); });
+  }
+
+  /* ===== 제출 현황 (배정 vs 제출 대조) ===== */
+  function expandAssigned(assignments){
+    var set={};
+    assignments.forEach(function(a){
+      var type=a.type||'', tgt=a.target||'';
+      var tokens = tgt.split(/[,\n;·]+/).map(function(x){return x.trim();}).filter(Boolean);
+      ROSTER.forEach(function(s){
+        var hit=false;
+        if(type.indexOf('전체')>=0 || (!type && !tgt)) hit=true;
+        else if(type.indexOf('학년')>=0){
+          hit = tokens.some(function(t){ return norm(s.grade)===norm(t) || norm(s.school+s.grade)===norm(t); });
+        } else { // 개인 / 일부 = 이름
+          hit = tokens.some(function(t){ return t===s.name; });
+        }
+        if(hit) set[s.name+'|'+s.school+'|'+s.grade] = s;
+      });
+    });
+    return Object.keys(set).map(function(k){ return set[k]; });
+  }
+  function looseSchool(a,b){ var na=norm(a), nb=norm(b); if(!na||!nb) return false; return na.indexOf(nb)>=0 || nb.indexOf(na)>=0; }
+
+  function loadStatus(){
+    var it = curItem(); if(!it) return;
+    var body = document.getElementById('statusBody');
+    body.innerHTML='<p class="muted">현황 불러오는 중…</p>';
+    var pAssign = fetchJSON(REPORT_API + '?action=assignList&pw='+encodeURIComponent(SERVER_PW)+'&tool='+encodeURIComponent(TOOL)+'&item='+encodeURIComponent(it.key)+'&t='+Date.now());
+    var pSub    = fetchJSON(HW_API + '?action=responses&t=' + Date.now());
+    var pRoster = ROSTER.length ? Promise.resolve({result:'success',students:ROSTER}) : fetchJSON(REPORT_API + '?action=roster&t='+Date.now());
+    Promise.all([pAssign, pSub, pRoster]).then(function(res){
+      var aRes=res[0], sRes=res[1], rRes=res[2];
+      if(rRes && rRes.result==='success') ROSTER = rRes.students || ROSTER;
+      if(!aRes || aRes.result!=='success'){ body.innerHTML='<p class="muted">배정 내역을 불러오지 못했어요.</p>'; return; }
+      if(!aRes.assignments.length){ body.innerHTML='<div class="gate-note">아직 이 과제에 배정이 없어요. 위에서 먼저 학생을 배정해 주세요.</div>'; return; }
+      if(!sRes || !sRes.ok){ body.innerHTML='<p class="muted">제출 기록을 불러오지 못했어요.</p>'; return; }
+
+      var assigned = expandAssigned(aRes.assignments);
+      var subs = (sRes.list||[]).filter(function(r){ return r.teacher===it.teacher && r.code===it.code; });
+      var subsByName={}; subs.forEach(function(s){ (subsByName[s.name]=subsByName[s.name]||[]).push(s); });
+      var nameCount={}; assigned.forEach(function(a){ nameCount[a.name]=(nameCount[a.name]||0)+1; });
+
+      var done=[], todo=[], warnCnt=0;
+      assigned.forEach(function(a){
+        var cand = subsByName[a.name] || [];
+        var ambiguous=false, note='', submitted=false;
+        if(cand.length===0){ submitted=false; }
+        else if(nameCount[a.name] <= 1){
+          submitted = true;
+          if(!cand.some(function(c){ return looseSchool(c.school, a.school); })) note='학교 표기 상이';
+        } else {
+          var bySchool = cand.filter(function(c){ return looseSchool(c.school, a.school); });
+          submitted = bySchool.length>0;
+          var sameNS = assigned.filter(function(x){ return x.name===a.name && looseSchool(x.school, a.school); }).length;
+          if(sameNS>1){ ambiguous=true; }
+        }
+        var sc = (cand[0]!=null && submitted) ? (function(){ var c=cand.find(function(x){return looseSchool(x.school,a.school);})||cand[0]; return (c.got!=null?c.got:'')+'/'+(c.total!=null?c.total:''); })() : '';
+        var rec={ a:a, submitted:submitted, ambiguous:ambiguous, note:note, sc:sc };
+        if(submitted) done.push(rec); else todo.push(rec);
+      });
+      warnCnt = done.concat(todo).filter(function(r){ return r.ambiguous; }).length;
+
+      // 배정 안 됐는데 제출한 학생(추가 제출)
+      var assignedNames={}; assigned.forEach(function(a){ assignedNames[a.name]=1; });
+      var extra = subs.filter(function(s){ return !assignedNames[s.name]; });
+
+      var html = '<div class="stat-row">' +
+        '<div class="stat assigned"><div class="n">'+assigned.length+'</div><div class="l">배정</div></div>' +
+        '<div class="stat done"><div class="n">'+done.length+'</div><div class="l">제출</div></div>' +
+        '<div class="stat todo"><div class="n">'+todo.length+'</div><div class="l">미제출</div></div>' +
+      '</div>';
+
+      if(warnCnt>0){ html += '<div class="warn-box">⚠️ 동명+동학교가 배정에 '+warnCnt+'명 있어 자동 구분이 어렵습니다. 해당 학생은 학생ID로 직접 확인이 필요해요. (아래 ⚠️ 표시)</div>'; }
+
+      html += '<div class="grp-title">미제출 ('+todo.length+'명)</div>';
+      html += todo.length ? ('<div class="chips">' + todo.map(function(r){ return chip(r,'todo'); }).join('') + '</div>') : '<p class="muted">미제출 학생이 없어요. 👏</p>';
+
+      html += '<div class="grp-title">제출 ('+done.length+'명)</div>';
+      html += done.length ? ('<div class="chips">' + done.map(function(r){ return chip(r,'done'); }).join('') + '</div>') : '<p class="muted">아직 제출이 없어요.</p>';
+
+      if(extra.length){
+        html += '<div class="grp-title">배정 외 제출 ('+extra.length+'건)</div>';
+        html += '<div class="chips">' + extra.map(function(s){ return '<span class="pchip">'+esc(s.name)+' <span class="sc">'+esc(s.school||'')+'</span></span>'; }).join('') + '</div>';
+      }
+      body.innerHTML = html;
+    }).catch(function(){ body.innerHTML='<p class="muted">현황을 불러오지 못했어요. 인터넷을 확인해 주세요.</p>'; });
+  }
+
+  function chip(r, kind){
+    var a=r.a;
+    var cls = 'pchip ' + (r.ambiguous ? 'warn' : kind);
+    var meta = [a.school, a.grade].filter(Boolean).join(' ');
+    return '<span class="'+cls+'">' + (r.ambiguous?'⚠️ ':'') + esc(a.name) +
+      ' <span class="sc">'+esc(meta)+(r.sc?(' · '+esc(r.sc)):'')+(r.note?(' · '+esc(r.note)):'')+'</span></span>';
+  }
+</script>
+</body>
+</html>
