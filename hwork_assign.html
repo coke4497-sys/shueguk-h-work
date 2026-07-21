@@ -148,6 +148,16 @@
     <button type="button" class="submit" id="statusBtn" onclick="loadStatus()" style="background:#5a8275;">현황 불러오기 / 새로고침</button>
     <div id="statusBody" style="margin-top:16px;"></div>
   </section>
+
+  <!-- 과제 목록·삭제 -->
+  <section class="card" id="hwManageCard">
+    <h2><span class="dot"></span>과제 목록·삭제</h2>
+    <p class="sub">출제된 모든 과제예요. <b>배정·제출이 없는 과제</b>는 바로 삭제, 배정만 있으면 배정도 함께 삭제돼요. 제출 기록이 있는 과제는 성적표 보존을 위해 잠깁니다.</p>
+    <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+      <button type="button" class="submit" style="width:auto;padding:9px 16px;font-size:13px;margin-top:0;background:#5a8275;" onclick="loadHwManage()">새로고침</button>
+    </div>
+    <div id="hwManageBody"><div class="a-empty" style="text-align:center;color:#9aa6a0;font-size:13.5px;padding:14px;">불러오는 중…</div></div>
+  </section>
 </main>
 
 <script src="https://coke4497-sys.github.io/shueguk-report/student-picker.js"></script>
@@ -156,7 +166,7 @@
   var HW_API     = "https://script.google.com/macros/s/AKfycbyrc0j6EmVLrlfZeSchetAcEzWPEFAEV1RHStr6ZTJPDJeH6pcvRDemfWU64puojmSDPg/exec";      // H WORK 백엔드 (목록·제출)
   var REPORT_API = "https://script.google.com/macros/s/AKfycbzhCncBwn-JlqXARC3wfrWUCuNHzlNK2df0bdhx-w78Xr8mzYUcIYZOJdRi9N4bHtsb/exec";        // 리포트 백엔드 (명단·배정)
   var SERVER_PW  = "sh";
-  var PASS_ENC   = "MTAxMDEx";
+  var PASS_ENC   = "c2g=";   // 'sh' — 교사 페이지 공통
   var LOCK_KEY   = "shueguk_teacher_unlocked";
   var TOOL       = "H WORK";
 
@@ -193,6 +203,7 @@
     if(inited) return; inited=true;
     loadHomeworks();
     loadRoster();
+    loadHwManage();
     picker = StudentPicker.create(document.getElementById('picker'), {
       endpoint: REPORT_API,
       onChange: function(sel){
@@ -409,6 +420,72 @@
     var meta = [a.school, a.grade].filter(Boolean).join(' ');
     return '<span class="'+cls+'">' + (r.ambiguous?'⚠️ ':'') + esc(a.name) +
       ' <span class="sc">'+esc(meta)+(r.sc?(' · '+esc(r.sc)):'')+(r.note?(' · '+esc(r.note)):'')+'</span></span>';
+  }
+
+  /* ===== 과제 목록·삭제 ===== */
+  var HW_MANAGE = null;
+  function loadHwManage(){
+    var body = document.getElementById('hwManageBody');
+    body.innerHTML = '<div style="text-align:center;color:#9aa6a0;font-size:13.5px;padding:14px;">불러오는 중…</div>';
+    Promise.all([
+      fetchJSON(HW_API + '?action=list&t=' + Date.now()),
+      fetchJSON(REPORT_API + '?action=assignList&pw='+encodeURIComponent(SERVER_PW)+'&tool='+encodeURIComponent(TOOL)+'&t='+Date.now()),
+      fetchJSON(HW_API + '?action=responses&t=' + Date.now())
+    ]).then(function(rs){
+      var list = (rs[0] && rs[0].ok && rs[0].list) || [];
+      var asg  = (rs[1] && rs[1].result==='success' && rs[1].assignments) || [];
+      var subs = (rs[2] && rs[2].ok && rs[2].list) || [];
+      var aMap = {}, sMap = {};
+      asg.forEach(function(a){ (aMap[a.item] = aMap[a.item] || []).push(a); });
+      subs.forEach(function(r){ var k = r.teacher + ' / ' + r.code; sMap[k] = (sMap[k]||0) + 1; });
+      HW_MANAGE = { list:list, aMap:aMap, sMap:sMap };
+      if(!list.length){ body.innerHTML = '<div style="text-align:center;color:#9aa6a0;font-size:13.5px;padding:14px;">출제된 과제가 없어요.</div>'; return; }
+      var byT = {};
+      list.forEach(function(h,i){ (byT[h.teacher] = byT[h.teacher] || []).push(i); });
+      var html = '';
+      Object.keys(byT).sort(function(a,b){ return a.localeCompare(b,'ko'); }).forEach(function(t){
+        html += '<div class="grp-title">'+esc(t)+'</div>';
+        byT[t].forEach(function(i){
+          var h = HW_MANAGE.list[i];
+          var key = h.teacher + ' / ' + h.code;
+          var an = (aMap[key]||[]).length, sn = sMap[key]||0;
+          var badge = '<span style="font-size:12px;color:#8a8590;">배정 '+an+'건 · 제출 '+sn+'건</span>';
+          var act = sn > 0
+            ? '<span style="font-size:12px;color:#9aa6a0;white-space:nowrap;">🔒 제출 있음</span>'
+            : '<button type="button" class="a-del" onclick="delHomework('+i+')">삭제</button>';
+          html += '<div class="a-item"><span style="font-weight:700;flex:1;min-width:0;word-break:break-all;">'+esc(h.code)+'</span>'+badge+act+'</div>';
+        });
+      });
+      body.innerHTML = html;
+    }).catch(function(){
+      body.innerHTML = '<div style="text-align:center;color:#c0463e;font-size:13.5px;padding:14px;">목록을 불러오지 못했어요. 새로고침을 눌러주세요.</div>';
+    });
+  }
+  function delHomework(i){
+    if(!HW_MANAGE) return;
+    var h = HW_MANAGE.list[i]; if(!h) return;
+    var key = h.teacher + ' / ' + h.code;
+    var asg = HW_MANAGE.aMap[key] || [];
+    var msg = '「'+key+'」 과제를 삭제할까요?' + (asg.length ? '\n이 과제의 배정 '+asg.length+'건도 함께 삭제됩니다 (학생 페이지에서 사라져요).' : '') + '\n되돌릴 수 없어요.';
+    if(!confirm(msg)) return;
+    // 1) 배정 먼저 삭제 (큰 행부터 — 행 밀림 안전)
+    var rows = asg.map(function(a){ return a.rowIndex; }).sort(function(a,b){ return b-a; });
+    var chain = Promise.resolve();
+    rows.forEach(function(r){
+      chain = chain.then(function(){
+        return fetch(REPORT_API, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+          body: JSON.stringify({ action:'deleteAssignment', pw:SERVER_PW, rowIndex:r }) }).then(function(x){ return x.json(); });
+      });
+    });
+    // 2) 과제 삭제
+    chain.then(function(){
+      return fetch(HW_API, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+        body: JSON.stringify({ action:'deleteHomework', pw:SERVER_PW, teacher:h.teacher, code:h.code }) }).then(function(x){ return x.json(); });
+    }).then(function(res){
+      if(!res || !res.ok){ alert('삭제 실패: '+((res&&res.error)||'오류')+'\n(H WORK 백엔드 재배포 전이면 아직 사용할 수 없어요)'); loadHwManage(); return; }
+      loadHomeworks();   // 과제 선택 드롭다운 갱신
+      loadHwManage();
+    }).catch(function(){ alert('연결 실패 — 다시 시도해 주세요.'); loadHwManage(); });
   }
 </script>
 </body>

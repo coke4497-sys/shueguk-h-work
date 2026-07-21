@@ -42,6 +42,7 @@ function doPost(e){
   try{
     const body = JSON.parse(e.postData.contents);
     if(body.action === 'saveHomework') return jsonOut(saveHomework(body.data));
+    if(body.action === 'deleteHomework') return jsonOut(deleteHomework(body));
     if(body.action === 'submit')       return jsonOut(submit(body.data));
     return jsonOut({ ok:false, error:'알 수 없는 요청: ' + body.action });
   }catch(err){
@@ -85,6 +86,31 @@ function saveHomework(data){
   if(f){ sh.getRange(f.row,1,1,3).setValues([[ data.teacher, data.code, json ]]); }
   else { sh.appendRow([ data.teacher, data.code, json ]); }
   return { ok:true, msg:'저장되었습니다: ' + data.teacher + ' / ' + data.code };
+}
+
+// 과제 삭제 (배정·현황 페이지) — 제출 기록이 있는 과제는 성적표 보존을 위해 거부
+function deleteHomework(body){
+  if(String(body.pw||'') !== 'sh') return { ok:false, error:'unauthorized' };
+  const teacher = String(body.teacher||'').trim(), code = String(body.code||'').trim();
+  if(!teacher || !code) return { ok:false, error:'강사와 제목이 필요합니다.' };
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try{
+    const sub = SS().getSheetByName(SHEET_SUB);
+    if(sub && sub.getLastRow() > 1){
+      const v = sub.getDataRange().getValues();
+      for(let i=1;i<v.length;i++){
+        if(String(v[i][1]||'').trim() === teacher && String(v[i][2]||'').trim() === code)
+          return { ok:false, error:'제출 기록이 있는 과제는 지울 수 없어요 (성적표 보존).' };
+      }
+    }
+    const f = findHomeworkRow(teacher, code);
+    if(!f) return { ok:false, error:'과제를 찾을 수 없습니다. 새로고침 후 다시 시도해 주세요.' };
+    hwSheet().deleteRow(f.row);
+    return { ok:true };
+  } finally {
+    try{ lock.releaseLock(); }catch(e){}
+  }
 }
 
 // 학생 화면용 메타 (정답은 절대 보내지 않음)
