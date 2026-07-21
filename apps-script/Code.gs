@@ -88,7 +88,9 @@ function saveHomework(data){
   return { ok:true, msg:'저장되었습니다: ' + data.teacher + ' / ' + data.code };
 }
 
-// 과제 삭제 (배정·현황 페이지) — 제출 기록이 있는 과제는 성적표 보존을 위해 거부
+// 과제 삭제 (배정·현황 페이지).
+// 제출 기록이 있으면 deleteSubs='1'을 함께 보내야 하며, 그 경우 제출 기록도 같이 삭제된다
+// (과제만 지우고 제출을 남기면 성적표 다시보기가 깨진 채 남기 때문).
 function deleteHomework(body){
   if(String(body.pw||'') !== 'sh') return { ok:false, error:'unauthorized' };
   const teacher = String(body.teacher||'').trim(), code = String(body.code||'').trim();
@@ -96,18 +98,21 @@ function deleteHomework(body){
   const lock = LockService.getScriptLock();
   lock.waitLock(10000);
   try{
+    const f = findHomeworkRow(teacher, code);
+    if(!f) return { ok:false, error:'과제를 찾을 수 없습니다. 새로고침 후 다시 시도해 주세요.' };
     const sub = SS().getSheetByName(SHEET_SUB);
+    const subRows = [];
     if(sub && sub.getLastRow() > 1){
       const v = sub.getDataRange().getValues();
       for(let i=1;i<v.length;i++){
-        if(String(v[i][1]||'').trim() === teacher && String(v[i][2]||'').trim() === code)
-          return { ok:false, error:'제출 기록이 있는 과제는 지울 수 없어요 (성적표 보존).' };
+        if(String(v[i][1]||'').trim() === teacher && String(v[i][2]||'').trim() === code) subRows.push(i+1);
       }
     }
-    const f = findHomeworkRow(teacher, code);
-    if(!f) return { ok:false, error:'과제를 찾을 수 없습니다. 새로고침 후 다시 시도해 주세요.' };
+    if(subRows.length && String(body.deleteSubs||'') !== '1')
+      return { ok:false, error:'제출 기록이 '+subRows.length+'건 있어요. 화면을 새로고침한 뒤 다시 시도해 주세요.', subs: subRows.length };
+    subRows.sort(function(a,b){ return b-a; }).forEach(function(r){ sub.deleteRow(r); });   // 큰 행부터 — 행 밀림 안전
     hwSheet().deleteRow(f.row);
-    return { ok:true };
+    return { ok:true, deletedSubs: subRows.length };
   } finally {
     try{ lock.releaseLock(); }catch(e){}
   }
