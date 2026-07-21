@@ -152,7 +152,7 @@
   <!-- 과제 목록·삭제 -->
   <section class="card" id="hwManageCard">
     <h2><span class="dot"></span>과제 목록·삭제</h2>
-    <p class="sub">출제된 모든 과제예요. <b>배정·제출이 없는 과제</b>는 바로 삭제, 배정만 있으면 배정도 함께 삭제돼요. 제출 기록이 있는 과제는 성적표 보존을 위해 잠깁니다.</p>
+    <p class="sub">출제된 모든 과제예요. 삭제하면 그 과제의 <b>배정과 제출 기록(성적표·별 포함)</b>도 함께 정리됩니다 — 제출이 있는 과제는 이중 확인을 거쳐요.</p>
     <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
       <button type="button" class="submit" style="width:auto;padding:9px 16px;font-size:13px;margin-top:0;background:#5a8275;" onclick="loadHwManage()">새로고침</button>
     </div>
@@ -449,10 +449,8 @@
           var h = HW_MANAGE.list[i];
           var key = h.teacher + ' / ' + h.code;
           var an = (aMap[key]||[]).length, sn = sMap[key]||0;
-          var badge = '<span style="font-size:12px;color:#8a8590;">배정 '+an+'건 · 제출 '+sn+'건</span>';
-          var act = sn > 0
-            ? '<span style="font-size:12px;color:#9aa6a0;white-space:nowrap;">🔒 제출 있음</span>'
-            : '<button type="button" class="a-del" onclick="delHomework('+i+')">삭제</button>';
+          var badge = '<span style="font-size:12px;color:'+(sn>0?'#B98F1F':'#8a8590')+';">배정 '+an+'건 · 제출 '+sn+'건</span>';
+          var act = '<button type="button" class="a-del" onclick="delHomework('+i+')">삭제</button>';
           html += '<div class="a-item"><span style="font-weight:700;flex:1;min-width:0;word-break:break-all;">'+esc(h.code)+'</span>'+badge+act+'</div>';
         });
       });
@@ -466,8 +464,13 @@
     var h = HW_MANAGE.list[i]; if(!h) return;
     var key = h.teacher + ' / ' + h.code;
     var asg = HW_MANAGE.aMap[key] || [];
-    var msg = '「'+key+'」 과제를 삭제할까요?' + (asg.length ? '\n이 과제의 배정 '+asg.length+'건도 함께 삭제됩니다 (학생 페이지에서 사라져요).' : '') + '\n되돌릴 수 없어요.';
+    var sn = HW_MANAGE.sMap[key] || 0;
+    var msg = '「'+key+'」 과제를 삭제할까요?'
+      + (asg.length ? '\n· 배정 '+asg.length+'건도 함께 삭제 (학생 페이지에서 사라져요)' : '')
+      + (sn ? '\n· ⚠️ 제출 기록 '+sn+'건도 함께 삭제 — 성적표 다시보기와 이 과제로 받은 별도 사라져요' : '')
+      + '\n되돌릴 수 없어요.';
     if(!confirm(msg)) return;
+    if(sn && !confirm('정말 삭제할까요?\n학생 '+sn+'명의 제출 기록이 영구히 지워집니다.')) return;
     // 1) 배정 먼저 삭제 (큰 행부터 — 행 밀림 안전)
     var rows = asg.map(function(a){ return a.rowIndex; }).sort(function(a,b){ return b-a; });
     var chain = Promise.resolve();
@@ -480,7 +483,7 @@
     // 2) 과제 삭제
     chain.then(function(){
       return fetch(HW_API, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
-        body: JSON.stringify({ action:'deleteHomework', pw:SERVER_PW, teacher:h.teacher, code:h.code }) }).then(function(x){ return x.json(); });
+        body: JSON.stringify({ action:'deleteHomework', pw:SERVER_PW, teacher:h.teacher, code:h.code, deleteSubs: sn ? '1' : '' }) }).then(function(x){ return x.json(); });
     }).then(function(res){
       if(!res || !res.ok){ alert('삭제 실패: '+((res&&res.error)||'오류')+'\n(H WORK 백엔드 재배포 전이면 아직 사용할 수 없어요)'); loadHwManage(); return; }
       loadHomeworks();   // 과제 선택 드롭다운 갱신
