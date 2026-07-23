@@ -9,30 +9,30 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="HW CHECK">
-<meta name="theme-color" content="#7e93a8">
+<meta name="theme-color" content="#5B93A8">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap" rel="stylesheet">
 <style>
   :root{
-    --sage:#a9c0b4; --sage-d:#7fa08f;
-    --lav:#b8b0cc; --lav-d:#8d83a8; --lav-bg:#e8e3f0;
-    --ink:#3f3a44; --muted:#8a8590;
-    --line:#e4e0e8; --paper:#f7f6f3; --card:#ffffff;
-    --head:#cdd9e0; --head2:#dcd5e6;
-    --ok:#1b8a3a; --ok-bg:#e3f2e8; --bad:#d0473f; --bar:#9b8fb5;
+    --sage:#A6C1BB; --sage-d:#628C83;
+    --lav:#628C83; --lav-d:#628C83; --lav-bg:#E0EAE7;
+    --ink:#2C2F2D; --muted:#8B928C;
+    --line:#D4D8D3; --paper:#FBFAF6; --card:#ffffff;
+    --head:#E0EAE7; --head2:#E0EAE7;
+    --ok:#3E9B74; --ok-bg:#E4F1EA; --bad:#DB4C39; --bar:#628C83;
     --shadow:0 2px 12px rgba(63,58,68,.07);
   }
   *{box-sizing:border-box;}
   body{ font-family:'Gowun Dodum',-apple-system,sans-serif; background:var(--paper); color:var(--ink);
     max-width:820px; margin:0 auto; padding:0 0 50px; line-height:1.5; }
-  .brand{ background:linear-gradient(135deg,#d8cfe6 0%,#c4d4cc 100%);
+  .brand{ background:linear-gradient(135deg,#C6D5D2 0%,#C6D5D2 100%);
     padding:20px 24px 16px; border-radius:0 0 22px 22px; box-shadow:var(--shadow);
     display:flex; align-items:baseline; gap:12px; }
-  .brand .name{ font-family:'Gowun Batang',serif; font-weight:700; font-size:24px; letter-spacing:2px; color:#473f55; }
-  .brand .sub{ font-family:'Gowun Batang',serif; font-size:13px; color:#5d5568; letter-spacing:2px; }
+  .brand .name{ font-family:'Gowun Batang',serif; font-weight:700; font-size:24px; letter-spacing:2px; color:#2C2F2D; }
+  .brand .sub{ font-family:'Gowun Batang',serif; font-size:13px; color:#3A544E; letter-spacing:2px; }
   .title-bar{ background:var(--lav-bg); margin:16px; padding:11px 18px; border-radius:10px;
-    font-family:'Gowun Batang',serif; font-size:15px; font-weight:700; color:#4a4356; text-align:center; }
+    font-family:'Gowun Batang',serif; font-size:15px; font-weight:700; color:#3A544E; text-align:center; }
 
   .filter{ margin:16px; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
   .filter input, .filter select{ padding:10px 12px; border:1.5px solid var(--line); border-radius:9px;
@@ -45,7 +45,7 @@
 
   .list-wrap{ margin:16px; background:var(--card); border-radius:12px; box-shadow:var(--shadow); overflow:auto; }
   table.list{ width:100%; border-collapse:collapse; min-width:620px; }
-  table.list th{ background:var(--head2); color:#473f55; font-size:13px; padding:11px 8px; white-space:nowrap; }
+  table.list th{ background:var(--head2); color:#2C2F2D; font-size:13px; padding:11px 8px; white-space:nowrap; }
   table.list td{ padding:11px 8px; font-size:13.5px; text-align:center; border-bottom:1px solid var(--line); white-space:nowrap; }
   table.list tr.r{ cursor:pointer; }
   table.list tr.r:hover{ background:var(--lav-bg); }
@@ -55,7 +55,7 @@
   .empty{ padding:40px; text-align:center; color:var(--muted); font-size:14px; }
   .loading{ padding:30px; text-align:center; color:var(--muted); }
   .diag{ margin:16px; padding:12px 16px; border-radius:10px; font-size:13px; line-height:1.6; white-space:pre-wrap; display:none; }
-  .diag.bad{ background:#fcebea; border:1px solid var(--bad); color:#a33; }
+  .diag.bad{ background:#FADED9; border:1px solid var(--bad); color:#992F20; }
 
   /* 상세 결과 */
   #report{ display:none; }
@@ -64,29 +64,29 @@
     border-radius:9px; font-family:'Gowun Batang',serif; font-weight:700; cursor:pointer; font-size:14px; }
   #report .back button.saveimg{ background:var(--lav-d); border-color:var(--lav-d); color:#fff; }
   #report .back button:disabled{ opacity:.6; cursor:default; }
-  #report #shot{ background:var(--paper); padding-bottom:6px; }  #report .rbrand{ background:linear-gradient(135deg,#d8cfe6 0%,#c4d4cc 100%);
+  #report #shot{ background:var(--paper); padding-bottom:6px; }  #report .rbrand{ background:linear-gradient(135deg,#C6D5D2 0%,#C6D5D2 100%);
     padding:20px; text-align:center; border-radius:14px; box-shadow:var(--shadow); margin:16px; }
-  #report .rbrand .name{ font-family:'Gowun Batang',serif; font-weight:700; font-size:22px; letter-spacing:2px; color:#473f55; }
-  #report .rbrand .sub{ font-family:'Gowun Batang',serif; font-size:12px; color:#5d5568; letter-spacing:2px; margin-top:3px; }
-  #report .tbar{ background:#e8e3f0; margin:16px; padding:11px 18px; border-radius:10px;
-    font-family:'Gowun Batang',serif; font-size:15px; font-weight:700; color:#4a4356; text-align:center; }
+  #report .rbrand .name{ font-family:'Gowun Batang',serif; font-weight:700; font-size:22px; letter-spacing:2px; color:#2C2F2D; }
+  #report .rbrand .sub{ font-family:'Gowun Batang',serif; font-size:12px; color:#3A544E; letter-spacing:2px; margin-top:3px; }
+  #report .tbar{ background:#E0EAE7; margin:16px; padding:11px 18px; border-radius:10px;
+    font-family:'Gowun Batang',serif; font-size:15px; font-weight:700; color:#3A544E; text-align:center; }
   #report section{ margin:16px; }
   #report h2{ font-family:'Gowun Batang',serif; font-size:16px; margin:0 0 10px; display:flex; align-items:center; gap:8px; }
   #report h2::before{ content:""; width:9px;height:9px;border-radius:2px;background:var(--lav); }
   #report table{ width:100%; border-collapse:collapse; background:#fff; border-radius:10px; overflow:hidden; box-shadow:var(--shadow); }
   #report th,#report td{ padding:10px 8px; text-align:center; font-size:13.5px; }
-  #report .info th{ background:#cdd9e0; color:#3c4a52; font-weight:700; }
+  #report .info th{ background:#E0EAE7; color:#3A544E; font-weight:700; }
   #report .info td{ background:#efeef1; }
   #report .big{ font-family:'Gowun Batang',serif; font-size:30px; font-weight:700; color:var(--lav-d); }
   #report .scoreline{ text-align:center; margin:6px 0 2px; }
   #report .scoreline .pct{ font-size:14px; color:var(--muted); }
   #report table.detail{ table-layout:fixed; }
   #report table.detail th,#report table.detail td{ padding:9px 4px; word-break:break-all; }
-  #report table.detail th{ background:#dcd5e6; color:#473f55; }
+  #report table.detail th{ background:#E0EAE7; color:#2C2F2D; }
   #report table.detail td{ border-bottom:1px solid var(--line); }
-  #report table.detail td.qn{ background:#e8e3f0; font-weight:700; color:#4a4356; }
+  #report table.detail td.qn{ background:#E0EAE7; font-weight:700; color:#3A544E; }
   #report table.detail td.mine,#report table.detail td.ansc{ font-size:12.5px; }
-  #report table.detail tr.wrong td{ background:#fcebea; }
+  #report table.detail tr.wrong td{ background:#FADED9; }
   #report td.o{ color:var(--ok); font-weight:700; }
   #report td.x{ color:var(--bad); font-weight:700; }
   #report .blank{ color:var(--muted); font-size:12px; }
@@ -100,16 +100,16 @@
   .qbtn button:hover{ background:var(--lav-bg); }
   .qbtn button:disabled{ opacity:.6; cursor:default; }
   .qpanel{ margin:0 16px 14px; background:#fff; border-radius:12px; box-shadow:var(--shadow); overflow:hidden; display:none; }
-  .qpanel .qhead{ background:#dcd5e6; color:#473f55; font-family:'Gowun Batang',serif; font-weight:700;
+  .qpanel .qhead{ background:#E0EAE7; color:#2C2F2D; font-family:'Gowun Batang',serif; font-weight:700;
     font-size:14px; padding:11px 16px; display:flex; justify-content:space-between; align-items:center; }
-  .qpanel .qhead .x{ cursor:pointer; color:#6b6478; font-size:13px; font-weight:400; }
+  .qpanel .qhead .x{ cursor:pointer; color:#4C6E66; font-size:13px; font-weight:400; }
   .qpanel .qnote{ font-size:12px; color:var(--muted); padding:9px 16px 2px; }
   table.qrank{ width:100%; border-collapse:collapse; }
-  table.qrank th{ background:#efeef1; color:#473f55; font-size:12.5px; padding:9px 8px; }
+  table.qrank th{ background:#efeef1; color:#2C2F2D; font-size:12.5px; padding:9px 8px; }
   table.qrank td{ padding:9px 8px; text-align:center; font-size:13.5px; border-bottom:1px solid var(--line); }
-  table.qrank td.q{ font-weight:700; color:#4a4356; width:48px; }
+  table.qrank td.q{ font-weight:700; color:#3A544E; width:48px; }
   table.qrank td.ansc{ text-align:left; padding-left:12px; color:var(--muted); word-break:break-all; }
-  table.qrank tr.hi td{ background:#fcebea; }
+  table.qrank tr.hi td{ background:#FADED9; }
   .ratecell{ display:flex; align-items:center; gap:8px; justify-content:flex-start; min-width:120px; }
   .qbar{ flex:1; height:8px; border-radius:4px; background:#eee; overflow:hidden; }
   .qbar > i{ display:block; height:100%; background:var(--bad); }
@@ -118,7 +118,7 @@
     padding:1px 7px; border-radius:10px; margin-left:4px; white-space:nowrap; }
   #report table.detail td.qcell{ text-align:left; padding-left:10px; color:var(--lav-d); font-size:12.5px;
     word-break:break-all; line-height:1.5; }
-  #report table.detail td.qcell.has{ background:#f3f0f8; }
+  #report table.detail td.qcell.has{ background:#F1F6F4; }
 
   .toast{ position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px);
     background:var(--ink); color:#fff; padding:11px 22px; border-radius:99px; font-size:13px;
@@ -326,7 +326,7 @@
     if(!shot){ return; }
     const btn=document.querySelector('#report .saveimg'); const label=btn?btn.textContent:'';
     if(btn){ btn.disabled=true; btn.textContent='저장 중…'; }
-    html2canvas(shot, { backgroundColor:'#f7f6f3', scale:2, useCORS:true })
+    html2canvas(shot, { backgroundColor:'#FBFAF6', scale:2, useCORS:true })
       .then(function(canvas){
         const base=((window.CURNAME||'학생')+'_'+(window.CURCODE||'')+'_제출현황')
           .replace(/[\\/:*?"<>|\s]+/g,'_');

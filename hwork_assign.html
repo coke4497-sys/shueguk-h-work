@@ -11,9 +11,9 @@
 <link rel="stylesheet" href="https://coke4497-sys.github.io/shueguk-report/student-picker.css" />
 <style>
   :root{
-    --bg:#E4EFEA; --surface:#FFFFFF; --ink:#2A332F; --ink-soft:#65726B;
-    --accent:#3A6B5E; --line:#D7E3DD; --line-soft:#E5EDE8; --radius:18px;
-    --bad:#c0463e; --ok:#1b8a3a; --warn:#b07d2b;
+    --bg:#C6D5D2; --surface:#FFFFFF; --ink:#2C2F2D; --ink-soft:#6A716C;
+    --accent:#3A6B5E; --line:#D4D8D3; --line-soft:#E8EAE7; --radius:18px;
+    --bad:#DB4C39; --ok:#3E9B74; --warn:#8F630F;
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
@@ -37,42 +37,42 @@
   label{display:block;font-size:13px;color:var(--ink-soft);margin:16px 0 7px;font-weight:700;}
   select,input[type=text],input[type=date]{
     width:100%;padding:12px 13px;border:1.5px solid var(--line);border-radius:10px;
-    font:inherit;font-size:15px;background:#fafbfa;color:var(--ink);
+    font:inherit;font-size:15px;background:#FBFAF6;color:var(--ink);
   }
   select:focus,input:focus{outline:none;border-color:var(--accent);background:#fff;}
   .row2{display:flex;gap:10px;} .row2>div{flex:1;min-width:0;}
 
   .submit{width:100%;margin-top:18px;padding:15px;border:none;border-radius:12px;background:var(--accent);color:#fff;
     font-family:"Gowun Batang",serif;font-size:16px;font-weight:700;letter-spacing:1px;cursor:pointer;transition:opacity .15s;}
-  .submit:active{opacity:.85;} .submit:disabled{background:#9fb3aa;cursor:default;}
+  .submit:active{opacity:.85;} .submit:disabled{background:#A6C1BB;cursor:default;}
   .status{font-size:13px;margin-top:12px;min-height:1.2em;color:var(--ink-soft);text-align:center;}
   .status.ok{color:var(--ok);} .status.err{color:var(--bad);}
-  .gate-note{font-size:13px;color:var(--ink-soft);background:#EBF0ED;border-radius:10px;padding:12px 14px;}
+  .gate-note{font-size:13px;color:var(--ink-soft);background:#F1F6F4;border-radius:10px;padding:12px 14px;}
 
   /* 배정 목록 */
   .alist{margin-top:16px;}
-  .a-item{display:flex;align-items:center;gap:10px;border:1px solid var(--line-soft);border-radius:11px;padding:11px 13px;margin-bottom:8px;background:#fcfdfc;font-size:13.5px;}
-  .a-tag{font-size:11.5px;font-weight:700;padding:2px 9px;border-radius:20px;background:#E1EDE7;color:var(--accent);flex:none;}
+  .a-item{display:flex;align-items:center;gap:10px;border:1px solid var(--line-soft);border-radius:11px;padding:11px 13px;margin-bottom:8px;background:#FBFAF6;font-size:13.5px;}
+  .a-tag{font-size:11.5px;font-weight:700;padding:2px 9px;border-radius:20px;background:#E0EAE7;color:var(--accent);flex:none;}
   .a-target{color:var(--ink);}
-  .a-date{color:#9aa6a0;font-size:12px;margin-left:auto;flex:none;}
+  .a-date{color:#8B928C;font-size:12px;margin-left:auto;flex:none;}
   .a-del{border:1.5px solid var(--line);background:#fff;color:var(--ink-soft);font:inherit;font-size:12px;font-weight:700;padding:6px 11px;border-radius:8px;cursor:pointer;flex:none;}
   .a-del:hover{border-color:var(--bad);color:var(--bad);}
 
   /* 현황 */
   .stat-row{display:flex;gap:10px;margin:4px 0 14px;}
-  .stat{flex:1;background:#F2F7F4;border-radius:12px;padding:13px;text-align:center;}
+  .stat{flex:1;background:#F4F5F3;border-radius:12px;padding:13px;text-align:center;}
   .stat .n{font-family:"Gowun Batang",serif;font-size:24px;font-weight:700;line-height:1.1;}
   .stat .l{font-size:12px;color:var(--ink-soft);margin-top:3px;}
   .stat.assigned .n{color:var(--accent);} .stat.done .n{color:var(--ok);} .stat.todo .n{color:var(--bad);}
-  .warn-box{background:#fbf3e3;border:1px solid #ecd9af;color:#8a6520;font-size:12.5px;border-radius:10px;padding:10px 13px;margin-bottom:12px;line-height:1.6;}
+  .warn-box{background:#fbf3e3;border:1px solid #ecd9af;color:#8F630F;font-size:12.5px;border-radius:10px;padding:10px 13px;margin-bottom:12px;line-height:1.6;}
   .grp-title{font-size:13px;font-weight:700;color:var(--ink-soft);margin:16px 0 8px;}
   .chips{display:flex;flex-wrap:wrap;gap:7px;}
   .pchip{font-size:13px;padding:6px 12px;border-radius:18px;border:1px solid var(--line-soft);background:#fff;}
-  .pchip.todo{background:#fbeceb;border-color:#f0cfcc;color:#9a3a33;}
-  .pchip.done{background:#e9f3ec;border-color:#cfe6d6;color:#2f6b41;}
-  .pchip .sc{color:#8a9690;font-size:11.5px;}
-  .pchip.warn{background:#fbf3e3;border-color:#ecd9af;color:#8a6520;}
-  .muted{color:#9aa6a0;font-size:13px;}
+  .pchip.todo{background:#FADED9;border-color:#FADED9;color:#992F20;}
+  .pchip.done{background:#E4F1EA;border-color:#E4F1EA;color:#276B4E;}
+  .pchip .sc{color:#8B928C;font-size:11.5px;}
+  .pchip.warn{background:#fbf3e3;border-color:#ecd9af;color:#8F630F;}
+  .muted{color:#8B928C;font-size:13px;}
 
   /* 잠금 */
   .lock{position:fixed;inset:0;background:var(--bg);z-index:100;display:flex;align-items:center;justify-content:center;padding:24px;}
@@ -132,8 +132,8 @@
     <p class="sub">이 과제를 받을 학생을 선택하세요. (전 학년 / 학년 / 개인 / 일부)</p>
     <div id="picker"></div>
     <div class="row2">
-      <div><label for="due">마감 <span style="font-weight:400;color:#9aa6a0">(선택)</span></label><input type="date" id="due" /></div>
-      <div><label for="memo">비고 <span style="font-weight:400;color:#9aa6a0">(선택)</span></label><input type="text" id="memo" placeholder="예: 1회차" /></div>
+      <div><label for="due">마감 <span style="font-weight:400;color:#8B928C">(선택)</span></label><input type="date" id="due" /></div>
+      <div><label for="memo">비고 <span style="font-weight:400;color:#8B928C">(선택)</span></label><input type="text" id="memo" placeholder="예: 1회차" /></div>
     </div>
     <button type="button" class="submit" id="assignBtn" onclick="saveAssign()">이 학생들에게 배정</button>
     <div class="status" id="assignStatus"></div>
@@ -145,7 +145,7 @@
   <section class="card" id="statusCard" style="display:none;">
     <h2><span class="dot"></span>제출 현황</h2>
     <p class="sub">배정된 학생과 실제 제출을 대조합니다. (이름+학교 기준)</p>
-    <button type="button" class="submit" id="statusBtn" onclick="loadStatus()" style="background:#5a8275;">현황 불러오기 / 새로고침</button>
+    <button type="button" class="submit" id="statusBtn" onclick="loadStatus()" style="background:#4C6E66;">현황 불러오기 / 새로고침</button>
     <div id="statusBody" style="margin-top:16px;"></div>
   </section>
 
@@ -154,9 +154,9 @@
     <h2><span class="dot"></span>과제 목록·삭제</h2>
     <p class="sub">출제된 모든 과제예요. 삭제하면 그 과제의 <b>배정과 제출 기록(성적표·별 포함)</b>도 함께 정리됩니다 — 제출이 있는 과제는 이중 확인을 거쳐요.</p>
     <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
-      <button type="button" class="submit" style="width:auto;padding:9px 16px;font-size:13px;margin-top:0;background:#5a8275;" onclick="loadHwManage()">새로고침</button>
+      <button type="button" class="submit" style="width:auto;padding:9px 16px;font-size:13px;margin-top:0;background:#4C6E66;" onclick="loadHwManage()">새로고침</button>
     </div>
-    <div id="hwManageBody"><div class="a-empty" style="text-align:center;color:#9aa6a0;font-size:13.5px;padding:14px;">불러오는 중…</div></div>
+    <div id="hwManageBody"><div class="a-empty" style="text-align:center;color:#8B928C;font-size:13.5px;padding:14px;">불러오는 중…</div></div>
   </section>
 </main>
 
@@ -398,10 +398,10 @@
         '<div class="stat todo"><div class="n">'+todo.length+'</div><div class="l">미제출</div></div>' +
       '</div>';
 
-      if(warnCnt>0){ html += '<div class="warn-box">⚠️ 동명+동학교가 배정에 '+warnCnt+'명 있어 자동 구분이 어렵습니다. 해당 학생은 학생ID로 직접 확인이 필요해요. (아래 ⚠️ 표시)</div>'; }
+      if(warnCnt>0){ html += '<div class="warn-box">동명+동학교가 배정에 '+warnCnt+'명 있어 자동 구분이 어렵습니다. 해당 학생은 학생ID로 직접 확인이 필요해요. (아래 표시)</div>'; }
 
       html += '<div class="grp-title">미제출 ('+todo.length+'명)</div>';
-      html += todo.length ? ('<div class="chips">' + todo.map(function(r){ return chip(r,'todo'); }).join('') + '</div>') : '<p class="muted">미제출 학생이 없어요. 👏</p>';
+      html += todo.length ? ('<div class="chips">' + todo.map(function(r){ return chip(r,'todo'); }).join('') + '</div>') : '<p class="muted">미제출 학생이 없어요.</p>';
 
       html += '<div class="grp-title">제출 ('+done.length+'명)</div>';
       html += done.length ? ('<div class="chips">' + done.map(function(r){ return chip(r,'done'); }).join('') + '</div>') : '<p class="muted">아직 제출이 없어요.</p>';
@@ -418,7 +418,7 @@
     var a=r.a;
     var cls = 'pchip ' + (r.ambiguous ? 'warn' : kind);
     var meta = [a.school, a.grade].filter(Boolean).join(' ');
-    return '<span class="'+cls+'">' + (r.ambiguous?'⚠️ ':'') + esc(a.name) +
+    return '<span class="'+cls+'">' + (r.ambiguous?'':'') + esc(a.name) +
       ' <span class="sc">'+esc(meta)+(r.sc?(' · '+esc(r.sc)):'')+(r.note?(' · '+esc(r.note)):'')+'</span></span>';
   }
 
@@ -426,7 +426,7 @@
   var HW_MANAGE = null;
   function loadHwManage(){
     var body = document.getElementById('hwManageBody');
-    body.innerHTML = '<div style="text-align:center;color:#9aa6a0;font-size:13.5px;padding:14px;">불러오는 중…</div>';
+    body.innerHTML = '<div style="text-align:center;color:#8B928C;font-size:13.5px;padding:14px;">불러오는 중…</div>';
     Promise.all([
       fetchJSON(HW_API + '?action=list&t=' + Date.now()),
       fetchJSON(REPORT_API + '?action=assignList&pw='+encodeURIComponent(SERVER_PW)+'&tool='+encodeURIComponent(TOOL)+'&t='+Date.now()),
@@ -439,7 +439,7 @@
       asg.forEach(function(a){ (aMap[a.item] = aMap[a.item] || []).push(a); });
       subs.forEach(function(r){ var k = r.teacher + ' / ' + r.code; sMap[k] = (sMap[k]||0) + 1; });
       HW_MANAGE = { list:list, aMap:aMap, sMap:sMap };
-      if(!list.length){ body.innerHTML = '<div style="text-align:center;color:#9aa6a0;font-size:13.5px;padding:14px;">출제된 과제가 없어요.</div>'; return; }
+      if(!list.length){ body.innerHTML = '<div style="text-align:center;color:#8B928C;font-size:13.5px;padding:14px;">출제된 과제가 없어요.</div>'; return; }
       var byT = {};
       list.forEach(function(h,i){ (byT[h.teacher] = byT[h.teacher] || []).push(i); });
       var html = '';
@@ -449,14 +449,14 @@
           var h = HW_MANAGE.list[i];
           var key = h.teacher + ' / ' + h.code;
           var an = (aMap[key]||[]).length, sn = sMap[key]||0;
-          var badge = '<span style="font-size:12px;color:'+(sn>0?'#B98F1F':'#8a8590')+';">배정 '+an+'건 · 제출 '+sn+'건</span>';
+          var badge = '<span style="font-size:12px;color:'+(sn>0?'#8F630F':'#8B928C')+';">배정 '+an+'건 · 제출 '+sn+'건</span>';
           var act = '<button type="button" class="a-del" onclick="delHomework('+i+')">삭제</button>';
           html += '<div class="a-item"><span style="font-weight:700;flex:1;min-width:0;word-break:break-all;">'+esc(h.code)+'</span>'+badge+act+'</div>';
         });
       });
       body.innerHTML = html;
     }).catch(function(){
-      body.innerHTML = '<div style="text-align:center;color:#c0463e;font-size:13.5px;padding:14px;">목록을 불러오지 못했어요. 새로고침을 눌러주세요.</div>';
+      body.innerHTML = '<div style="text-align:center;color:#DB4C39;font-size:13.5px;padding:14px;">목록을 불러오지 못했어요. 새로고침을 눌러주세요.</div>';
     });
   }
   function delHomework(i){
@@ -467,7 +467,7 @@
     var sn = HW_MANAGE.sMap[key] || 0;
     var msg = '「'+key+'」 과제를 삭제할까요?'
       + (asg.length ? '\n· 배정 '+asg.length+'건도 함께 삭제 (학생 페이지에서 사라져요)' : '')
-      + (sn ? '\n· ⚠️ 제출 기록 '+sn+'건도 함께 삭제 — 성적표 다시보기와 이 과제로 받은 별도 사라져요' : '')
+      + (sn ? '\n· 제출 기록 '+sn+'건도 함께 삭제 — 성적표 다시보기와 이 과제로 받은 별도 사라져요' : '')
       + '\n되돌릴 수 없어요.';
     if(!confirm(msg)) return;
     if(sn && !confirm('정말 삭제할까요?\n학생 '+sn+'명의 제출 기록이 영구히 지워집니다.')) return;

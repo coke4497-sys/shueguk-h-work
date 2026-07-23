@@ -9,19 +9,19 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="HW 출제">
-<meta name="theme-color" content="#8d83a8">
+<meta name="theme-color" content="#628C83">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap" rel="stylesheet">
 <style>
   :root{
-    --sage:#a9c0b4; --sage-d:#7fa08f;
-    --lav:#b8b0cc; --lav-d:#8d83a8; --lav-bg:#e8e3f0;
-    --ink:#3f3a44; --muted:#8a8590;
-    --line:#e4e0e8; --paper:#f7f6f3; --card:#ffffff;
-    --head:#cdd9e0; --head2:#dcd5e6;
-    --ok:#1b8a3a; --ok-bg:#e3f2e8;
-    --warn:#c98a2b; --warn-bg:#f8efdd;
+    --sage:#A6C1BB; --sage-d:#628C83;
+    --lav:#628C83; --lav-d:#628C83; --lav-bg:#E0EAE7;
+    --ink:#2C2F2D; --muted:#8B928C;
+    --line:#D4D8D3; --paper:#FBFAF6; --card:#ffffff;
+    --head:#E0EAE7; --head2:#E0EAE7;
+    --ok:#3E9B74; --ok-bg:#E4F1EA;
+    --warn:#E3A02F; --warn-bg:#f8efdd;
     --shadow:0 2px 12px rgba(63,58,68,.07);
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
@@ -31,15 +31,15 @@
     max-width:880px; margin:0 auto; padding:0 0 60px; line-height:1.5;
   }
   .brand{
-    background:linear-gradient(135deg,#d8cfe6 0%,#c4d4cc 100%);
+    background:linear-gradient(135deg,#C6D5D2 0%,#C6D5D2 100%);
     padding:20px 24px 16px; border-radius:0 0 22px 22px; box-shadow:var(--shadow);
     display:flex; align-items:baseline; gap:12px;
   }
-  .brand .name{ font-family:'Gowun Batang',serif; font-weight:700; font-size:24px; letter-spacing:2px; color:#473f55; }
-  .brand .sub{ font-family:'Gowun Batang',serif; font-size:13px; color:#5d5568; letter-spacing:2px; }
+  .brand .name{ font-family:'Gowun Batang',serif; font-weight:700; font-size:24px; letter-spacing:2px; color:#2C2F2D; }
+  .brand .sub{ font-family:'Gowun Batang',serif; font-size:13px; color:#3A544E; letter-spacing:2px; }
   .title-bar{
     background:var(--lav-bg); margin:16px; padding:11px 18px; border-radius:10px;
-    font-family:'Gowun Batang',serif; font-size:15px; font-weight:700; color:#4a4356; text-align:center;
+    font-family:'Gowun Batang',serif; font-size:15px; font-weight:700; color:#3A544E; text-align:center;
   }
   section{ margin:16px; background:var(--card); border-radius:14px; box-shadow:var(--shadow); padding:18px 20px; }
   h2{ font-family:'Gowun Batang',serif; font-size:16px; margin:0 0 14px; display:flex; align-items:center; gap:8px; }
@@ -61,9 +61,9 @@
   .schooladd button{ padding:0 18px; border:none; border-radius:9px; background:var(--sage-d); color:#fff;
     font-family:'Gowun Batang',serif; font-weight:700; font-size:14px; cursor:pointer; white-space:nowrap; }
   .chips{ display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
-  .chip{ display:inline-flex; align-items:center; gap:7px; background:var(--lav-bg); color:#4a4356;
+  .chip{ display:inline-flex; align-items:center; gap:7px; background:var(--lav-bg); color:#3A544E;
     border:1px solid var(--lav); padding:5px 6px 5px 12px; border-radius:20px; font-size:13px; }
-  .chip button{ border:none; background:rgba(141,131,168,.25); color:#5d5568; width:18px; height:18px;
+  .chip button{ border:none; background:rgba(141,131,168,.25); color:#3A544E; width:18px; height:18px;
     border-radius:50%; cursor:pointer; font-size:12px; line-height:1; display:flex; align-items:center; justify-content:center; padding:0; }
   .chip button:hover{ background:rgba(141,131,168,.45); }
 
@@ -114,8 +114,8 @@
   #genBtn{ background:#fff; color:var(--lav-d); border:1.5px solid var(--lav); }
   #copyBtn{ background:#fff; color:var(--sage-d); border:1.5px solid var(--sage); }
   .savemsg{ display:none; margin:0 16px 8px; padding:11px 15px; border-radius:10px; font-size:13.5px; line-height:1.6; white-space:pre-wrap; }
-  .savemsg.ok{ background:var(--ok-bg); border-left:4px solid var(--ok); color:#1b6a30; }
-  .savemsg.bad{ background:#fcebea; border-left:4px solid var(--bad,#d0473f); color:#a33; }
+  .savemsg.ok{ background:var(--ok-bg); color:#276B4E; }
+  .savemsg.bad{ background:#FADED9; color:#992F20; }
 
   #out{ margin:16px; display:none; }
   #out textarea{
@@ -124,8 +124,8 @@
   }
   .summary{ font-size:13px; color:var(--muted); margin-top:8px; }
   .summary b{ color:var(--lav-d); }
-  .copybox{ background:var(--ok-bg); border-left:4px solid var(--ok); padding:10px 14px; border-radius:8px;
-    font-size:13px; color:#1b6a30; margin-top:10px; line-height:1.6; }
+  .copybox{ background:var(--ok-bg); padding:10px 14px; border-radius:8px;
+    font-size:13px; color:#276B4E; margin-top:10px; line-height:1.6; }
 
   .toast{
     position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px);
