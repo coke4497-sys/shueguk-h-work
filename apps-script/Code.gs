@@ -70,10 +70,16 @@ function findHomeworkRow(teacher, code){
   }
   return null;
 }
+function hwCacheKey(teacher, code){ return 'hw:' + teacher + '|' + code; }
 function loadHomework(teacher, code){
+  // 캐시 우선 — 동시 제출이 몰릴 때 매번 시트 전체를 읽지 않도록 (10분 유지, 저장·삭제 시 즉시 비움)
+  const cache = CacheService.getScriptCache();
+  const hit = cache.get(hwCacheKey(teacher, code));
+  if(hit) return JSON.parse(hit);
   const f = findHomeworkRow(teacher, code);
   if(!f) throw new Error('H WORK을 찾을 수 없습니다: ' + teacher + ' / ' + code);
   if(!f.data) throw new Error('정답 데이터(C칸)가 비어 있습니다.');
+  try{ cache.put(hwCacheKey(teacher, code), f.data, 600); }catch(e){}  // 100KB 초과 등이면 캐시 없이 진행
   return JSON.parse(f.data);
 }
 
@@ -85,6 +91,7 @@ function saveHomework(data){
   const f = findHomeworkRow(data.teacher, data.code);
   if(f){ sh.getRange(f.row,1,1,3).setValues([[ data.teacher, data.code, json ]]); }
   else { sh.appendRow([ data.teacher, data.code, json ]); }
+  try{ CacheService.getScriptCache().remove(hwCacheKey(data.teacher, data.code)); }catch(e){}
   return { ok:true, msg:'저장되었습니다: ' + data.teacher + ' / ' + data.code };
 }
 
@@ -112,6 +119,7 @@ function deleteHomework(body){
       return { ok:false, error:'제출 기록이 '+subRows.length+'건 있어요. 화면을 새로고침한 뒤 다시 시도해 주세요.', subs: subRows.length };
     subRows.sort(function(a,b){ return b-a; }).forEach(function(r){ sub.deleteRow(r); });   // 큰 행부터 — 행 밀림 안전
     hwSheet().deleteRow(f.row);
+    try{ CacheService.getScriptCache().remove(hwCacheKey(teacher, code)); }catch(e){}
     return { ok:true, deletedSubs: subRows.length };
   } finally {
     try{ lock.releaseLock(); }catch(e){}
@@ -147,28 +155,24 @@ function gradeOne(item, studentAns){
   return String(studentAns) === String(item.ans);   // choice5 · ox 공통
 }
 
+// 전역 잠금 없이 동시 처리 — 채점은 읽기만 하고, 저장은 appendRow(줄 추가)라 동시에 해도 안전.
+// (예전엔 30초 잠금 대기 때문에 반 전체가 동시에 제출하면 뒤 학생들이 오류를 봤음)
 function submit(data){
-  const lock = LockService.getScriptLock();
-  lock.waitLock(30000);
-  try{
-    const hw = loadHomework(data.teacher, data.code);
-    const count = Number(hw.count) || 0;
-    const detail = {};
-    let got = 0;
-    for(let q=1;q<=count;q++){
-      const item = (hw.items && hw.items[q]) ? hw.items[q] : {};
-      const mine = (data.answers && data.answers[q] != null) ? data.answers[q] : '';
-      const ok = gradeOne(item, mine);
-      if(ok) got++;
-      detail[q] = { type:item.type, mine:String(mine), ans:String(item.ans==null?'':item.ans), ok:ok };
-    }
-    saveSubmission(data, got, count, detail);
-    return { ok:true,
-      result: { got:got, total:count, detail:detail },
-      student: { teacher:data.teacher, code:data.code, school:data.school, grade:data.grade, name:data.name } };
-  } finally {
-    lock.releaseLock();
+  const hw = loadHomework(data.teacher, data.code);
+  const count = Number(hw.count) || 0;
+  const detail = {};
+  let got = 0;
+  for(let q=1;q<=count;q++){
+    const item = (hw.items && hw.items[q]) ? hw.items[q] : {};
+    const mine = (data.answers && data.answers[q] != null) ? data.answers[q] : '';
+    const ok = gradeOne(item, mine);
+    if(ok) got++;
+    detail[q] = { type:item.type, mine:String(mine), ans:String(item.ans==null?'':item.ans), ok:ok };
   }
+  saveSubmission(data, got, count, detail);
+  return { ok:true,
+    result: { got:got, total:count, detail:detail },
+    student: { teacher:data.teacher, code:data.code, school:data.school, grade:data.grade, name:data.name } };
 }
 
 // ───────── 제출기록 시트 ─────────
