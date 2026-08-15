@@ -283,6 +283,8 @@
   }
   function setAssignStatus(m,k){ var s=document.getElementById('assignStatus'); s.textContent=m||''; s.className='status'+(k?(' '+k):''); }
 
+  var ASSIGN_ROW = {};   // rowIndex → {tool, item} — 삭제할 때 그 행이 맞는지 백엔드가 확인하는 용도
+
   function loadAssignList(){
     var it = curItem(); if(!it) return;
     var box = document.getElementById('assignList');
@@ -291,7 +293,9 @@
       .then(function(d){
         if(!d || d.result!=='success'){ box.innerHTML='<p class="muted">배정 내역을 불러오지 못했어요.</p>'; return; }
         if(!d.assignments.length){ box.innerHTML='<p class="muted">아직 이 과제에 배정된 대상이 없어요.</p>'; return; }
+        ASSIGN_ROW = {};
         box.innerHTML = '<div class="grp-title">이 과제의 배정 내역</div>' + d.assignments.map(function(a){
+          ASSIGN_ROW[a.rowIndex] = { tool:a.tool||'', item:a.item||'' };
           var tgt = (a.type==='전체') ? '전 학년' : prettyTarget(a.target||'—');
           return '<div class="a-item">' +
             '<span class="a-tag">'+esc(a.type||'전체')+'</span>' +
@@ -304,9 +308,10 @@
   }
   function delAssign(rowIndex){
     if(!confirm('이 배정을 삭제할까요?')) return;
+    var k = ASSIGN_ROW[rowIndex] || {};
     fetch(REPORT_API, {
       method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body: JSON.stringify({ action:'deleteAssignment', pw:SERVER_PW, rowIndex:rowIndex })
+      body: JSON.stringify({ action:'deleteAssignment', pw:SERVER_PW, rowIndex:rowIndex, tool:k.tool||'', item:k.item||'' })
     }).then(function(r){ return r.json(); }).then(function(res){
       if(res.result==='success'){ loadAssignList(); } else { alert('삭제 실패: '+(res.message||'오류')); }
     }).catch(function(){ alert('삭제 실패 — 인터넷 확인'); });
@@ -471,13 +476,13 @@
       + '\n되돌릴 수 없어요.';
     if(!confirm(msg)) return;
     if(sn && !confirm('정말 삭제할까요?\n학생 '+sn+'명의 제출 기록이 영구히 지워집니다.')) return;
-    // 1) 배정 먼저 삭제 (큰 행부터 — 행 밀림 안전)
-    var rows = asg.map(function(a){ return a.rowIndex; }).sort(function(a,b){ return b-a; });
+    // 1) 배정 먼저 삭제 (큰 행부터 — 행 밀림 안전). 도구·항목을 함께 보내 엉뚱한 행이 지워지지 않게 한다.
+    var rows = asg.slice().sort(function(a,b){ return b.rowIndex - a.rowIndex; });
     var chain = Promise.resolve();
-    rows.forEach(function(r){
+    rows.forEach(function(a){
       chain = chain.then(function(){
         return fetch(REPORT_API, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
-          body: JSON.stringify({ action:'deleteAssignment', pw:SERVER_PW, rowIndex:r }) }).then(function(x){ return x.json(); });
+          body: JSON.stringify({ action:'deleteAssignment', pw:SERVER_PW, rowIndex:a.rowIndex, tool:a.tool||'', item:a.item||'' }) }).then(function(x){ return x.json(); });
       });
     });
     // 2) 과제 삭제
