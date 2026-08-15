@@ -455,14 +455,33 @@
           var key = h.teacher + ' / ' + h.code;
           var an = (aMap[key]||[]).length, sn = sMap[key]||0;
           var badge = '<span style="font-size:12px;color:'+(sn>0?'#8F630F':'#8B928C')+';">배정 '+an+'건 · 제출 '+sn+'건</span>';
-          var act = '<button type="button" class="a-del" onclick="delHomework('+i+')">삭제</button>';
-          html += '<div class="a-item"><span style="font-weight:700;flex:1;min-width:0;word-break:break-all;">'+esc(h.code)+'</span>'+badge+act+'</div>';
+          var dueBadge = h.due
+            ? '<span style="font-size:12px;color:'+(h.closed?'#DB4C39':'#4C6E66')+';font-weight:700;">'+(h.closed?'마감됨 ':'마감 ')+esc(h.due.slice(5).replace('-','/'))+'</span>'
+            : '';
+          var dueBtn = '<button type="button" class="a-del" style="background:#EBF0ED;color:#4C6E66;border-color:#D7E3DD;" onclick="setDue('+i+')">'+(h.due?'마감 변경':'마감일')+'</button>';
+          var act = dueBtn + '<button type="button" class="a-del" onclick="delHomework('+i+')">삭제</button>';
+          html += '<div class="a-item"><span style="font-weight:700;flex:1;min-width:0;word-break:break-all;">'+esc(h.code)+'</span>'+dueBadge+badge+act+'</div>';
         });
       });
       body.innerHTML = html;
     }).catch(function(){
       body.innerHTML = '<div style="text-align:center;color:#DB4C39;font-size:13.5px;padding:14px;">목록을 불러오지 못했어요. 새로고침을 눌러주세요.</div>';
     });
+  }
+  /* 마감일 설정/변경/해제 — 마감일 그 날 밤 11:59까지 제출 가능, 다음 날부터 학생 제출이 닫힌다 */
+  function setDue(i){
+    if(!HW_MANAGE) return;
+    var h = HW_MANAGE.list[i]; if(!h) return;
+    var v = prompt('「'+h.teacher+' / '+h.code+'」 마감일 (예: 2026-08-20)\n그 날 밤 11:59까지 제출 가능, 다음 날부터 닫혀요.\n비우고 확인 = 마감 해제(기한 없음)', h.due || '');
+    if(v === null) return;
+    v = v.trim();
+    if(v && !/^\d{4}-\d{2}-\d{2}$/.test(v)){ alert('날짜는 2026-08-20 형식으로 적어주세요.'); return; }
+    fetch(HW_API, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body: JSON.stringify({ action:'setHomeworkDue', pw:SERVER_PW, teacher:h.teacher, code:h.code, due:v }) })
+      .then(function(r){ return r.json(); }).then(function(res){
+        if(res && res.ok){ loadHwManage(); }
+        else alert('저장 실패: ' + ((res&&res.error)||'오류') + '\n(H WORK 백엔드 재배포 전이면 아직 사용할 수 없어요)');
+      }).catch(function(){ alert('연결 실패 — 다시 시도해 주세요.'); });
   }
   function delHomework(i){
     if(!HW_MANAGE) return;

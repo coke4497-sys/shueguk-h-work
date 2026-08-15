@@ -43,6 +43,7 @@ function doPost(e){
     const body = JSON.parse(e.postData.contents);
     if(body.action === 'saveHomework') return jsonOut(saveHomework(body.data));
     if(body.action === 'deleteHomework') return jsonOut(deleteHomework(body));
+    if(body.action === 'setHomeworkDue') return jsonOut(setHomeworkDue(body));
     if(body.action === 'submit')       return jsonOut(submit(body.data));
     return jsonOut({ ok:false, error:'알 수 없는 요청: ' + body.action });
   }catch(err){
@@ -57,23 +58,54 @@ function hwSheet(){
   if(!sh){ sh = ss.insertSheet(SHEET_HW); sh.appendRow(['강사','제목','데이터']); }
   return sh;
 }
+/* 마감(D열, yyyy-MM-dd) — 마감일 그 날 밤 11:59까지 제출 가능, 다음 날부터 닫힘. 빈칸=기한 없음. */
+function dueYmd_(v){
+  if(v && v.getTime) return Utilities.formatDate(v, 'Asia/Seoul', 'yyyy-MM-dd');   // 시트가 날짜로 바꾼 값도 흡수
+  const s = String(v==null?'':v).trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : '';
+}
+function isClosed_(due){
+  if(!due) return false;
+  return Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd') > due;
+}
 function listHomeworks(){
   const v = hwSheet().getDataRange().getValues();
   const out = [];
-  for(let i=1;i<v.length;i++){ if(v[i][0] && v[i][1]) out.push({ teacher:String(v[i][0]), code:String(v[i][1]) }); }
+  for(let i=1;i<v.length;i++){
+    if(!(v[i][0] && v[i][1])) continue;
+    const due = dueYmd_(v[i][3]);
+    out.push({ teacher:String(v[i][0]), code:String(v[i][1]), due: due, closed: isClosed_(due) });
+  }
   return out;
 }
 function findHomeworkRow(teacher, code){
   const v = hwSheet().getDataRange().getValues();
   for(let i=1;i<v.length;i++){
-    if(String(v[i][0])===String(teacher) && String(v[i][1])===String(code)) return { row:i+1, data:v[i][2] };
+    if(String(v[i][0])===String(teacher) && String(v[i][1])===String(code)) return { row:i+1, data:v[i][2], due: dueYmd_(v[i][3]) };
   }
   return null;
 }
+/* 마감일 캐시 — 제출이 몰릴 때 마감 확인 때문에 시트를 다시 읽지 않도록 (10분, 변경 시 즉시 비움) */
+function hwDueKey(teacher, code){ return 'hwdue:' + teacher + '|' + code; }
+function loadDue(teacher, code){
+  const cache = CacheService.getScriptCache();
+  const hit = cache.get(hwDueKey(teacher, code));
+  if(hit != null) return hit === '-' ? '' : hit;   // '-' = 기한 없음 표시(빈 문자열은 캐시 미스와 구분 불가)
+  const f = findHomeworkRow(teacher, code);
+  const due = f ? f.due : '';
+  try{ cache.put(hwDueKey(teacher, code), due || '-', 600); }catch(e){}
+  return due;
+}
+function hwCacheKey(teacher, code){ return 'hw:' + teacher + '|' + code; }
 function loadHomework(teacher, code){
+  // 캐시 우선 — 동시 제출이 몰릴 때 매번 시트 전체를 읽지 않도록 (10분 유지, 저장·삭제 시 즉시 비움)
+  const cache = CacheService.getScriptCache();
+  const hit = cache.get(hwCacheKey(teacher, code));
+  if(hit) return JSON.parse(hit);
   const f = findHomeworkRow(teacher, code);
   if(!f) throw new Error('H WORK을 찾을 수 없습니다: ' + teacher + ' / ' + code);
   if(!f.data) throw new Error('정답 데이터(C칸)가 비어 있습니다.');
+  try{ cache.put(hwCacheKey(teacher, code), f.data, 600); }catch(e){}  // 100KB 초과 등이면 캐시 없이 진행
   return JSON.parse(f.data);
 }
 
@@ -85,6 +117,7 @@ function saveHomework(data){
   const f = findHomeworkRow(data.teacher, data.code);
   if(f){ sh.getRange(f.row,1,1,3).setValues([[ data.teacher, data.code, json ]]); }
   else { sh.appendRow([ data.teacher, data.code, json ]); }
+  try{ CacheService.getScriptCache().remove(hwCacheKey(data.teacher, data.code)); }catch(e){}
   return { ok:true, msg:'저장되었습니다: ' + data.teacher + ' / ' + data.code };
 }
 
@@ -112,10 +145,29 @@ function deleteHomework(body){
       return { ok:false, error:'제출 기록이 '+subRows.length+'건 있어요. 화면을 새로고침한 뒤 다시 시도해 주세요.', subs: subRows.length };
     subRows.sort(function(a,b){ return b-a; }).forEach(function(r){ sub.deleteRow(r); });   // 큰 행부터 — 행 밀림 안전
     hwSheet().deleteRow(f.row);
+    try{ CacheService.getScriptCache().remove(hwCacheKey(teacher, code)); }catch(e){}
+    try{ CacheService.getScriptCache().remove(hwDueKey(teacher, code)); }catch(e){}
     return { ok:true, deletedSubs: subRows.length };
   } finally {
     try{ lock.releaseLock(); }catch(e){}
   }
+}
+
+// 과제 마감일 설정/해제 (배정·현황 페이지). { pw, teacher, code, due:'yyyy-MM-dd'|'' }
+// 마감일 그 날 밤 11:59까지 제출 가능. due 빈값이면 마감 해제(기한 없음).
+function setHomeworkDue(body){
+  if(String(body.pw||'') !== 'sh') return { ok:false, error:'unauthorized' };
+  const teacher = String(body.teacher||'').trim(), code = String(body.code||'').trim();
+  const due = String(body.due||'').trim();
+  if(!teacher || !code) return { ok:false, error:'강사와 제목이 필요합니다.' };
+  if(due && !/^\d{4}-\d{2}-\d{2}$/.test(due)) return { ok:false, error:'마감일은 yyyy-MM-dd 형식으로 보내주세요.' };
+  const f = findHomeworkRow(teacher, code);
+  if(!f) return { ok:false, error:'과제를 찾을 수 없습니다: ' + teacher + ' / ' + code };
+  const rg = hwSheet().getRange(f.row, 4);
+  rg.setNumberFormat('@');   // 시트가 날짜 값으로 바꾸지 않게 텍스트로
+  rg.setValue(due);
+  try{ CacheService.getScriptCache().remove(hwDueKey(teacher, code)); }catch(e){}
+  return { ok:true, due: due, closed: isClosed_(due) };
 }
 
 // 학생 화면용 메타 (정답은 절대 보내지 않음)
@@ -123,8 +175,10 @@ function getMeta(teacher, code){
   const hw = loadHomework(teacher, code);
   const items = {};
   Object.keys(hw.items || {}).forEach(function(q){ items[q] = { type: hw.items[q].type }; });
+  const due = loadDue(teacher, code);
   return { teacher: hw.teacher || teacher, code: hw.code || code,
-           count: Number(hw.count) || 0, schools: hw.schools || [], items: items };
+           count: Number(hw.count) || 0, schools: hw.schools || [], items: items,
+           due: due, closed: isClosed_(due) };
 }
 
 // ───────── 채점 ─────────
@@ -147,28 +201,27 @@ function gradeOne(item, studentAns){
   return String(studentAns) === String(item.ans);   // choice5 · ox 공통
 }
 
+// 전역 잠금 없이 동시 처리 — 채점은 읽기만 하고, 저장은 appendRow(줄 추가)라 동시에 해도 안전.
+// (예전엔 30초 잠금 대기 때문에 반 전체가 동시에 제출하면 뒤 학생들이 오류를 봤음)
 function submit(data){
-  const lock = LockService.getScriptLock();
-  lock.waitLock(30000);
-  try{
-    const hw = loadHomework(data.teacher, data.code);
-    const count = Number(hw.count) || 0;
-    const detail = {};
-    let got = 0;
-    for(let q=1;q<=count;q++){
-      const item = (hw.items && hw.items[q]) ? hw.items[q] : {};
-      const mine = (data.answers && data.answers[q] != null) ? data.answers[q] : '';
-      const ok = gradeOne(item, mine);
-      if(ok) got++;
-      detail[q] = { type:item.type, mine:String(mine), ans:String(item.ans==null?'':item.ans), ok:ok };
-    }
-    saveSubmission(data, got, count, detail);
-    return { ok:true,
-      result: { got:got, total:count, detail:detail },
-      student: { teacher:data.teacher, code:data.code, school:data.school, grade:data.grade, name:data.name } };
-  } finally {
-    lock.releaseLock();
+  // 마감 확인 — 마감일 다음 날부터 제출 거절 (화면을 우회해도 서버가 막는다). 캐시라 시트 추가 읽기 없음.
+  const due = loadDue(data.teacher, data.code);
+  if(isClosed_(due)) return { ok:false, error:'마감된 과제입니다 (마감 ' + due + '). 선생님께 문의해 주세요.' };
+  const hw = loadHomework(data.teacher, data.code);
+  const count = Number(hw.count) || 0;
+  const detail = {};
+  let got = 0;
+  for(let q=1;q<=count;q++){
+    const item = (hw.items && hw.items[q]) ? hw.items[q] : {};
+    const mine = (data.answers && data.answers[q] != null) ? data.answers[q] : '';
+    const ok = gradeOne(item, mine);
+    if(ok) got++;
+    detail[q] = { type:item.type, mine:String(mine), ans:String(item.ans==null?'':item.ans), ok:ok };
   }
+  saveSubmission(data, got, count, detail);
+  return { ok:true,
+    result: { got:got, total:count, detail:detail },
+    student: { teacher:data.teacher, code:data.code, school:data.school, grade:data.grade, name:data.name } };
 }
 
 // ───────── 제출기록 시트 ─────────
