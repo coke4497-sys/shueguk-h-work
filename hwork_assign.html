@@ -42,7 +42,8 @@
   select:focus,input:focus{outline:none;border-color:var(--accent);background:#fff;}
   .row2{display:flex;gap:10px;} .row2>div{flex:1;min-width:0;}
 
-  .submit{width:100%;margin-top:18px;padding:15px;border:none;border-radius:12px;background:var(--accent);color:#fff;
+  /* H WORK 포인트 = 연하늘 (2026-08-22) */
+  .submit{width:100%;margin-top:18px;padding:15px;border:none;border-radius:12px;background:#C9D5EE;color:#44578A;
     font-family:"Gowun Batang",serif;font-size:16px;font-weight:700;letter-spacing:1px;cursor:pointer;transition:opacity .15s;}
   .submit:active{opacity:.85;} .submit:disabled{background:#A6C1BB;cursor:default;}
   .status{font-size:13px;margin-top:12px;min-height:1.2em;color:var(--ink-soft);text-align:center;}
@@ -81,7 +82,7 @@
   .lock-card .d{font-size:13px;color:var(--ink-soft);margin:10px 0 18px;}
   .lock-card input{width:100%;padding:13px;border:1.5px solid var(--line);border-radius:10px;font:inherit;font-size:16px;text-align:center;}
   .lock-card input:focus{outline:none;border-color:var(--accent);}
-  .lock-card button{width:100%;margin-top:11px;padding:13px;border:none;border-radius:11px;background:var(--accent);color:#fff;font-family:"Gowun Batang",serif;font-weight:700;font-size:16px;cursor:pointer;}
+  .lock-card button{width:100%;margin-top:11px;padding:13px;border:none;border-radius:11px;background:#C9D5EE;color:#44578A;font-family:"Gowun Batang",serif;font-weight:700;font-size:16px;cursor:pointer;}
   .lock-err{color:var(--bad);font-size:12.5px;min-height:1.1em;margin-top:10px;}
   body.locked{overflow:hidden;} body:not(.locked) .lock{display:none;}
   @media (prefers-reduced-motion:reduce){*{transition:none !important;}}
@@ -145,7 +146,7 @@
   <section class="card" id="statusCard" style="display:none;">
     <h2><span class="dot"></span>제출 현황</h2>
     <p class="sub">배정된 학생과 실제 제출을 대조합니다. (이름+학교 기준)</p>
-    <button type="button" class="submit" id="statusBtn" onclick="loadStatus()" style="background:#4C6E66;">현황 불러오기 / 새로고침</button>
+    <button type="button" class="submit" id="statusBtn" onclick="loadStatus()" style="background:#C9D5EE;color:#44578A;">현황 불러오기 / 새로고침</button>
     <div id="statusBody" style="margin-top:16px;"></div>
   </section>
 
@@ -154,7 +155,7 @@
     <h2><span class="dot"></span>과제 목록·삭제</h2>
     <p class="sub">출제된 모든 과제예요. 삭제하면 그 과제의 <b>배정과 제출 기록(성적표·별 포함)</b>도 함께 정리됩니다 — 제출이 있는 과제는 이중 확인을 거쳐요.</p>
     <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
-      <button type="button" class="submit" style="width:auto;padding:9px 16px;font-size:13px;margin-top:0;background:#4C6E66;" onclick="loadHwManage()">새로고침</button>
+      <button type="button" class="submit" style="width:auto;padding:9px 16px;font-size:13px;margin-top:0;background:#C9D5EE;color:#44578A;" onclick="loadHwManage()">새로고침</button>
     </div>
     <div id="hwManageBody"><div class="a-empty" style="text-align:center;color:#8B928C;font-size:13.5px;padding:14px;">불러오는 중…</div></div>
   </section>
