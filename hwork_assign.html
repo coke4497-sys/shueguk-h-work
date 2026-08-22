@@ -171,6 +171,36 @@
   function sbHwQ(teacher, code){ return 'teacher=eq.'+encodeURIComponent(teacher)+'&code=eq.'+encodeURIComponent(code); }
   function sbHwHeaders(){ return { 'apikey': SB_KEY, 'Authorization': 'Bearer '+SB_KEY,
     'Content-Type': 'application/json', 'Prefer': 'return=minimal' }; }
+  function sbYmdNorm(v){
+    var s = String(v == null ? '' : v).trim();
+    if (!s || /^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    var tm = Date.parse(s);
+    if (isNaN(tm)) return s;
+    var d = new Date(tm + 9 * 3600000);
+    function p2(n){ return ('0'+n).slice(-2); }
+    return d.getUTCFullYear()+'-'+p2(d.getUTCMonth()+1)+'-'+p2(d.getUTCDate());
+  }
+  /* 배정 미러 재동기화 — assignList(tool 전체) 응답으로 그 도구의 미러(assignments)를 통째 교체 (s.html이 읽음) */
+  function sbResyncAssign(tool, list){
+    try {
+      var H = sbHwHeaders();
+      var body = (list||[]).map(function(a){
+        return { seq: a.rowIndex||0, date: sbYmdNorm(a.date), tool: String(a.tool||tool), item: String(a.item||''),
+                 type: String(a.type||''), target: String(a.target||''), due: sbYmdNorm(a.due), memo: String(a.memo||'') };
+      });
+      fetch(SB_REST+'/assignments?tool=eq.'+encodeURIComponent(tool), { method:'DELETE', headers:H })
+        .then(function(){ return body.length ? fetch(SB_REST+'/assignments', { method:'POST', headers:H, body: JSON.stringify(body) }) : null; })
+        .catch(function(e){ console.warn('배정 미러 재동기화 실패 — 일일 점검이 복구', e); });
+    } catch (e) {}
+  }
+  /* 배정 변경 직후 전체 재동기화 — assignList(tool 전체)를 새로 받아 미러 교체 */
+  function sbResyncAssignAll(tool){
+    try {
+      fetchJSON(REPORT_API + '?action=assignList&pw='+encodeURIComponent(SERVER_PW)+'&tool='+encodeURIComponent(tool)+'&t='+Date.now())
+        .then(function(d){ if(d && d.result==='success') sbResyncAssign(tool, d.assignments||[]); })
+        .catch(function(){});
+    } catch (e) {}
+  }
   function sbHwDue(teacher, code, due){
     try{
       fetch(SB_REST+'/hwork_homeworks?'+sbHwQ(teacher, code), { method:'PATCH', headers: sbHwHeaders(),
@@ -297,6 +327,7 @@
         setAssignStatus('✓ 배정됨 — '+sel.summary, 'ok');
         if(picker) picker.reset();
         document.getElementById('memo').value='';
+        sbResyncAssignAll(TOOL);
         loadAssignList();
       } else { setAssignStatus('배정 실패: '+(res.message==='unauthorized'?'권한 없음':(res.message||'오류')), 'err'); }
     }).catch(function(){ btn.disabled=false; btn.textContent=lb; setAssignStatus('배정 실패 — 인터넷 확인', 'err'); });
@@ -333,7 +364,7 @@
       method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
       body: JSON.stringify({ action:'deleteAssignment', pw:SERVER_PW, rowIndex:rowIndex, tool:k.tool||'', item:k.item||'' })
     }).then(function(r){ return r.json(); }).then(function(res){
-      if(res.result==='success'){ loadAssignList(); } else { alert('삭제 실패: '+(res.message||'오류')); }
+      if(res.result==='success'){ sbResyncAssignAll(TOOL); loadAssignList(); } else { alert('삭제 실패: '+(res.message||'오류')); }
     }).catch(function(){ alert('삭제 실패 — 인터넷 확인'); });
   }
 
@@ -460,6 +491,7 @@
       var list = (rs[0] && rs[0].ok && rs[0].list) || [];
       var asg  = (rs[1] && rs[1].result==='success' && rs[1].assignments) || [];
       var subs = (rs[2] && rs[2].ok && rs[2].list) || [];
+      if (rs[1] && rs[1].result==='success') sbResyncAssign(TOOL, asg);
       var aMap = {}, sMap = {};
       asg.forEach(function(a){ (aMap[a.item] = aMap[a.item] || []).push(a); });
       subs.forEach(function(r){ var k = r.teacher + ' / ' + r.code; sMap[k] = (sMap[k]||0) + 1; });
