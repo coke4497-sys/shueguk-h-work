@@ -164,6 +164,26 @@
 <script>
   /* ===== 설정 ===== */
   var HW_API     = "https://script.google.com/macros/s/AKfycbyrc0j6EmVLrlfZeSchetAcEzWPEFAEV1RHStr6ZTJPDJeH6pcvRDemfWU64puojmSDPg/exec";      // H WORK 백엔드 (목록·제출)
+
+  /* ── 수파베이스 미러 (2026-08-23 DB 이전) — 마감일·삭제를 미러에도 반영. 실패 무해(일일 점검이 복구). */
+  var SB_REST = "https://bangdbhqpphqqdwcledg.supabase.co/rest/v1";
+  var SB_KEY = "sb_publishable_dE9d1KIbpgYaQkaS2MSrlg_-7SiRJuT";
+  function sbHwQ(teacher, code){ return 'teacher=eq.'+encodeURIComponent(teacher)+'&code=eq.'+encodeURIComponent(code); }
+  function sbHwHeaders(){ return { 'apikey': SB_KEY, 'Authorization': 'Bearer '+SB_KEY,
+    'Content-Type': 'application/json', 'Prefer': 'return=minimal' }; }
+  function sbHwDue(teacher, code, due){
+    try{
+      fetch(SB_REST+'/hwork_homeworks?'+sbHwQ(teacher, code), { method:'PATCH', headers: sbHwHeaders(),
+        body: JSON.stringify({ due: due || '' }) })
+        .catch(function(e){ console.warn('H WORK 마감 미러 실패 — 일일 점검이 복구', e); });
+    }catch(e){}
+  }
+  function sbHwDelete(teacher, code){
+    try{
+      fetch(SB_REST+'/hwork_homeworks?'+sbHwQ(teacher, code), { method:'DELETE', headers: sbHwHeaders() }).catch(function(){});
+      fetch(SB_REST+'/hwork_submissions?'+sbHwQ(teacher, code), { method:'DELETE', headers: sbHwHeaders() }).catch(function(){});
+    }catch(e){}
+  }
   var REPORT_API = "https://script.google.com/macros/s/AKfycbzhCncBwn-JlqXARC3wfrWUCuNHzlNK2df0bdhx-w78Xr8mzYUcIYZOJdRi9N4bHtsb/exec";        // 리포트 백엔드 (명단·배정)
   var SERVER_PW  = "sh";
   var PASS_ENC   = "c2g=";   // 'sh' — 교사 페이지 공통
@@ -479,7 +499,7 @@
     fetch(HW_API, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
       body: JSON.stringify({ action:'setHomeworkDue', pw:SERVER_PW, teacher:h.teacher, code:h.code, due:v }) })
       .then(function(r){ return r.json(); }).then(function(res){
-        if(res && res.ok){ loadHwManage(); }
+        if(res && res.ok){ sbHwDue(h.teacher, h.code, v); loadHwManage(); }
         else alert('저장 실패: ' + ((res&&res.error)||'오류') + '\n(H WORK 백엔드 재배포 전이면 아직 사용할 수 없어요)');
       }).catch(function(){ alert('연결 실패 — 다시 시도해 주세요.'); });
   }
@@ -510,6 +530,7 @@
         body: JSON.stringify({ action:'deleteHomework', pw:SERVER_PW, teacher:h.teacher, code:h.code, deleteSubs: sn ? '1' : '' }) }).then(function(x){ return x.json(); });
     }).then(function(res){
       if(!res || !res.ok){ alert('삭제 실패: '+((res&&res.error)||'오류')+'\n(H WORK 백엔드 재배포 전이면 아직 사용할 수 없어요)'); loadHwManage(); return; }
+      sbHwDelete(h.teacher, h.code);
       loadHomeworks();   // 과제 선택 드롭다운 갱신
       loadHwManage();
     }).catch(function(){ alert('연결 실패 — 다시 시도해 주세요.'); loadHwManage(); });
