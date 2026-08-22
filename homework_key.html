@@ -205,6 +205,21 @@
   // 채점·저장 서버 주소 (Apps Script 웹앱 /exec)
   const API_URL = "https://script.google.com/macros/s/AKfycbyrc0j6EmVLrlfZeSchetAcEzWPEFAEV1RHStr6ZTJPDJeH6pcvRDemfWU64puojmSDPg/exec";
 
+  /* ── 수파베이스 미러 (2026-08-23 DB 이전) — 저장 성공 시 과제 미러(hwork_homeworks) 갱신.
+   * 실패해도 무해(일일 점검이 복구). 마감일(due)은 보내지 않아 기존 값 유지. */
+  const SB_REST = "https://bangdbhqpphqqdwcledg.supabase.co/rest/v1";
+  const SB_KEY = "sb_publishable_dE9d1KIbpgYaQkaS2MSrlg_-7SiRJuT";
+  function sbMirrorHomework(data){
+    try{
+      fetch(SB_REST + "/hwork_homeworks?on_conflict=teacher,code", {
+        method: "POST",
+        headers: { "apikey": SB_KEY, "Authorization": "Bearer " + SB_KEY, "Content-Type": "application/json",
+                   "Prefer": "resolution=merge-duplicates,return=minimal" },
+        body: JSON.stringify([{ teacher: data.teacher || "", code: data.code || "", data: data }])
+      }).catch(function(e){ console.warn("H WORK 과제 미러 실패 — 일일 점검이 복구", e); });
+    }catch(e){}
+  }
+
   function escapeHtml(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
   /* ── 학교 목록 ── */
@@ -352,7 +367,7 @@
     try{
       const res=await fetch(API_URL, { method:'POST', body: JSON.stringify({ action:'saveHomework', data }) });
       const json=await res.json();
-      if(json.ok){ setSaveMsg('ok', '저장 완료 ✓  ('+(json.msg? json.msg.replace('저장되었습니다: ',''):(data.teacher+' / '+data.code))+')\n학생 제출 페이지에서 바로 선택할 수 있습니다.'); }
+      if(json.ok){ sbMirrorHomework(data); setSaveMsg('ok', '저장 완료 ✓  ('+(json.msg? json.msg.replace('저장되었습니다: ',''):(data.teacher+' / '+data.code))+')\n학생 제출 페이지에서 바로 선택할 수 있습니다.'); }
       else{ setSaveMsg('bad', '저장 실패: '+(json.error||'알 수 없는 오류')); }
     }catch(err){
       setSaveMsg('bad', '서버 연결에 실패했습니다.\n· 인터넷 연결을 확인해 주세요.\n· 배포 주소(코드 맨 위 API_URL)가 맞는지 확인해 주세요.\n('+err+')');

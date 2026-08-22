@@ -194,6 +194,28 @@
 <script>
   const API_URL = "https://script.google.com/macros/s/AKfycbyrc0j6EmVLrlfZeSchetAcEzWPEFAEV1RHStr6ZTJPDJeH6pcvRDemfWU64puojmSDPg/exec";
 
+  /* ── 수파베이스 미러 (2026-08-23 DB 이전) — 제출 성공 시 미러(hwork_submissions)에도 기록.
+   * 채점·마감 판정은 기존 백엔드 그대로, 실패해도 제출에는 영향 없음(일일 점검이 복구). */
+  const SB_REST = "https://bangdbhqpphqqdwcledg.supabase.co/rest/v1";
+  const SB_KEY = "sb_publishable_dE9d1KIbpgYaQkaS2MSrlg_-7SiRJuT";
+  function sbMirrorHwork(d, result){
+    try{
+      const p2 = n => String(n).padStart(2, "0");
+      const t = new Date(Date.now() + 9 * 3600000);
+      const ts = t.getUTCFullYear() + "-" + p2(t.getUTCMonth()+1) + "-" + p2(t.getUTCDate()) +
+                 " " + p2(t.getUTCHours()) + ":" + p2(t.getUTCMinutes());
+      fetch(SB_REST + "/hwork_submissions", {
+        method: "POST",
+        headers: { "apikey": SB_KEY, "Authorization": "Bearer " + SB_KEY,
+                   "Content-Type": "application/json", "Prefer": "return=minimal" },
+        body: JSON.stringify([{ ts: ts, teacher: d.teacher || "", code: d.code || "",
+          school: d.school || "", grade: d.grade || "", name: d.name || "",
+          got: Number(result && result.got) || 0, total: Number(result && result.total) || 0,
+          answers: d.answers || {}, detail: (result && result.detail) || {}, questions: d.questions || {} }])
+      }).catch(function(e){ console.warn("H WORK 제출 미러 실패 — 일일 점검이 복구", e); });
+    }catch(e){}
+  }
+
   let allHw=[];      // [{teacher, code}]
   let meta=null;     // 선택된 H WORK 메타(정답 없음)
   const picks={};    // q -> 답
@@ -390,7 +412,7 @@
     try{
       const res=await fetch(API_URL,{ method:'POST', body:JSON.stringify(payload) });
       const json=await res.json();
-      if(json.ok){ renderReport(json); }
+      if(json.ok){ sbMirrorHwork(payload.data, json.result); renderReport(json); }
       else{ btn.disabled=false; btn.textContent='제출하기'; toast('채점 오류: '+(json.error||'알 수 없음')); }
     }catch(err){ btn.disabled=false; btn.textContent='제출하기'; toast('제출 실패: 다시 시도해 주세요'); }
   }
