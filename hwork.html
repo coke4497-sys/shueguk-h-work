@@ -204,14 +204,16 @@
       const t = new Date(Date.now() + 9 * 3600000);
       const ts = t.getUTCFullYear() + "-" + p2(t.getUTCMonth()+1) + "-" + p2(t.getUTCDate()) +
                  " " + p2(t.getUTCHours()) + ":" + p2(t.getUTCMinutes());
-      fetch(SB_REST + "/hwork_submissions", {
+      // 표에 직접 넣지 않고 '넣기 전용' 함수를 부른다 — 학생이 여는 페이지라
+      // 공개 키에 표 권한을 열어 둘 수 없다(013 마이그레이션, 2026-08-25)
+      fetch(SB_REST + "/rpc/mirror_hwork_submission", {
         method: "POST",
         headers: { "apikey": SB_KEY, "Authorization": "Bearer " + SB_KEY,
-                   "Content-Type": "application/json", "Prefer": "return=minimal" },
-        body: JSON.stringify([{ ts: ts, teacher: d.teacher || "", code: d.code || "",
+                   "Content-Type": "application/json" },
+        body: JSON.stringify({ p: { ts: ts, teacher: d.teacher || "", code: d.code || "",
           school: d.school || "", grade: d.grade || "", name: d.name || "",
           got: Number(result && result.got) || 0, total: Number(result && result.total) || 0,
-          answers: d.answers || {}, detail: (result && result.detail) || {}, questions: d.questions || {} }])
+          answers: d.answers || {}, detail: (result && result.detail) || {}, questions: d.questions || {} } })
       }).catch(function(e){ console.warn("H WORK 제출 미러 실패 — 일일 점검이 복구", e); });
     }catch(e){}
   }
