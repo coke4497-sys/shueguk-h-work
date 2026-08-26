@@ -194,10 +194,20 @@
 <script>
   const API_URL = "https://script.google.com/macros/s/AKfycbyrc0j6EmVLrlfZeSchetAcEzWPEFAEV1RHStr6ZTJPDJeH6pcvRDemfWU64puojmSDPg/exec";
 
-  /* ── 수파베이스 미러 (2026-08-23 DB 이전) — 제출 성공 시 미러(hwork_submissions)에도 기록.
-   * 채점·마감 판정은 기존 백엔드 그대로, 실패해도 제출에는 영향 없음(일일 점검이 복구). */
+  /* ── 수파베이스가 원본 (2026-08-26, 020 마이그레이션) — 목록·문항·제출(채점 포함)을
+   * hwork_list/hwork_meta/hwork_submit 함수로 먼저 처리한다(0.3초 안팎). 실패하면(마이그레이션 전·
+   * 장애) 옛 백엔드로 폴백. 제출이 원본에 성공하면 시트 사본은 옛 백엔드로 뒤에서 보낸다. */
   const SB_REST = "https://bangdbhqpphqqdwcledg.supabase.co/rest/v1";
   const SB_KEY = "sb_publishable_dE9d1KIbpgYaQkaS2MSrlg_-7SiRJuT";
+  async function sbRpc(fn, params){
+    const res = await fetch(SB_REST + "/rpc/" + fn, {
+      method: "POST",
+      headers: { "apikey": SB_KEY, "Authorization": "Bearer " + SB_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify(params || {})
+    });
+    if(!res.ok) throw new Error(fn + " " + res.status);
+    return res.json();
+  }
   function sbMirrorHwork(d, result){
     try{
       const p2 = n => String(n).padStart(2, "0");
@@ -247,7 +257,10 @@
 
   async function init(){
     try{
-      const json=await fetchJSON(API_URL+'?action=list');
+      let json;
+      try{ json=await sbRpc('hwork_list'); }
+      catch(e){ console.warn('수파베이스 목록 실패 — 기존 백엔드로 폴백', e);
+        json=await fetchJSON(API_URL+'?action=list'); }
       if(!json.ok){ showErr('목록을 불러오지 못했습니다: '+(json.error||'')); return; }
       allHw=json.list||[];
       const teachers=uniq(allHw.map(h=>h.teacher));
@@ -291,7 +304,10 @@
     if(!code) return;
     toast('불러오는 중…');
     try{
-      const json=await fetchJSON(API_URL+'?action=meta&teacher='+encodeURIComponent(teacher)+'&code='+encodeURIComponent(code));
+      let json;
+      try{ json=await sbRpc('hwork_meta', { p:{ teacher:teacher, code:code } }); }
+      catch(e){ console.warn('수파베이스 문항 조회 실패 — 기존 백엔드로 폴백', e);
+        json=await fetchJSON(API_URL+'?action=meta&teacher='+encodeURIComponent(teacher)+'&code='+encodeURIComponent(code)); }
       if(!json.ok){ showErr('H WORK을 불러오지 못했습니다: '+(json.error||'')); return; }
       if(json.meta && json.meta.closed){ showErr('마감된 과제입니다 (마감 '+json.meta.due+'). 선생님께 문의해 주세요.'); return; }
       meta=json.meta;
@@ -411,11 +427,23 @@
 
     const payload={ action:'submit', data:{ teacher, code, school, grade, name, answers:picks, questions:questions } };
     const btn=document.getElementById('submit'); btn.disabled=true; btn.textContent='채점 중…';
+    function showFail(json){ btn.disabled=false; btn.textContent='제출하기'; toast('채점 오류: '+((json&&json.error)||'알 수 없음')); }
+    // 원본(수파베이스)에 먼저 제출·채점 — 성공하면 시트 사본은 옛 백엔드로 뒤에서(결과 무시,
+    // 빠지면 일일 점검이 보고). 함수 호출 자체가 실패하면(마이그레이션 전·장애) 옛 경로 그대로.
+    try{
+      const json=await sbRpc('hwork_submit', { p: payload.data });
+      if(json.ok){
+        fetch(API_URL,{ method:'POST', body:JSON.stringify(payload) }).catch(function(){});
+        renderReport(json);
+      }
+      else showFail(json);   // 마감 등 판정 거절 — 옛 백엔드도 같은 판정이라 폴백하지 않는다
+      return;
+    }catch(err){ console.warn('수파베이스 제출 실패 — 기존 백엔드로 폴백', err); }
     try{
       const res=await fetch(API_URL,{ method:'POST', body:JSON.stringify(payload) });
       const json=await res.json();
       if(json.ok){ sbMirrorHwork(payload.data, json.result); renderReport(json); }
-      else{ btn.disabled=false; btn.textContent='제출하기'; toast('채점 오류: '+(json.error||'알 수 없음')); }
+      else showFail(json);
     }catch(err){ btn.disabled=false; btn.textContent='제출하기'; toast('제출 실패: 다시 시도해 주세요'); }
   }
 
