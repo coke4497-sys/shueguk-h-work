@@ -168,6 +168,49 @@
 <script>
   const API_URL = "https://script.google.com/macros/s/AKfycbyrc0j6EmVLrlfZeSchetAcEzWPEFAEV1RHStr6ZTJPDJeH6pcvRDemfWU64puojmSDPg/exec";
 
+  /* ── 제출 목록·상세의 원본은 수파베이스 (2026-08-26, 020 원본 전환의 교사 화면) ──
+   * 옛 백엔드(시트)는 사본이라, 사본 전송이 빠진 제출이 교사에게 안 보일 수 있었다.
+   * 교사 조용한 인증(다른 티쳐스 페이지와 같은 계정·같은 localStorage 캐시)으로
+   * hwork_submissions를 직접 읽는다. 실패하면 옛 백엔드로 폴백. */
+  const SB_URL = 'https://bangdbhqpphqqdwcledg.supabase.co';
+  const SB_KEY = 'sb_publishable_dE9d1KIbpgYaQkaS2MSrlg_-7SiRJuT';
+  const T_LS = 'sb_teacher_tok_v1';
+  let sbTok = null, sbUntil = 0;
+  async function sbAuth(){
+    if (sbTok && Date.now() < sbUntil) return sbTok;
+    try {
+      const c = JSON.parse(localStorage.getItem(T_LS) || 'null');
+      if (c && c.t && c.u > Date.now()){ sbTok = c.t; sbUntil = c.u; return sbTok; }
+    } catch(e){}
+    const r = await fetch(SB_URL + '/auth/v1/token?grant_type=password', {
+      method: 'POST',
+      headers: { 'apikey': SB_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: 'teachers@shueguk.internal', password: 'shg_FCePWvnawH44SV8kYB9BHRKi6aag' })
+    });
+    const d = await r.json();
+    if (!d || !d.access_token) throw new Error('teacher auth');
+    sbTok = d.access_token;
+    sbUntil = Date.now() + Math.max(60, (d.expires_in || 3600) - 300) * 1000;
+    try { localStorage.setItem(T_LS, JSON.stringify({ t: sbTok, u: sbUntil })); } catch(e){}
+    return sbTok;
+  }
+  async function sbGet(path){
+    const t = await sbAuth();
+    const r = await fetch(SB_URL + '/rest/v1' + path,
+      { headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + t }, cache: 'no-store' });
+    if (!r.ok) throw new Error('sb ' + r.status);
+    return r.json();
+  }
+  async function sbAllRows(path){        // 1,000행 한도 자동 페이징
+    let out = [], off = 0;
+    for(;;){
+      const page = await sbGet(path + '&limit=1000&offset=' + off);
+      out = out.concat(page);
+      if (page.length < 1000) return out;
+      off += 1000;
+    }
+  }
+
   let ALL=[];
   let CUR=[];
   function escapeHtml(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
@@ -204,9 +247,19 @@
     document.getElementById('empty').style.display='none';
     hideDiag();
     try{
-      const json=await fetchJSON(API_URL+'?action=responses');
-      if(!json.ok){ showDiag('목록 오류: '+(json.error||'')); document.getElementById('loading').style.display='none'; return; }
-      ALL=json.list||[];
+      let list = null;
+      try{
+        const rows = await sbAllRows('/hwork_submissions?select=id,ts,teacher,code,school,grade,name,got,total,questions&order=id.desc');
+        list = rows.map(r => ({ _id: r.id, submittedAt: r.ts, teacher: r.teacher, code: r.code,
+          school: r.school, grade: r.grade, name: r.name, got: String(r.got), total: String(r.total),
+          qCount: Object.keys(r.questions || {}).length }));
+      }catch(e){ console.warn('수파베이스 목록 실패 — 기존 백엔드(시트)로 폴백', e); }
+      if (!list){
+        const json=await fetchJSON(API_URL+'?action=responses');
+        if(!json.ok){ showDiag('목록 오류: '+(json.error||'')); document.getElementById('loading').style.display='none'; return; }
+        list = json.list||[];
+      }
+      ALL=list;
       fillSel('fTeacher', uniq(ALL.map(r=>r.teacher)), '전체 강사');
       fillSel('fCode',    uniq(ALL.map(r=>r.code)),    '전체 제목');
       fillSel('fSchool',  uniq(ALL.map(r=>r.school)),  '전체 학교');
@@ -254,7 +307,7 @@
 
     if(!rows.length){ tbl.style.display='none'; empty.style.display='block'; empty.textContent='조건에 맞는 제출이 없습니다.'; return; }
     empty.style.display='none'; tbl.style.display='table';
-    body.innerHTML=rows.map(r=>`<tr class="r" onclick="openReport(${r.row})">
+    body.innerHTML=rows.map((r,i)=>`<tr class="r" onclick="openReportAt(${i})">
       <td>${escapeHtml(r.teacher||'')}</td><td>${escapeHtml(r.code||'')}</td>
       <td class="nm">${escapeHtml(r.name||'')}${Number(r.qCount)>0?` <span class="qbadge">질문 ${r.qCount}</span>`:''}</td>
       <td class="sc">${escapeHtml(r.got)} / ${escapeHtml(r.total)}</td>
@@ -273,13 +326,27 @@
     return datePart+' '+timePart;
   }
 
-  async function openReport(row){
+  /* 한 제출의 상세 — 원본(수파베이스, _id) 우선 · 시트 목록(폴백)이면 옛 행 조회 */
+  async function reportOf(r){
+    if (r && r._id){
+      const rows = await sbGet('/hwork_submissions?id=eq.' + r._id +
+        '&select=ts,teacher,code,school,grade,name,got,total,detail,questions');
+      if (!rows || !rows.length) throw new Error('gone');
+      const x = rows[0];
+      return { student: { teacher: x.teacher, code: x.code, school: x.school, grade: x.grade, name: x.name },
+               result: { got: Number(x.got), total: Number(x.total), detail: x.detail },
+               questions: x.questions || {}, submittedAt: x.ts };
+    }
+    const json = await fetchJSON(API_URL+'?action=report&row='+encodeURIComponent(r.row));
+    if (!json.ok) throw new Error(json.error || '조회 오류');
+    return json.report;
+  }
+  async function openReportAt(i){
+    const r = CUR && CUR[i];
+    if (!r) return;
     toast('불러오는 중…');
-    try{
-      const json=await fetchJSON(API_URL+'?action=report&row='+encodeURIComponent(row));
-      if(!json.ok){ toast('조회 오류: '+(json.error||'')); return; }
-      renderReport(json.report);
-    }catch(err){ toast('서버 연결 실패 · 다시 시도해 주세요'); }
+    try{ renderReport(await reportOf(r)); }
+    catch(err){ toast('조회 실패 · 다시 시도해 주세요'); }
   }
 
   function renderReport(rep){
@@ -352,8 +419,7 @@
     btn.disabled=true; btn.textContent='분석 중… ('+CUR.length+'명)';
     try{
       const reports=await Promise.all(CUR.map(r=>
-        fetchJSON(API_URL+'?action=report&row='+encodeURIComponent(r.row))
-          .then(j=>(j&&j.ok)?j.report:null).catch(()=>null)
+        reportOf(r).catch(()=>null)
       ));
       const valid=reports.filter(Boolean);
       if(!valid.length){ toast('데이터를 불러오지 못했습니다'); return; }
