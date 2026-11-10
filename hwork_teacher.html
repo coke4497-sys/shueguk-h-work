@@ -89,6 +89,9 @@
   #report table.detail td.qn{ background:#E0EAE7; font-weight:700; color:#3A544E; }
   #report table.detail td.mine,#report table.detail td.ansc{ font-size:12.5px; }
   #report table.detail tr.wrong td{ background:#FADED9; }
+  #report table.detail td.cmp{ color:#628C83; font-size:12.5px; }
+  #report table.detail tr.essay td.mine,#report table.detail tr.essay td.ansc{ text-align:left; white-space:pre-wrap; }
+  #report .snote{ text-align:center; font-size:12.5px; color:#8B928C; margin-top:6px; }
   #report td.o{ color:var(--ok); font-weight:700; }
   #report td.x{ color:var(--bad); font-weight:700; }
   #report .blank{ color:var(--muted); font-size:12px; }
@@ -350,14 +353,28 @@
     catch(err){ toast('조회 실패 · 다시 시도해 주세요'); }
   }
 
+  /* 전체 문항 수 — 서술형(essay)은 채점 문항 수(total)에서 빠지므로 detail 로 센다 */
+  function itemCount(r){
+    let n=Math.max(Number(r.count)||0, Number(r.total)||0);
+    Object.keys(r.detail||{}).forEach(k=>{ const v=Number(k); if(v>n) n=v; });
+    return n;
+  }
   function renderReport(rep){
     const st=rep.student, r=rep.result;
     const pct=r.total? Math.round(r.got/r.total*100):0;
     let rows='';
     const qmap = rep.questions || {};
-    for(let q=1;q<=r.total;q++){ const d=r.detail[q]||{};
+    const n=itemCount(r); let ne=0;
+    for(let q=1;q<=n;q++){ const d=r.detail[q]||{};
       const mine=(d.mine&&String(d.mine).length)?escapeHtml(d.mine):'<span class="blank">무응답</span>';
       const qtext = qmap[q] ? escapeHtml(qmap[q]) : '';
+      if(d.type==='essay'){ ne++;   // 서술형(예시 답 비교) — 채점하지 않음, 학생 답·예시 답을 그대로 보여 준다
+        rows+=`<tr class="essay"><td class="qn">${q}</td>
+          <td class="mine">${mine}</td><td class="ansc">${escapeHtml(d.ans||'')}</td>
+          <td class="cmp">비교</td>
+          <td class="qcell${qtext?' has':''}">${qtext}</td></tr>`;
+        continue;
+      }
       rows+=`<tr class="${d.ok?'':'wrong'}"><td class="qn">${q}</td>
         <td class="mine">${mine}</td><td class="ansc">${escapeHtml(d.ans||'')}</td>
         <td class="${d.ok?'o':'x'}">${d.ok?'O':'X'}</td>
@@ -374,7 +391,7 @@
         <tr><td>${escapeHtml(st.name)}</td><td>${escapeHtml(st.school)}</td><td>${escapeHtml(st.grade)}</td>
         <td>${escapeHtml(st.teacher)}</td><td>${escapeHtml(shortDate(rep.submittedAt))}</td></tr></table></section>
       <section><h2>채점 결과</h2>
-        <div class="scoreline"><span class="big">${r.got} / ${r.total}</span> <span class="pct">(${pct}점)</span></div></section>
+        <div class="scoreline"><span class="big">${r.got} / ${r.total}</span> <span class="pct">(${pct}점)</span></div>${ne?`<div class="snote">서술형 ${ne}문항은 채점하지 않습니다 — 학생 답과 예시 답을 비교해 주세요.</div>`:''}</section>
       <section><h2>문항별 채점</h2>
         <table class="detail"><colgroup><col style="width:12%"><col style="width:18%"><col style="width:18%"><col style="width:17%"><col style="width:35%"></colgroup><tr><th>문항</th><th>학생 답</th><th>정답</th><th>정오</th><th>질문</th></tr>${rows}</table></section>
       </div>`;
@@ -424,12 +441,13 @@
       ));
       const valid=reports.filter(Boolean);
       if(!valid.length){ toast('데이터를 불러오지 못했습니다'); return; }
-      const total=Math.max(...valid.map(v=>Number(v.result.total)||0));
+      const total=Math.max(...valid.map(v=>itemCount(v.result)));
       const N=valid.length;
       const stat=[];
       for(let qn=1; qn<=total; qn++){
-        let wrong=0, ans='';
-        valid.forEach(v=>{ const d=v.result.detail[qn]; if(d){ if(d.ok===false) wrong++; if(!ans && d.ans) ans=d.ans; } });
+        let wrong=0, ans='', essay=false;
+        valid.forEach(v=>{ const d=v.result.detail[qn]; if(d){ if(d.type==='essay') essay=true; if(d.ok===false) wrong++; if(!ans && d.ans) ans=d.ans; } });
+        if(essay) continue;   // 서술형(예시 답 비교)은 채점하지 않아 오답률에서 뺀다
         stat.push({ q:qn, wrong:wrong, n:N, rate: N? wrong/N : 0, ans:ans });
       }
       stat.sort((a,b)=> (b.rate-a.rate) || (a.q-b.q));

@@ -105,6 +105,7 @@
   .tans{ width:100%; padding:8px 10px; border:1.3px solid var(--line); border-radius:8px;
     font-size:13px; font-family:inherit; background:#fff; }
   .tans:focus{ outline:none; border-color:var(--lav); }
+  .eans{ resize:vertical; min-height:64px; font-family:inherit; line-height:1.5; }
 
   .toolbar{ display:flex; gap:8px; flex-wrap:wrap; margin:16px; }
   .toolbar button{
@@ -169,7 +170,7 @@
   </div>
   <div class="chips" id="chips"></div>
   <div class="hint">학생 화면에서는 이 학교들이 드롭다운으로 뜨고, 목록에 없으면 <b>「명단에 없음」</b>을 골라 직접 입력할 수 있습니다.</div>
-  <div class="hint" style="margin-top:8px;">문항마다 유형을 <b>5지선다·OX·서술형</b> 중에서 고릅니다. 서술형은 <b>정답 키워드</b>를 적으면 자동 채점됩니다 — 공백·대소문자 무시, <b>쉼표(,)로 나눈 키워드는 모두 있어야 정답</b>, 같은 자리 대체 표현은 <b>빗금(/)</b>. 점수는 <b>맞은 문항 / 총 문항</b>.</div>
+  <div class="hint" style="margin-top:8px;">문항마다 유형을 <b>5지선다·OX·단답·서술</b> 중에서 고릅니다. 단답은 <b>정답 키워드</b>를 적으면 자동 채점됩니다 — 공백·대소문자 무시, <b>쉼표(,)로 나눈 키워드는 모두 있어야 정답</b>, 같은 자리 대체 표현은 <b>빗금(/)</b>. <b>서술은 채점하지 않습니다</b> — 예시 답을 적어 두면 학생이 제출한 뒤 자기 답안과 비교해 봐요. 점수는 <b>맞은 문항 / 채점 문항</b>(서술 제외).</div>
 </section>
 
 <!-- 정답 입력 -->
@@ -182,7 +183,8 @@
     모든 문항 유형 일괄:
     <button onclick="bulkType('choice5')">5지선다</button>
     <button onclick="bulkType('ox')">OX</button>
-    <button onclick="bulkType('text')">서술형</button>
+    <button onclick="bulkType('text')">단답</button>
+    <button onclick="bulkType('essay')">서술</button>
   </div>
   <div class="qgrid" id="qgrid"></div>
 </section>
@@ -324,10 +326,10 @@
   const items = {};
   function ensure(q){ if(!items[q]) items[q]={type:'choice5', ans:null}; return items[q]; }
   function curCount(){ let v=Number(document.getElementById('count').value)||20; return Math.max(20, Math.min(70, v)); }
-  function label(t){ return t==='choice5'?'5지선다':(t==='ox'?'OX':'서술형'); }
+  function label(t){ return t==='choice5'?'5지선다':(t==='ox'?'OX':(t==='essay'?'서술(예시 답)':'단답')); }
 
   function isFilled(q){ const it=ensure(q);
-    if(it.type==='text') return (it.ans!=null && String(it.ans).trim()!=='');
+    if(it.type==='text' || it.type==='essay') return (it.ans!=null && String(it.ans).trim()!=='');
     return it.ans!=null; }
 
   function cardInner(q){
@@ -336,7 +338,8 @@
       <div class="tsel">
         <button class="${it.type==='choice5'?'on':''}" onclick="setType(${q},'choice5')">5지</button>
         <button class="${it.type==='ox'?'on':''}" onclick="setType(${q},'ox')">OX</button>
-        <button class="${it.type==='text'?'on':''}" onclick="setType(${q},'text')">서술</button>
+        <button class="${it.type==='text'?'on':''}" onclick="setType(${q},'text')">단답</button>
+        <button class="${it.type==='essay'?'on':''}" onclick="setType(${q},'essay')">서술</button>
       </div></div>`;
     let area='';
     if(it.type==='choice5'){
@@ -347,6 +350,9 @@
       area=`<div class="ox">
         <button class="${it.ans==='O'?'sel':''}" onclick="setOX(${q},'O')">O</button>
         <button class="${it.ans==='X'?'sel':''}" onclick="setOX(${q},'X')">X</button></div>`;
+    }else if(it.type==='essay'){
+      const v=(it.ans==null?'':String(it.ans)).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+      area=`<textarea class="tans eans" rows="3" oninput="setText(${q},this.value)" placeholder="예시 답 (채점하지 않고, 학생이 제출한 뒤 비교용으로 보여 줍니다)">${v}</textarea>`;
     }else{
       const v=(it.ans==null?'':String(it.ans)).replace(/"/g,'&quot;');
       area=`<input type="text" class="tans" value="${v}" oninput="setText(${q},this.value)" placeholder="정답 키워드 (모두필요: 쉼표 · 택일: /)">`;
@@ -387,12 +393,12 @@
 
   function updateMini(){
     const count=curCount();
-    let filled=0,c5=0,ox=0,tx=0;
+    let filled=0,c5=0,ox=0,tx=0,es=0;
     for(let q=1;q<=count;q++){ const it=ensure(q);
-      if(it.type==='choice5') c5++; else if(it.type==='ox') ox++; else tx++;
+      if(it.type==='choice5') c5++; else if(it.type==='ox') ox++; else if(it.type==='essay') es++; else tx++;
       if(isFilled(q)) filled++;
     }
-    document.getElementById('mini').textContent=`입력 ${filled}/${count} · 5지 ${c5} · OX ${ox} · 서술 ${tx}`;
+    document.getElementById('mini').textContent=`입력 ${filled}/${count} · 5지 ${c5} · OX ${ox} · 단답 ${tx} · 서술 ${es}`;
   }
 
   const countEl=document.getElementById('count');

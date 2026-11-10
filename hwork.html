@@ -137,6 +137,21 @@
   #report .scoreline{ text-align:center; margin:6px 0 2px; }
   #report .scoreline .pct{ font-size:14px; color:var(--muted); }
   #report table.detail th{ background:#E0EAE7; color:#2C2F2D; }
+  /* 서술형(예시 답 비교, essay) — 2026-11-10 원장님: OX 채점 없이 예시 답과 비교 */
+  .eans{ width:100%; min-height:96px; padding:11px 13px; border:1.5px solid var(--line); border-radius:10px;
+    font-size:15px; font-family:inherit; background:#fafafb; resize:vertical; line-height:1.6; }
+  .eans:focus{ outline:none; border-color:var(--lav); background:#fff; }
+  #report td.cmp{ color:var(--lav-d); font-size:12.5px; }
+  #report .snote{ text-align:center; font-size:12.5px; color:var(--muted); margin-top:6px; }
+  #report .ess{ background:#fff; border-radius:12px; box-shadow:var(--shadow); padding:14px 16px; margin-bottom:12px; }
+  #report .ess .eh{ font-family:'Gowun Batang',serif; font-weight:700; font-size:15px; margin-bottom:8px; }
+  #report .ess .lab{ font-size:12px; color:var(--muted); margin:8px 0 4px; }
+  #report .ess .box{ background:#F4F7F6; border-radius:10px; padding:10px 12px; font-size:14px; line-height:1.65;
+    white-space:pre-wrap; word-break:break-all; }
+  #report .ess .box.model{ background:#EDF3F1; color:#2C3E39; }
+  #report .ess .eshow{ margin-top:10px; padding:9px 16px; border:none; border-radius:18px; background:#E0EAE7;
+    color:#3A544E; font-size:13.5px; font-family:inherit; font-weight:700; cursor:pointer; }
+  #report .ess .tip{ font-size:12.5px; color:var(--lav-d); margin-top:8px; }
   #report table.detail td{ border-bottom:1px solid var(--line); }
   #report table.detail td.qn{ background:#E0EAE7; font-weight:700; color:#3A544E; width:48px; }
   #report table.detail tr.wrong td{ background:#FADED9; }
@@ -348,7 +363,7 @@
     const div=document.createElement('div');
     div.className='q'; div.id='q'+q;
     let body='';
-    const tlabel = type==='ox'?'OX':(type==='text'?'서술형':'5지선다');
+    const tlabel = type==='ox'?'OX':(type==='essay'?'서술형 · 채점 없이 예시 답과 비교':(type==='text'?'단답형':'5지선다'));
     if(type==='choice5'){
       body='<div class="qtype">'+tlabel+'</div><div class="choices">';
       for(let j=1;j<=5;j++) body+=`<button onclick="pickChoice(${q},${j},this)">${j}</button>`;
@@ -357,6 +372,8 @@
       body=`<div class="qtype">${tlabel}</div><div class="ox">
         <button onclick="pickOX(${q},'O',this)">O</button>
         <button onclick="pickOX(${q},'X',this)">X</button></div>`;
+    }else if(type==='essay'){
+      body=`<div class="qtype">${tlabel}</div><textarea class="eans" placeholder="답안을 적어 주세요. 제출하면 예시 답과 비교할 수 있어요." oninput="pickText(${q},this.value)"></textarea>`;
     }else{
       body=`<div class="qtype">${tlabel}</div><input type="text" class="tans" placeholder="답 입력" oninput="pickText(${q},this.value)">`;
     }
@@ -447,30 +464,56 @@
     }catch(err){ btn.disabled=false; btn.textContent='제출하기'; toast('제출 실패: 다시 시도해 주세요'); }
   }
 
+  /* 결과의 전체 문항 수 — 서술형(essay)은 채점 문항 수(total)에서 빠지므로 count·detail 로 센다 */
+  function itemCount(r){
+    let n=Math.max(Number(r.count)||0, Number(r.total)||0);
+    Object.keys(r.detail||{}).forEach(k=>{ const v=Number(k); if(v>n) n=v; });
+    return n;
+  }
   function renderReport(res){
     const st=res.student, r=res.result;
     const pct=r.total? Math.round(r.got/r.total*100):0;
-    let rows='';
-    for(let q=1;q<=r.total;q++){ const d=r.detail[q]||{};
+    const n=itemCount(r);
+    let rows='', ess='', ne=0;
+    for(let q=1;q<=n;q++){ const d=r.detail[q]||{};
       const mine=(d.mine&&String(d.mine).length)?escapeHtml(d.mine):'<span class="blank">무응답</span>';
+      if(d.type==='essay'){
+        ne++;
+        rows+=`<tr><td class="qn">${q}</td><td class="mine">서술형</td><td>아래에서 확인</td><td class="cmp">비교</td></tr>`;
+        ess+=`<div class="ess"><div class="eh">${q}번 서술형</div>
+          <div class="lab">내 답안</div><div class="box">${mine}</div>
+          <button type="button" class="eshow" onclick="showModel(this)">예시 답 보기</button>
+          <div class="em" style="display:none;"><div class="lab">예시 답</div><div class="box model">${escapeHtml(d.ans||'')}</div>
+          <div class="tip">본인의 답안과 비교해 보세요.</div></div></div>`;
+        continue;
+      }
       rows+=`<tr class="${d.ok?'':'wrong'}"><td class="qn">${q}</td>
         <td class="mine">${mine}</td><td>${escapeHtml(d.ans||'')}</td>
         <td class="${d.ok?'o':'x'}">${d.ok?'O':'X'}</td></tr>`;
     }
+    const score = r.total
+      ? `<div class="scoreline"><span class="big">${r.got} / ${r.total}</span> <span class="pct">(${pct}점)</span></div>`
+      : `<div class="scoreline"><span class="pct">채점하는 문항이 없습니다.</span></div>`;
+    const snote = ne ? `<div class="snote">서술형 ${ne}문항은 점수에 넣지 않았습니다. 아래에서 예시 답과 비교해 보세요.</div>` : '';
+    const essSec = ne ? `<section><h2>서술형 · 예시 답과 비교</h2>${ess}</section>` : '';
     document.getElementById('report').innerHTML=`
       <div class="rbrand"><div class="name">이수경국어</div><div class="sub">Shueguk · H WORK</div></div>
       <div class="tbar">${escapeHtml(st.code)}</div>
       <section><h2>제출 정보</h2>
         <table class="info"><tr><th>이름</th><th>학교</th><th>학년</th><th>담당 강사</th></tr>
         <tr><td>${escapeHtml(st.name)}</td><td>${escapeHtml(st.school)}</td><td>${escapeHtml(st.grade)}</td><td>${escapeHtml(st.teacher)}</td></tr></table></section>
-      <section><h2>채점 결과</h2>
-        <div class="scoreline"><span class="big">${r.got} / ${r.total}</span> <span class="pct">(${pct}점)</span></div></section>
+      <section><h2>채점 결과</h2>${score}${snote}</section>
       <section><h2>문항별 채점</h2>
-        <table class="detail"><tr><th>문항</th><th>내 답</th><th>정답</th><th>정오</th></tr>${rows}</table></section>`;
+        <table class="detail"><tr><th>문항</th><th>내 답</th><th>정답</th><th>정오</th></tr>${rows}</table></section>${essSec}`;
     document.getElementById('main').style.display='none';
     document.getElementById('footer').style.display='none';
     document.getElementById('report').style.display='block';
     window.scrollTo(0,0);
+  }
+
+  function showModel(btn){
+    const m=btn.nextElementSibling; const open=m.style.display==='none';
+    m.style.display=open?'block':'none'; btn.textContent=open?'예시 답 접기':'예시 답 보기';
   }
 
   init();
