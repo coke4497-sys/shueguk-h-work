@@ -197,6 +197,7 @@ function isTextCorrect(studentAns, modelAns){
 }
 function gradeOne(item, studentAns){
   if(!item) return false;
+  if(item.type === 'essay') return null;   // 서술형(예시 답 비교) — 채점하지 않음 (수파베이스 063 과 같은 규칙)
   if(item.type === 'text') return isTextCorrect(studentAns, item.ans);
   return String(studentAns) === String(item.ans);   // choice5 · ox 공통
 }
@@ -210,17 +211,18 @@ function submit(data){
   const hw = loadHomework(data.teacher, data.code);
   const count = Number(hw.count) || 0;
   const detail = {};
-  let got = 0;
+  let got = 0, graded = 0;   // graded = 채점한 문항 수(서술형 essay 제외) — 점수의 분모
   for(let q=1;q<=count;q++){
     const item = (hw.items && hw.items[q]) ? hw.items[q] : {};
     const mine = (data.answers && data.answers[q] != null) ? data.answers[q] : '';
     const ok = gradeOne(item, mine);
+    if(ok !== null) graded++;
     if(ok) got++;
     detail[q] = { type:item.type, mine:String(mine), ans:String(item.ans==null?'':item.ans), ok:ok };
   }
-  saveSubmission(data, got, count, detail);
+  saveSubmission(data, got, graded, detail);
   return { ok:true,
-    result: { got:got, total:count, detail:detail },
+    result: { got:got, total:graded, count:count, detail:detail },
     student: { teacher:data.teacher, code:data.code, school:data.school, grade:data.grade, name:data.name } };
 }
 
@@ -270,7 +272,7 @@ function getReport(rowNum){
   try{ questions = JSON.parse(r[10] || '{}'); }catch(e){}
   return {
     student: { teacher:''+r[1], code:''+r[2], school:''+r[3], grade:''+r[4], name:''+r[5] },
-    result:  { got:Number(r[6]), total:Number(r[7]), detail:detail },
+    result:  { got:Number(r[6]), total:Number(r[7]), count:Object.keys(detail).length, detail:detail },
     questions: questions,
     submittedAt: '' + r[0]
   };
