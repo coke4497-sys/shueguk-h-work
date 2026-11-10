@@ -15,3 +15,7 @@
 - 학생 결과 화면은 표에 '비교'로 두고 아래 '서술형 · 예시 답과 비교' 상자에 내 답안 + [예시 답 보기](펼치면 예시 답 + '본인의 답안과 비교해 보세요.'). 교사 확인 화면도 '비교'로 표시하고 문항별 오답률에서 뺀다.
 - 기존 `text`(키워드 채점)는 그대로이고 화면 이름만 '단답'으로 바꿨다.
 - 채점 규칙 두 벌 — `apps-script/Code.gs` gradeOne/submit 과 리포트 `supabase/migrations/063_hwork_essay.sql` hwork_grade_. 화면은 총 문항을 `itemCount`(count·total·detail 키 중 큰 값)로 센다(hwork.html·hwork_teacher.html).
+
+## 과제 여러 개 한꺼번에 배정 (2026-11-10 원장님)
+- hwork_assign.html '과제 선택'의 제목이 드롭다운 대신 체크 목록(`#codeList`, 찾기 `#codeFind`, [보이는 것 모두 선택][선택 해제]). 고른 과제(`curItems`)마다 같은 대상으로 `addAssignment`를 **차례로**(동시에 보내지 않음) 보낸다. 실패한 과제만 선택에 남겨 다시 누르면 그것만 배정한다.
+- 과제를 하나만 고르면 예전과 같다(`curItem`) — 제출 현황 카드는 하나일 때만 보인다. 여러 개면 배정 내역을 과제별로 묶어 보여 준다.
