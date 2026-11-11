@@ -249,6 +249,8 @@
 
 <script>
   const API_URL = "https://script.google.com/macros/s/AKfycbyrc0j6EmVLrlfZeSchetAcEzWPEFAEV1RHStr6ZTJPDJeH6pcvRDemfWU64puojmSDPg/exec";
+  // 리포트 백엔드 — 문항 오류 신고를 수정 요청함('H WORK 오류 신고')에도 남긴다(2026-11-11)
+  const REPORT_API = "https://script.google.com/macros/s/AKfycbzhCncBwn-JlqXARC3wfrWUCuNHzlNK2df0bdhx-w78Xr8mzYUcIYZOJdRi9N4bHtsb/exec";
 
   /* ── 수파베이스가 원본 (2026-08-26, 020 마이그레이션) — 목록·문항·제출(채점 포함)을
    * hwork_list/hwork_meta/hwork_submit 함수로 먼저 처리한다(0.3초 안팎). 실패하면(마이그레이션 전·
@@ -683,6 +685,11 @@
       const j=await sbRpc('hwork_flag', { p:{ id:RS.id, key:RS.key, q:String(q), kind, text } });
       if(!j.ok){ if(j.reason==='done') return resumeOne(RS.id, RS.key); toast(j.error||'저장하지 못했어요'); return; }
       setReview(q, { [kind]:{ at:j.at, text } });
+      if(kind==='error'){   // 수정 요청함 사본 — 원본은 위 hwork_flag 로 이미 저장됐으므로 결과는 기다리지 않는다
+        const st=RS.st||{};
+        fetch(REPORT_API,{ method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify({ action:'hworkReport',
+          name:st.name||'', school:st.school||'', grade:st.grade||'', teacher:st.teacher||'', code:st.code||'', qno:String(q), mine:curWrong(q), text }) }).catch(function(){});
+      }
       if(kind==='error'){ (RS.draft[q]=RS.draft[q]||{}).errOpen=false; }
       toast(kind==='help'?'선생님께 도움 요청을 남겼어요':'문항 오류 신고를 남겼어요');
       RS.stage=calcStage(); rsRemember();

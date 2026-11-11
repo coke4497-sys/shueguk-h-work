@@ -16,7 +16,7 @@ const ok = (c, m) => { c ? pass++ : fail++; console.log((c ? 'OK ' : 'FAIL ') + 
 
 const KEY = { '1': { type: 'choice5', ans: '3' }, '2': { type: 'essay', ans: '예시 답입니다.' }, '3': { type: 'text', ans: '나' },
   '4': { type: 'ox', ans: 'O' }, '5': { type: 'choice5', ans: '2' } };
-const DB = { row: null, calls: [] };
+const DB = { row: null, calls: [] }; const REP = [];
 function grade(ans) {
   const d = {}; let got = 0, total = 0;
   for (const q of Object.keys(KEY)) { const k = KEY[q], mine = ans[q] == null ? '' : String(ans[q]);
@@ -79,7 +79,7 @@ function rpc(fn, p) {
       items: { '1': { type: 'choice5' }, '2': { type: 'essay' }, '3': { type: 'text' }, '4': { type: 'ox' }, '5': { type: 'choice5' } }, due: '', closed: false } } });
     const m = u.match(/\/rpc\/(hwork_[a-z_]+)/);
     if (m) { const body = JSON.parse(rt.request().postData() || '{}'); return rt.fulfill({ json: rpc(m[1], body.p || {}) }); }
-    if (u.includes('script.google.com')) return rt.fulfill({ json: { ok: true } });
+    if (u.includes('script.google.com')) { try { const b = JSON.parse(rt.request().postData() || '{}'); if (b.action === 'hworkReport') REP.push(b); } catch (e) {} return rt.fulfill({ json: { ok: true } }); }
     return rt.fulfill({ body: '' });
   });
   p.on('dialog', d => d.accept());
@@ -131,6 +131,9 @@ function rpc(fn, p) {
   ok(!DB.calls.some(c => c.fn === 'hwork_flag'), '오류 내용 없으면 안 보냄');
   await p.fill('#rv3 textarea[data-f=err]', '보기 표현이 이상해요'); await p.click('#rv3 .errbox .sbtn'); await p.waitForTimeout(400);
   const fl = DB.calls.find(c => c.fn === 'hwork_flag');
+  await p.waitForTimeout(300);
+  const hr = REP.find(b => b.action === 'hworkReport');
+  ok(hr && hr.code === 'T세트' && hr.qno === '3' && hr.text === '보기 표현이 이상해요' && hr.name === '박보검' && hr.school === '무원고등학교' && hr.mine === '가', '수정 요청함으로 hworkReport 보냄');
   ok(fl && fl.p.kind === 'error' && fl.p.text === '보기 표현이 이상해요' && fl.p.q === '3', 'hwork_flag 오류 신고 본문');
   ok((await p.textContent('#rv3')).includes('문항 오류 신고함') && (await p.textContent('#rv3')).includes('신고 내용: 보기 표현이 이상해요'), '신고 표시');
   if (SHOT) await p.screenshot({ path: SHOT + '/retry-2.png', fullPage: true });
@@ -142,6 +145,7 @@ function rpc(fn, p) {
   // 도움 요청
   await p.click('#rv3 .flags button:has-text("선생님 도와주세요")'); await p.waitForTimeout(400);
   ok(DB.calls.some(c => c.fn === 'hwork_flag' && c.p.kind === 'help' && c.p.q === '3'), '도움 요청 본문');
+  ok(REP.length === 1, '도움 요청은 수정 요청함으로 안 보냄');
   ok((await p.textContent('#rv3')).includes('선생님 도움 요청함') && (await p.locator('#rv3 .flags button').count()) === 0, '도움 요청 표시·버튼 사라짐');
   // 이어 하기 — 저장 기록 강제로 넣고 다시 열기
   await p.evaluate(() => localStorage.setItem('hw_retry_v1', JSON.stringify([{ id: 41, key: 'abcdef0123456789abcdef0123456789', code: 'T세트', name: '박보검' }])));
