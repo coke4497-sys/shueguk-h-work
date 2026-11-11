@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<script src="https://coke4497-sys.github.io/shueguk-hub/assets/teacher-gate.js"></script><!-- 교사 로그인 게이트 (허브 로그인 필요) -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<title>H WORK 배정 현황 · 슈국 티쳐스</title>
+<meta name="description" content="H WORK 배정과 제출 현황을 과제별·학생별로 봅니다 (교사용)" />
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&family=Do+Hyeon&display=swap" rel="stylesheet" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='48' fill='%23DCE9E4'/%3E%3C/svg%3E" />
+<style>
+  :root{
+    --bg:#C6D5D2; --surface:#FFFFFF; --ink:#2C2F2D; --ink-soft:#6A716C;
+    --accent:#3A6B5E; --line:#D4D8D3; --line-soft:#E8EAE7; --radius:18px;
+    --bad:#B0525D; --ok:#3E9B74;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{background:var(--bg);color:var(--ink);font-family:"Gowun Dodum","Apple SD Gothic Neo","Malgun Gothic",sans-serif;font-size:15px;line-height:1.6;padding:0 0 80px;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:760px;margin:0 auto;padding:0 18px;}
+  .back{display:inline-flex;align-items:center;gap:6px;margin:24px 0 0;color:var(--ink-soft);text-decoration:none;font-size:14px;}
+  .back svg{width:16px;height:16px;} .back:hover{color:var(--accent);}
+  header{padding:14px 4px 22px;text-align:center;}
+  .tagline{font-family:"Gowun Batang",serif;font-size:1.5rem;font-weight:700;color:var(--accent);margin:0;}
+  .intro{color:var(--ink-soft);font-size:.92rem;margin:8px auto 0;max-width:30em;}
+  .card{background:var(--surface);border:1px solid var(--line-soft);border-radius:var(--radius);padding:18px;margin-bottom:14px;}
+  .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+  .tile{background:#F6F7F4;border-radius:14px;padding:12px 10px;text-align:center;}
+  .tile b{display:block;font-family:"Do Hyeon",sans-serif;font-weight:400;font-size:26px;color:var(--ink);line-height:1.2;}
+  .tile b small{font-size:15px;color:var(--ink-soft);}
+  .tile span{font-size:12.5px;color:var(--ink-soft);}
+  .tile.hl{background:#EAF1EC;}
+  .tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:14px;}
+  .seg{display:inline-flex;background:#EEF1EE;border-radius:12px;padding:3px;}
+  .seg button{border:0;background:none;font:inherit;font-size:14px;padding:7px 14px;border-radius:9px;color:var(--ink-soft);cursor:pointer;}
+  .seg button.on{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.08);}
+  select,input[type=text]{font:inherit;font-size:14px;padding:8px 10px;border:1.5px solid var(--line);border-radius:10px;background:#FBFAF6;color:var(--ink);}
+  input[type=text]{flex:1;min-width:150px;}
+  .chk{display:inline-flex;align-items:center;gap:6px;font-size:13.5px;color:var(--ink-soft);cursor:pointer;}
+  .chk input{accent-color:var(--accent);width:16px;height:16px;}
+  .ibtn{border:1.5px solid var(--line);background:#fff;border-radius:10px;padding:7px 12px;font:inherit;font-size:13px;color:var(--ink-soft);cursor:pointer;}
+  .ibtn:hover{border-color:var(--accent);color:var(--accent);}
+  .upd{font-size:12px;color:var(--ink-soft);margin-left:auto;}
+  .grp{font-family:"Gowun Batang",serif;font-weight:700;font-size:15px;color:var(--accent);margin:18px 4px 8px;}
+  .grp:first-child{margin-top:2px;}
+  .row{border:1px solid var(--line-soft);border-radius:13px;background:#FBFAF6;margin-bottom:8px;overflow:hidden;}
+  .row.full{background:#F3F7F4;}
+  .rhead{display:flex;align-items:center;gap:12px;width:100%;border:0;background:none;font:inherit;text-align:left;padding:11px 13px;cursor:pointer;color:inherit;}
+  .rt{flex:1;min-width:0;}
+  .rt b{display:block;font-weight:400;font-size:14.5px;word-break:keep-all;}
+  .rt small{color:var(--ink-soft);font-size:12.5px;}
+  .rp{flex:none;display:flex;align-items:center;gap:8px;}
+  .bar{display:inline-block;width:84px;height:8px;border-radius:99px;background:#E2E7E3;overflow:hidden;}
+  .bar i{display:block;height:100%;background:#7F9E8E;border-radius:99px;}
+  .cnt{font-size:13px;color:var(--ink-soft);min-width:52px;text-align:right;}
+  .cnt b{font-family:"Do Hyeon",sans-serif;font-weight:400;font-size:17px;color:var(--ink);}
+  .rv{font-size:11.5px;color:#7B67A3;min-width:66px;}
+  .cv{width:18px;height:18px;color:var(--ink-soft);flex:none;transition:transform .15s;}
+  .row.open .cv{transform:rotate(180deg);}
+  .rbody{padding:2px 13px 13px;}
+  .lbl{font-size:13px;font-weight:700;color:var(--ink);margin:10px 0 6px;}
+  .lbl small{font-weight:400;color:var(--ink-soft);}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;}
+  .chip{display:inline-flex;align-items:center;gap:5px;border-radius:9px;padding:4px 9px;font-size:13.5px;}
+  .chip small{font-size:11.5px;opacity:.8;}
+  .chip em{font-style:normal;font-size:11px;background:#EDE4F4;color:#5A4A6A;border-radius:99px;padding:0 6px;}
+  .chip.todo{background:#F6E6E9;color:#7E2B3D;}
+  .chip.done{background:#E4F1EA;color:#2F5F49;}
+  .muted{color:var(--ink-soft);font-size:13px;margin:4px 0;}
+  .tgt{color:var(--ink-soft);font-size:12px;margin:12px 0 0;word-break:keep-all;}
+  .wl{margin:0;padding-left:22px;font-size:13.5px;}
+  .wl li{margin:3px 0;}
+  .wl li small{color:var(--ink-soft);margin-left:6px;font-size:12px;}
+  .wl li.todo{color:#7E2B3D;}
+  .empty{text-align:center;color:var(--ink-soft);font-size:14px;padding:22px 10px;}
+  .empty.err{color:var(--bad);}
+  @media (max-width:560px){
+    .tiles{grid-template-columns:repeat(2,1fr);}
+    .rhead{flex-wrap:wrap;position:relative;padding-right:38px;}
+    .cv{position:absolute;right:12px;top:14px;}
+    .rp{width:100%;}
+    .bar{flex:1;}
+    .upd{width:100%;margin-left:0;}
+  }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <a class="back" href="https://coke4497-sys.github.io/shueguk-hub/hwork.html">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>
+    H WORK 메뉴로 가기
+  </a>
+  <header>
+    <p class="tagline">H WORK 배정 현황</p>
+    <p class="intro">배정한 과제와 제출 상황을 과제별·학생별로 봅니다. 줄을 누르면 아직 안 낸 학생(과제)이 보여요.</p>
+  </header>
+
+  <section class="card">
+    <div class="tiles" id="tiles"></div>
+    <div class="tools">
+      <span class="seg" id="views"><button type="button" data-v="work" class="on">과제별</button><button type="button" data-v="stu">학생별</button></span>
+      <select id="fGrade"><option value="">모든 학년</option></select>
+      <select id="fSchool"><option value="">모든 학교</option></select>
+    </div>
+    <div class="tools">
+      <input type="text" id="fFind" placeholder="과제 제목 찾기 (예: 단어 형성)" autocomplete="off">
+      <label class="chk"><input type="checkbox" id="fTodo"> 다 내지 않은 것만</label>
+      <button type="button" class="ibtn" id="reload">새로고침</button>
+      <span class="upd" id="upd"></span>
+    </div>
+  </section>
+
+  <section class="card"><div id="list"><div class="empty">불러오는 중…</div></div></section>
+</main>
+<script>
+/* ══ 교사 페이지 조용한 인증 (2026-08-25, 3단계) ═══════════════════════
+ * 이 아래 연결부들이 수파베이스에 보내는 요청에 '교사 신분'을 붙인다.
+ * 화면에 로그인 창은 없다 — 페이지가 열릴 때 알아서 받아 온다.
+ *
+ * 왜 필요한가:
+ *   공개 키(sb_publishable_…)는 학생이 여는 페이지에도 들어 있어서, 그 키로 표를
+ *   직접 읽을 수 있으면 전교생 명단(학생ID=비밀번호·접근코드)이 새어 나간다.
+ *   그래서 공개 키에서는 표 접근을 없애고(anon), 표는 이 신분(authenticated)만
+ *   읽고 쓰도록 나눴다. 학생 화면은 표 대신 함수(student_bundle 등)를 쓴다.
+ *
+ * 주의:
+ *   · 이 조각은 **교사용 페이지에만** 넣는다. 학생이 여는 페이지(s·r·클리닉 신청·
+ *     모의고사 신청·H WORK 제출)에는 절대 넣지 말 것 — 넣는 순간 위 보호가 무의미해진다.
+ *   · 아래 연결부들이 시작할 때 window.fetch 를 붙잡아 두므로, 이 조각은 **그것들보다
+ *     먼저** 실행돼야 한다. 페이지의 첫 스크립트 자리를 지킬 것.
+ *   · 인증이 실패하면 예전처럼 공개 키로 보낸다(권한을 회수하기 전까지는 그래도 동작). */
+(function(){
+  var SB_URL = 'https://bangdbhqpphqqdwcledg.supabase.co';
+  var SB_KEY = 'sb_publishable_dE9d1KIbpgYaQkaS2MSrlg_-7SiRJuT';
+  var T_ID = 'teachers@shueguk.internal';
+  var T_PW = 'shg_FCePWvnawH44SV8kYB9BHRKi6aag';
+  var tok = null, until = 0, pending = null;
+  var raw = window.fetch.bind(window);
+  var TOK_LS = 'sb_teacher_tok_v1';   // 받아 둔 신분증은 브라우저에 남겨 다음 페이지에서 다시 받지 않는다(1시간짜리)
+
+  function cachedTok(){
+    try {
+      var c = JSON.parse(localStorage.getItem(TOK_LS) || 'null');
+      if (c && c.t && c.u > Date.now()){ tok = c.t; until = c.u; return true; }
+    } catch(e){}
+    return false;
+  }
+  function auth(){
+    if (tok && Date.now() < until) return Promise.resolve(tok);
+    if (cachedTok()) return Promise.resolve(tok);
+    if (pending) return pending;
+    var req = raw(SB_URL + '/auth/v1/token?grant_type=password', {
+      method: 'POST',
+      headers: { 'apikey': SB_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: T_ID, password: T_PW })
+    }).then(function(r){ return r.json(); }).then(function(d){
+      if (!d || !d.access_token) throw new Error('teacher auth');
+      tok = d.access_token;
+      until = Date.now() + Math.max(60, (d.expires_in || 3600) - 300) * 1000;   // 만료 5분 전에 다시 받는다
+      try { localStorage.setItem(TOK_LS, JSON.stringify({ t: tok, u: until })); } catch(e){}
+      return tok;
+    });
+    /* 로그인이 멈춰 있으면 이 아래 모든 조회가 함께 멈춘다 — 10초를 넘기면 실패로 보고
+     * 그 조회는 예전 방식(공개 키)으로 내보낸다. 다음 호출 때 다시 받는다. */
+    var late = new Promise(function(_, rej){ setTimeout(function(){ rej(new Error('teacher auth timeout')); }, 10000); });
+    pending = Promise.race([req, late]).then(function(t){ pending = null; return t; },
+                                            function(e){ pending = null; throw e; });
+    return pending;
+  }
+  function withAuth(url, opts, t){
+    var src = (opts && opts.headers) || {}, h = {};
+    if (src.forEach && !src.hasOwnProperty) src.forEach(function(v, k){ h[k] = v; });
+    else for (var k in src) h[k] = src[k];
+    h['apikey'] = SB_KEY;
+    h['Authorization'] = 'Bearer ' + t;
+    var o = {}; for (var k2 in (opts || {})) o[k2] = opts[k2];
+    o.headers = h;
+    return o;
+  }
+  window.fetch = function(url, opts){
+    var u = (typeof url === 'string') ? url : ((url && url.url) || '');
+    if (u.indexOf(SB_URL + '/rest/v1') !== 0) return raw(url, opts);
+    return auth().then(function(t){
+      return raw(url, withAuth(url, opts, t)).then(function(r){
+        if (r.status !== 401) return r;
+        tok = null; until = 0;                       // 만료가 겹쳤으면 한 번만 다시 받아 재시도
+        try { localStorage.removeItem(TOK_LS); } catch(e){}
+        return auth().then(function(t2){ return raw(url, withAuth(url, opts, t2)); });
+      });
+    }, function(){ return raw(url, opts); });
+  };
+})();
+</script>
+<script>
+/* ══ H WORK 배정 현황 (2026-11-11 원장님 "티쳐스 페이지에서 배정 현황을 보고 싶어요") ══
+ * 수파베이스 원본 세 표를 읽기만 한다 — assignments(tool 'H WORK', 학생 페이지가 읽는 배정) ·
+ * hwork_submissions(제출 원본) · students(재원 명단). 쓰기 없음.
+ * 배정 판정은 학생 페이지 s.html noticeMatches 와 같은 규칙, 제출 판정은 s.html hwDoneSet_ 과 같은 규칙
+ * (이름 또는 끝 알파벳 뗀 이름 · 학년 숫자 · 학교 느슨 비교) — 고치면 함께.
+ * 과제 순서는 s.html hwBookKey 와 같은 교재 순서. */
+var SB_REST = "https://bangdbhqpphqqdwcledg.supabase.co/rest/v1";
+var TOOL = "H WORK";
+var LEFT_RE = /^(퇴원|n|no|off|x|중단|비재원)$/i;
+function tr(v){ return String(v == null ? '' : v).trim(); }
+function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function baseName(s){ return tr(s).replace(/[A-Za-z]$/, ''); }
+function schoolMatch(a, b){
+  a = String(a || '').replace(/\s+/g, ''); b = String(b || '').replace(/\s+/g, '');
+  if (!a || !b) return false;
+  if (a === b) return true;
+  var na = a.replace(/(등학교|고등학교|중학교|학교|고|중)$/, '');
+  var nb = b.replace(/(등학교|고등학교|중학교|학교|고|중)$/, '');
+  if (na && nb && na === nb) return true;
+  return a.indexOf(b) >= 0 || b.indexOf(a) >= 0;
+}
+function gradeDigit(s){
+  s = String(s || '').replace(/\s+/g, '');
+  var m = s.match(/([1-3])학년/) || s.match(/고([1-3])/);
+  if (m) return m[1];
+  var a = s.match(/[1-3]/g);
+  return a ? a[a.length - 1] : '';
+}
+function normGrade(s){
+  s = tr(s);
+  if (!s) return '';
+  var lv = /고/.test(s) ? '고' : (/중/.test(s) ? '중' : (/초/.test(s) ? '초' : ''));
+  if (!lv) return '';
+  var m = s.match(/([1-6])\s*학년/) || s.match(/(?:고|중|초)\s*([1-6])/);
+  return m ? lv + m[1] : '';
+}
+function noticeMatches(type, target, stu){
+  type = tr(type); target = tr(target);
+  if (type.indexOf('전체') >= 0) return true;
+  if (type === '' && target === '') return true;
+  var tokens = target.split(/[,\n;\/·\s]+/).map(tr).filter(Boolean);
+  if (!tokens.length) return false;
+  if (type.indexOf('학년') >= 0) {
+    var g = stu.grade.replace(/\s+/g, '');
+    var sg = (stu.school + stu.grade).replace(/\s+/g, '');
+    var gd = gradeDigit(stu.grade);
+    var ng = normGrade(stu.grade);
+    var lvS = /중/.test(g) ? '중' : (/고/.test(g) ? '고' : '');
+    var gTokens = target.split(/[,\n;\/·]+/).map(tr).filter(Boolean);
+    return gTokens.some(function(t){
+      var tt = t.replace(/\s+/g, '');
+      if (!tt) return false;
+      var td = gradeDigit(tt);
+      if (td && gd && td !== gd) return false;
+      var lvT = /중/.test(tt) ? '중' : (/고/.test(tt) ? '고' : '');
+      if (lvT && lvS && lvT !== lvS) return false;
+      if (ng && normGrade(tt) === ng) return true;
+      return tt === g || sg.indexOf(tt) >= 0 || g.indexOf(tt) >= 0;
+    });
+  }
+  return tokens.some(function(t){
+    if (t.indexOf('|') >= 0) {
+      var p = t.split('|');
+      var tn = tr(p[0]), ts = tr(p[1]), tg = tr(p[2]);
+      if (!tn || tn !== stu.name) return false;
+      if (ts && stu.school && !schoolMatch(ts, stu.school)) return false;
+      if (tg && stu.grade && tg.replace(/\s+/g, '') !== stu.grade.replace(/\s+/g, '')) return false;
+      return true;
+    }
+    return t === stu.name;
+  });
+}
+function hwBookKey(code){
+  var m = String(code||'').match(/^(.*?)\s*(\d+)권\([^)]*\)\s+(\d+)\s+(.*)$/);
+  if(!m) return null;
+  var rest = m[4], lv = { '기본':0, '실력':1, '심화':2 };
+  var lvM = rest.match(/·\s*(기본|실력|심화)/), part = rest.match(/\((\d+)\/\d+/);
+  return [m[1], +m[2], /종합 문제/.test(rest) ? 1 : 0, +m[3], lvM ? lv[lvM[1]] : 0, part ? +part[1] : 0];
+}
+function bookCmp(a, b){
+  var ka = hwBookKey(a.code), kb = hwBookKey(b.code);
+  if (ka && !kb) return -1;
+  if (!ka && kb) return 1;
+  if (!ka && !kb) return a.code.localeCompare(b.code, 'ko');
+  for (var j = 0; j < ka.length; j++){
+    if (ka[j] === kb[j]) continue;
+    return j === 0 ? String(ka[j]).localeCompare(String(kb[j]), 'ko') : (ka[j] < kb[j] ? -1 : 1);
+  }
+  return 0;
+}
+/* 묶음 머리 = '… 단어 형성 1권(기본·실력)', 줄 = 그 뒤('01 형태소와 어근·어간 · 기본') */
+function splitCode(code){
+  var m = String(code||'').match(/^(.*?\d+권\([^)]*\))\s+(.*)$/);
+  return m ? { head: m[1].replace(/^SHUEGUK REAL\s*/, ''), rest: m[2] } : { head: '', rest: code };
+}
+function shortGrade(g){ return normGrade(g) || tr(g); }
+function shortSchool(s){ return tr(s).replace(/(고등학교|중학교)$/, function(x){ return x.charAt(0); }); }
+function md(s){ var m = String(s||'').match(/\d{4}-(\d{2})-(\d{2})/); return m ? (+m[1])+'/'+(+m[2]) : ''; }
+
+/* 1000줄씩 끝까지 */
+function sbAll(path){
+  var out = [];
+  function step(off){
+    return fetch(SB_REST + path + (path.indexOf('?')>=0?'&':'?') + 'limit=1000&offset=' + off, { cache:'no-store' })
+      .then(function(r){ if(!r.ok) throw new Error(path.split('?')[0] + ' ' + r.status); return r.json(); })
+      .then(function(rows){ out = out.concat(rows); return rows.length === 1000 ? step(off + 1000) : out; });
+  }
+  return step(0);
+}
+
+var D = null;   // {works:[{key,teacher,code,rows,assigned:[stu],subs:{stuKey:sub}}], stus:{key:stu}}
+var V = { view: 'work', grade: '', school: '', q: '', todo: false, open: {} };
+try { var sv = JSON.parse(sessionStorage.getItem('hs_view') || 'null'); if (sv) { V.view = sv.view || 'work'; V.grade = sv.grade || ''; V.school = sv.school || ''; V.todo = !!sv.todo; } } catch(e){}
+function saveV(){ try { sessionStorage.setItem('hs_view', JSON.stringify({ view:V.view, grade:V.grade, school:V.school, todo:V.todo })); } catch(e){} }
+function stuKey(s){ return s.name + '|' + s.school + '|' + s.grade; }
+
+function load(){
+  var box = document.getElementById('list');
+  box.innerHTML = '<div class="empty">불러오는 중…</div>';
+  var subCols = 'id,teacher,code,name,school,grade,got,total,ts,review_at';
+  Promise.all([
+    sbAll('/assignments?tool=eq.' + encodeURIComponent(TOOL) + '&select=seq,date,item,type,target,due,memo&order=seq'),
+    sbAll('/hwork_submissions?select=' + subCols + '&order=id').catch(function(){
+      subCols = 'id,teacher,code,name,school,grade,got,total,ts';   // 064 전 DB
+      return sbAll('/hwork_submissions?select=' + subCols + '&order=id');
+    }),
+    sbAll('/students?select=name,school,grade,enrolled&order=name')
+  ]).then(function(rs){
+    build(rs[0], rs[1], rs[2]);
+    document.getElementById('upd').textContent = '불러온 시각 ' + new Date().toTimeString().slice(0,5);
+    render();
+  }).catch(function(e){
+    box.innerHTML = '<div class="empty err">불러오지 못했어요. [새로고침]을 눌러 주세요.<br><small>' + esc(e && e.message || '') + '</small></div>';
+  });
+}
+
+function build(asg, subs, stus){
+  var roster = stus.filter(function(s){ return !LEFT_RE.test(tr(s.enrolled)); })
+    .map(function(s){ return { name: tr(s.name), school: tr(s.school), grade: tr(s.grade) }; })
+    .filter(function(s){ return s.name; });
+  var byItem = {}, order = [];
+  asg.forEach(function(a){
+    var item = tr(a.item); if (!item) return;
+    if (!byItem[item]) { byItem[item] = []; order.push(item); }
+    byItem[item].push(a);
+  });
+  var stuMap = {};
+  var works = order.map(function(item){
+    var teacher = '', code = item, i = item.indexOf(' / ');
+    if (i >= 0) { teacher = tr(item.slice(0, i)); code = tr(item.slice(i + 3)); }
+    var rows = byItem[item];
+    var assigned = roster.filter(function(s){ return rows.some(function(a){ return noticeMatches(a.type, a.target, s); }); });
+    assigned.forEach(function(s){ stuMap[stuKey(s)] = s; });
+    var mine = subs.filter(function(r){ return tr(r.code) === code && (!teacher || tr(r.teacher) === teacher); });
+    var done = {};
+    assigned.forEach(function(s){
+      var gd = gradeDigit(s.grade), base = baseName(s.name);
+      var hit = null;
+      mine.forEach(function(r){
+        var rn = tr(r.name);
+        if (rn !== s.name && rn !== base) return;
+        var rg = gradeDigit(r.grade); if (gd && rg && rg !== gd) return;
+        if (s.school && tr(r.school) && !schoolMatch(r.school, s.school)) return;
+        if (!hit || (rn === s.name && tr(hit.name) !== s.name) || (r.review_at && !hit.review_at)) hit = r;
+      });
+      if (hit) done[stuKey(s)] = hit;
+    });
+    var dates = rows.map(function(a){ return tr(a.date); }).filter(Boolean).sort();
+    var dues = rows.map(function(a){ return tr(a.due); }).filter(Boolean).sort();
+    return { key: item, teacher: teacher, code: code, rows: rows, assigned: assigned, done: done,
+             date: dates.length ? dates[dates.length - 1] : '', due: dues.length ? dues[dues.length - 1] : '' };
+  });
+  works.sort(bookCmp);
+  D = { works: works, stus: stuMap };
+  fillFilters();
+}
+
+function stuOn(s){
+  if (V.grade && shortGrade(s.grade) !== V.grade) return false;
+  if (V.school && s.school !== V.school) return false;
+  return true;
+}
+function qOf(){ return V.q.replace(/\s+/g, '').toLowerCase(); }
+function reviewed(r){ return !!(r && (r.review_at || (Number(r.total) > 0 && Number(r.got) >= Number(r.total)))); }
+
+function fillFilters(){
+  var gs = {}, ss = {};
+  Object.keys(D.stus).forEach(function(k){ var s = D.stus[k]; var g = shortGrade(s.grade); if (g) gs[g] = (gs[g]||0) + 1; if (s.school) ss[s.school] = (ss[s.school]||0) + 1; });
+  var gOrder = ['초5','초6','중1','중2','중3','고1','고2','고3'];
+  var gl = Object.keys(gs).sort(function(a, b){ return gOrder.indexOf(a) - gOrder.indexOf(b); });
+  if (V.grade && !gs[V.grade]) V.grade = '';
+  if (V.school && !ss[V.school]) V.school = '';
+  document.getElementById('fGrade').innerHTML = '<option value="">모든 학년</option>' + gl.map(function(g){ return '<option value="'+esc(g)+'"'+(g===V.grade?' selected':'')+'>'+esc(g)+' · '+gs[g]+'명</option>'; }).join('');
+  var sl = Object.keys(ss).sort(function(a, b){ return a.localeCompare(b, 'ko'); });
+  document.getElementById('fSchool').innerHTML = '<option value="">모든 학교</option>' + sl.map(function(s){ return '<option value="'+esc(s)+'"'+(s===V.school?' selected':'')+'>'+esc(s)+' · '+ss[s]+'명</option>'; }).join('');
+  document.getElementById('fTodo').checked = V.todo;
+}
+
+function bar(n, m){
+  var p = m ? Math.round(n * 100 / m) : 0;
+  return '<span class="bar"><i style="width:'+p+'%"></i></span><span class="cnt"><b>'+n+'</b> / '+m+'</span>';
+}
+function chipStu(s, r){
+  var meta = [shortSchool(s.school), shortGrade(s.grade)].filter(Boolean).join(' ');
+  if (!r) return '<span class="chip todo">'+esc(s.name)+'<small>'+esc(meta)+'</small></span>';
+  var sc = (r.total != null && r.total !== '') ? (r.got + '/' + r.total) : '';
+  return '<span class="chip done">'+esc(s.name)+'<small>'+esc(meta)+(sc?' · '+esc(sc):'')+'</small>'+(reviewed(r)?'<em>오답 ✓</em>':'')+'</span>';
+}
+
+function render(){
+  if (!D) return;
+  saveV();
+  document.querySelectorAll('#views button').forEach(function(b){ b.classList.toggle('on', b.dataset.v === V.view); });
+  document.getElementById('fFind').placeholder = V.view === 'work' ? '과제 제목 찾기 (예: 단어 형성)' : '학생 이름 찾기';
+  var q = qOf();
+  // 요약 — 거르기(학년·학교)를 반영한 배정 수
+  var tot = 0, sub = 0, rev = 0, wn = 0, sset = {};
+  D.works.forEach(function(w){
+    var on = w.assigned.filter(stuOn); if (!on.length) return;
+    wn++;
+    on.forEach(function(s){ var k = stuKey(s); sset[k] = 1; tot++; var r = w.done[k]; if (r) { sub++; if (reviewed(r)) rev++; } });
+  });
+  document.getElementById('tiles').innerHTML =
+    '<div class="tile"><b>'+wn+'</b><span>배정한 과제</span></div>' +
+    '<div class="tile"><b>'+Object.keys(sset).length+'</b><span>배정받은 학생</span></div>' +
+    '<div class="tile hl"><b>'+sub+'<small> / '+tot+'</small></b><span>제출 '+(tot?Math.round(sub*100/tot):0)+'%</span></div>' +
+    '<div class="tile"><b>'+rev+'</b><span>오답하기 끝냄</span></div>';
+  var box = document.getElementById('list');
+  if (!D.works.length){ box.innerHTML = '<div class="empty">아직 배정한 H WORK이 없습니다.</div>'; return; }
+  var html = V.view === 'work' ? renderWorks(q) : renderStudents(q);
+  box.innerHTML = html || '<div class="empty">조건에 맞는 '+(V.view==='work'?'과제':'학생')+'가 없어요.</div>';
+}
+
+function renderWorks(q){
+  var html = '', head = null;
+  D.works.forEach(function(w, i){
+    var on = w.assigned.filter(stuOn); if (!on.length) return;
+    if (q && w.code.replace(/\s+/g,'').toLowerCase().indexOf(q) < 0) return;
+    var n = on.filter(function(s){ return w.done[stuKey(s)]; }).length;
+    if (V.todo && n >= on.length) return;
+    var r = on.filter(function(s){ return reviewed(w.done[stuKey(s)]); }).length;
+    var sp = splitCode(w.code), h = sp.head || '그 밖의 과제';
+    if (h !== head){ html += '<div class="grp">'+esc(h)+'</div>'; head = h; }
+    var open = !!V.open['w' + i];
+    var meta = [on.length+'명'];
+    if (w.date) meta.push(md(w.date)+' 배정');
+    if (w.due) meta.push('마감 '+md(w.due));
+    if (w.teacher && w.teacher !== '이수경') meta.push(w.teacher);
+    html += '<div class="row'+(open?' open':'')+(n>=on.length?' full':'')+'"><button type="button" class="rhead" data-o="w'+i+'">' +
+      '<span class="rt"><b>'+esc(sp.rest)+'</b><small>'+esc(meta.join(' · '))+'</small></span>' +
+      '<span class="rp">'+bar(n, on.length)+'<small class="rv">오답 끝냄 '+r+'</small></span>' +
+      '<svg class="cv" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>';
+    if (open){
+      var todo = on.filter(function(s){ return !w.done[stuKey(s)]; }), done = on.filter(function(s){ return w.done[stuKey(s)]; });
+      html += '<div class="rbody">' +
+        '<div class="lbl">아직 안 낸 학생 '+todo.length+'명</div>' + (todo.length ? '<div class="chips">'+todo.map(function(s){ return chipStu(s, null); }).join('')+'</div>' : '<p class="muted">모두 제출했어요.</p>') +
+        '<div class="lbl">제출한 학생 '+done.length+'명</div>' + (done.length ? '<div class="chips">'+done.map(function(s){ return chipStu(s, w.done[stuKey(s)]); }).join('')+'</div>' : '<p class="muted">아직 제출이 없어요.</p>') +
+        '<p class="tgt">배정 대상: '+w.rows.map(function(a){ return esc((a.type||'전체') + (a.type && a.type.indexOf('전체')<0 ? ' — ' + prettyTarget(a.target) : '')); }).join(' / ')+'</p>' +
+      '</div>';
+    }
+    html += '</div>';
+  });
+  return html;
+}
+function prettyTarget(t){
+  var a = String(t||'').split(/\s*,\s*/).map(function(x){ var p = x.split('|'); return p.length >= 3 ? p[0]+'('+[p[1],p[2]].filter(Boolean).join(' ')+')' : x; });
+  return a.length > 12 ? a.slice(0, 12).join(', ') + ' 외 ' + (a.length - 12) + '명' : a.join(', ');
+}
+
+function renderStudents(q){
+  var list = Object.keys(D.stus).map(function(k){ return D.stus[k]; }).filter(stuOn);
+  if (q) list = list.filter(function(s){ return s.name.replace(/\s+/g,'').toLowerCase().indexOf(q) >= 0; });
+  var rows = list.map(function(s){
+    var k = stuKey(s), ws = D.works.filter(function(w){ return w.assigned.some(function(x){ return stuKey(x) === k; }); });
+    var n = ws.filter(function(w){ return w.done[k]; }).length;
+    return { s: s, k: k, ws: ws, n: n };
+  });
+  if (V.todo) rows = rows.filter(function(r){ return r.n < r.ws.length; });
+  rows.sort(function(a, b){
+    return a.s.school.localeCompare(b.s.school, 'ko') || shortGrade(a.s.grade).localeCompare(shortGrade(b.s.grade), 'ko') || a.s.name.localeCompare(b.s.name, 'ko');
+  });
+  var html = '', head = null;
+  rows.forEach(function(r){
+    var h = [r.s.school, shortGrade(r.s.grade)].filter(Boolean).join(' ') || '학교 정보 없음';
+    if (h !== head){ html += '<div class="grp">'+esc(h)+'</div>'; head = h; }
+    var open = !!V.open['s' + r.k];
+    var left = r.ws.length - r.n;
+    html += '<div class="row'+(open?' open':'')+(left===0?' full':'')+'"><button type="button" class="rhead" data-o="s'+esc(r.k)+'">' +
+      '<span class="rt"><b>'+esc(r.s.name)+'</b><small>'+(left ? '남은 과제 '+left+'개' : '모두 제출')+'</small></span>' +
+      '<span class="rp">'+bar(r.n, r.ws.length)+'</span>' +
+      '<svg class="cv" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>';
+    if (open){
+      var todo = r.ws.filter(function(w){ return !w.done[r.k]; }), done = r.ws.filter(function(w){ return w.done[r.k]; });
+      html += '<div class="rbody">' +
+        '<div class="lbl">아직 안 낸 과제 '+todo.length+'개 <small>교재 앞쪽부터</small></div>' +
+        (todo.length ? '<ol class="wl">'+todo.map(function(w){ return '<li class="todo">'+esc(w.code.replace(/^SHUEGUK REAL\s*/, ''))+(w.due?'<small>마감 '+md(w.due)+'</small>':'')+'</li>'; }).join('')+'</ol>' : '<p class="muted">모두 제출했어요.</p>') +
+        '<div class="lbl">제출한 과제 '+done.length+'개</div>' +
+        (done.length ? '<ol class="wl">'+done.map(function(w){ var x = w.done[r.k]; return '<li class="done">'+esc(w.code.replace(/^SHUEGUK REAL\s*/, ''))+'<small>'+esc((x.total!=null&&x.total!=='')?(x.got+'/'+x.total):'')+(reviewed(x)?' · 오답 ✓':'')+'</small></li>'; }).join('')+'</ol>' : '<p class="muted">아직 제출이 없어요.</p>') +
+      '</div>';
+    }
+    html += '</div>';
+  });
+  return html;
+}
+
+document.getElementById('views').addEventListener('click', function(e){
+  var b = e.target.closest('button[data-v]'); if (!b) return;
+  V.view = b.dataset.v; V.open = {}; document.getElementById('fFind').value = ''; V.q = ''; render();
+});
+document.getElementById('fGrade').addEventListener('change', function(e){ V.grade = e.target.value; render(); });
+document.getElementById('fSchool').addEventListener('change', function(e){ V.school = e.target.value; render(); });
+document.getElementById('fTodo').addEventListener('change', function(e){ V.todo = e.target.checked; render(); });
+document.getElementById('fFind').addEventListener('input', function(e){ V.q = e.target.value; render(); });
+document.getElementById('list').addEventListener('click', function(e){
+  var b = e.target.closest('.rhead'); if (!b) return;
+  var k = b.dataset.o; V.open[k] = !V.open[k]; render();
+});
+document.getElementById('reload').addEventListener('click', load);
+load();
+</script>
+</body>
+</html>
