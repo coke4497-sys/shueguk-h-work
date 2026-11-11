@@ -26,5 +26,5 @@
 - 기록: `hwork_submissions.review` = {q:{tries:[{wrong, why_wrong, pick, why_right, ok, at}], cleared_at, help:{at,text}, error:{at,text}}}, retry_got = 첫 시도에 클리어한 수, review_at = 모두 클리어·넘김. **별은 주지 않는다.** 마감 뒤에도 받는다. 064의 hwork_retry·hwork_review는 065가 지웠다.
 - 학생 확인은 제출 때 받은 `id`·`key`(retry_key, 32자) — 이 기기 localStorage `hw_retry_v1`(최대 10개)에 남겨 다시 열면 맨 위 [이어 하기](`hwork_retry_state`). 다른 기기에서는 이어 할 수 없다. 옛 백엔드 폴백(수파베이스 장애)으로 제출하면 id가 없어 종전처럼 정답까지 바로 보인다(Code.gs 무변경).
 - 교사 화면: 목록 점수 옆 '오답 n/m ✓ · 도움 k · 신고 j', 성적표에 '오답하기' 열·한 줄 요약·**오답하기 기록 표**(시도마다 틀린 답·그 이유·다시 고른 답·정답 이유 + 도움 요청·오류 신고 내용), 문항별 오답률에 '도움 요청'·'오류 신고' 수. 064 전 DB면 옛 열로 다시 읽어 종전 화면.
-- 문항 오류 신고는 지금 수정 요청함으로 가지 않는다(교사 화면 성적표에서만 보임).
+- **문항 오류 신고는 수정 요청함으로도 간다**(2026-11-11 원장님): `hwork_flag` 저장이 성공하면 화면이 리포트 백엔드 `hworkReport`(비밀번호 없음)로 '수정요청' 탭에 화면 **'H WORK 오류 신고'** 한 줄을 남기고 PR #329 알림으로 클로슈를 부른다(결과는 기다리지 않음 — 원본은 수파베이스). 클로슈 처리 정책은 리포트 CLAUDE.md '시간표 수정 요청함' 절.
 - 검증: 리포트 `PGHOST=/home/pgtest PGPORT=5499 PGUSER=postgres bash tools/hwork-retry-sql-test.sh` + `LC_ALL=C.UTF-8 NODE_PATH=$(npm root -g) node tools/hwork-retry-e2e.js [캡처 폴더]`.
