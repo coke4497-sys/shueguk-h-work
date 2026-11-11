@@ -199,6 +199,14 @@
   #report .errbox .sbtn{ margin-top:6px; background:#F7E2DE; color:#8A4A40; }
   #report .errdone{ margin-top:8px; font-size:12.5px; color:#8A4A40; }
   #report .rv .choices, #report .rv .ox{ max-width:320px; }
+  /* 학생 페이지에서 연 배정 과제 — 제출 정보 고정 (2026-11-11) */
+  .fixed{ display:none; }
+  .fixed .frow{ display:flex; gap:12px; padding:9px 0; border-top:1px solid var(--line); font-size:14px; }
+  .fixed .frow:first-of-type{ border-top:none; padding-top:2px; }
+  .fixed .fk{ flex:none; width:62px; color:var(--muted); font-size:13px; padding-top:1px; }
+  .fixed .fv{ flex:1; word-break:keep-all; overflow-wrap:anywhere; }
+  .fixed .fv.code{ font-family:'Gowun Batang',serif; font-weight:700; }
+  .fixed .fnote{ margin-top:10px; font-size:12.5px; color:var(--muted); }
 </style>
 </head>
 <body>
@@ -213,8 +221,10 @@
   <div class="notice bad" id="topErr" style="display:none;"></div>
   <div class="card resume" id="resume" style="display:none;"></div>
 
-  <div class="card">
+  <div class="card" id="infoCard">
     <h3>제출 정보</h3>
+    <div class="fixed" id="fixedBox"></div>
+    <div id="pickBox">
     <label>담당 강사</label>
     <select id="teacherSel" class="sel" onchange="onTeacher()"><option value="">불러오는 중…</option></select>
     <label>H WORK 제목</label>
@@ -230,6 +240,7 @@
     </select>
     <label>이름</label>
     <input type="text" id="name" placeholder="이름" autocomplete="off">
+    </div>
   </div>
 
   <div class="progress-wrap">
@@ -287,6 +298,15 @@
   }
 
   let allHw=[];      // [{teacher, code}]
+  /* 학생 페이지 [H WORK 풀러 가기]로 연 배정 과제 (2026-11-11 원장님) — 주소의 t·c·nm·sc·gr 로
+   * 담당 강사·과제·학교·학년·이름을 고정하고 그 과제 입력 화면만 보여 준다(다시 고르지 않음).
+   * done=1 은 이미 제출한 과제 — 이 기기에 오답하기 기록이 있으면 이어 하고, 없으면 새로 받지 않는다. */
+  const FX=(function(){
+    const q=new URLSearchParams(location.search), c=(q.get('c')||'').trim();
+    if(!c) return null;
+    return { teacher:(q.get('t')||'').trim(), code:c, name:(q.get('nm')||'').trim(),
+             school:(q.get('sc')||'').trim(), grade:(q.get('gr')||'').trim(), done:q.get('done')==='1' };
+  })();
   let meta=null;     // 선택된 H WORK 메타(정답 없음)
   const picks={};    // q -> 답
   const questions={};// q -> 질문 내용
@@ -325,7 +345,67 @@
       const sel=document.getElementById('teacherSel');
       if(!teachers.length){ sel.innerHTML='<option value="">등록된 H WORK이 없습니다</option>'; return; }
       sel.innerHTML='<option value="">담당 강사 선택</option>'+teachers.map(t=>`<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
+      if(FX) initFixed();
     }catch(err){ showErr('서버 연결에 실패했습니다. 인터넷 연결을 확인해 주세요.\n('+err+')'); }
+  }
+
+  /* 학교 이름 비교 — '무원고' = '무원고등학교', '서정중' = '서정중학교' */
+  function schKey(s){ return String(s||'').replace(/\s+/g,'').replace(/등학교$/,'').replace(/학교$/,''); }
+  function optOnly(id, v, label){
+    const el=document.getElementById(id);
+    el.innerHTML=`<option value="${escapeHtml(v)}">${escapeHtml(label||v)}</option>`; el.value=v; el.disabled=true;
+  }
+  async function initFixed(){
+    const hw=allHw.find(h=>h.code===FX.code && (!FX.teacher || h.teacher===FX.teacher))
+          || allHw.find(h=>h.code===FX.code);
+    document.querySelector('.title-bar').textContent='배정 과제 풀기';
+    if(!hw){
+      document.getElementById('infoCard').style.display='none';
+      document.getElementById('footer').style.display='none';
+      showErr('배정된 H WORK을 찾을 수 없습니다.\n'+(FX.teacher?FX.teacher+' · ':'')+FX.code
+        +'\n\n과제 이름이 바뀌었거나 지워졌을 수 있습니다. 이 화면을 선생님께 보여 주세요.');
+      return;
+    }
+    FX.teacher=hw.teacher;
+    optOnly('teacherSel', hw.teacher); optOnly('codeSel', hw.code);
+    const gSel=document.getElementById('gradeSel');
+    if(FX.grade && [...gSel.options].some(o=>o.value===FX.grade)){ gSel.value=FX.grade; gSel.disabled=true; }
+    if(FX.name){ const n=document.getElementById('name'); n.value=FX.name; n.readOnly=true; }
+    drawFixed();
+    // 이 기기에 같은 과제의 오답하기가 남아 있으면 그것부터 이어 한다
+    const left=rsList().find(x=>x.code===hw.code && (!FX.name || x.name===FX.name));
+    if(left && await resumeOne(Number(left.id), String(left.key))) return;
+    if(FX.done){
+      document.getElementById('footer').style.display='none';
+      document.querySelector('.progress-wrap').style.display='none';
+      const n=document.getElementById('topErr'); n.className='notice'; n.style.display='block';
+      n.textContent='이미 제출한 과제입니다. 오답하기는 제출한 기기에서 이어 할 수 있어요.';
+      return;
+    }
+    if(hw.closed){ showErr('마감된 과제입니다. 선생님께 문의해 주세요.'); document.getElementById('footer').style.display='none'; return; }
+    onCode();
+  }
+  function lockSchool(){
+    const sSel=document.getElementById('schoolSel');
+    if(!FX.school) return;
+    const hit=[...sSel.options].find(o=>o.value && o.value!=='__OTHER__' && schKey(o.value)===schKey(FX.school));
+    if(hit) optOnly('schoolSel', hit.value);
+    else optOnly('schoolSel', FX.school);
+    document.getElementById('schoolOther').style.display='none';
+    drawFixed();
+  }
+  /* 고정된 값이 모두 있으면 고르기 칸 대신 한 장으로 보여 준다 */
+  function drawFixed(){
+    const box=document.getElementById('fixedBox');
+    const school=document.getElementById('schoolSel').value||FX.school;
+    const grade=document.getElementById('gradeSel').value, name=document.getElementById('name').value;
+    const full=FX.name && school && grade && document.getElementById('gradeSel').disabled;
+    document.getElementById('pickBox').style.display=full?'none':'block';
+    box.style.display='block';
+    const row=(k,v,c)=>`<div class="frow"><span class="fk">${k}</span><span class="fv${c?' '+c:''}">${escapeHtml(v||'')}</span></div>`;
+    box.innerHTML=row('과제', FX.code, 'code')+row('담당 강사', FX.teacher)
+      +(full? row('학교', school)+row('학년', grade)+row('이름', name) : '')
+      +'<div class="fnote">학생 페이지에서 연 배정 과제라 바꿀 수 없습니다. 아래에서 답안만 입력하세요.</div>';
   }
 
   function onTeacher(){
@@ -370,6 +450,7 @@
       if(json.meta && json.meta.closed){ showErr('마감된 과제입니다 (마감 '+json.meta.due+'). 선생님께 문의해 주세요.'); return; }
       meta=json.meta;
       fillSchools(meta.schools||[]);
+      if(FX) lockSchool();
       buildQuiz(meta);
     }catch(err){ showErr('서버 연결 실패: '+err); }
   }
@@ -700,9 +781,9 @@
   async function resumeOne(id, key){
     try{
       const s=await sbRpc('hwork_retry_state', { p:{ id, key } });
-      if(!s.ok){ rsSave(rsList().filter(x=>x.id!==id)); drawResume(); toast(s.error||'기록을 찾지 못했어요'); return; }
-      fromState(id, key, s);
-    }catch(e){ toast('불러오지 못했어요. 잠시 뒤 다시 눌러 주세요'); }
+      if(!s.ok){ rsSave(rsList().filter(x=>x.id!==id)); drawResume(); toast(s.error||'기록을 찾지 못했어요'); return false; }
+      fromState(id, key, s); return true;
+    }catch(e){ toast('불러오지 못했어요. 잠시 뒤 다시 눌러 주세요'); return false; }
   }
   function drawResume(){
     const box=document.getElementById('resume'); if(!box) return;
