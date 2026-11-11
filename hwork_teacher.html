@@ -129,6 +129,12 @@
     background:var(--ink); color:#fff; padding:11px 22px; border-radius:99px; font-size:13px;
     opacity:0; transition:all .25s; pointer-events:none; z-index:50; }
   .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+  /* 다시 풀기 · 오답 정리 (064) */
+  .rtag{ display:inline-block; font-size:11px; background:#EDE4F4; color:#5A4A6A; padding:1px 7px; border-radius:9px; margin-left:4px; white-space:nowrap; }
+  #report .m2{ font-size:11px; color:#8B928C; font-weight:400; word-break:break-all; }
+  #report .whytag{ font-size:12px; background:#EDE4F4; color:#5A4A6A; padding:2px 8px; border-radius:9px; }
+  #report td.fixc{ text-align:left; white-space:pre-wrap; word-break:break-all; }
+  .qrank .cpt{ color:#5A4A6A; }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
@@ -253,10 +259,14 @@
     try{
       let list = null;
       try{
-        const rows = await sbAllRows('/hwork_submissions?select=id,ts,teacher,code,school,grade,name,got,total,questions&order=id.desc');
+        const BASE = 'id,ts,teacher,code,school,grade,name,got,total,questions';
+        let rows;   // 다시 풀기 열(064)이 없는 DB면 옛 열만 다시 읽는다
+        try{ rows = await sbAllRows('/hwork_submissions?select=' + BASE + ',retry_got,retry_at,review_at&order=id.desc'); RETRY_COL = true; }
+        catch(e){ rows = await sbAllRows('/hwork_submissions?select=' + BASE + '&order=id.desc'); RETRY_COL = false; }
         list = rows.map(r => ({ _id: r.id, submittedAt: r.ts, teacher: r.teacher, code: r.code,
           school: r.school, grade: r.grade, name: r.name, got: String(r.got), total: String(r.total),
-          qCount: Object.keys(r.questions || {}).length }));
+          qCount: Object.keys(r.questions || {}).length,
+          retryGot: r.retry_at ? r.retry_got : null, reviewed: !!r.review_at }));
       }catch(e){ console.warn('수파베이스 목록 실패 — 기존 백엔드(시트)로 폴백', e); }
       if (!list){
         const json=await fetchJSON(API_URL+'?action=responses');
@@ -314,10 +324,17 @@
     body.innerHTML=rows.map((r,i)=>`<tr class="r" onclick="openReportAt(${i})">
       <td>${escapeHtml(r.teacher||'')}</td><td>${escapeHtml(r.code||'')}</td>
       <td class="nm">${escapeHtml(r.name||'')}${Number(r.qCount)>0?` <span class="qbadge">질문 ${r.qCount}</span>`:''}</td>
-      <td class="sc">${escapeHtml(r.got)} / ${escapeHtml(r.total)}</td>
+      <td class="sc">${escapeHtml(r.got)} / ${escapeHtml(r.total)}${retryTag(r)}</td>
       <td>${escapeHtml(r.school||'')}</td><td>${escapeHtml(r.grade||'')}</td>
       <td class="date">${escapeHtml(shortDate(r.submittedAt))}</td></tr>`).join('');
     if(c && rows.length) document.getElementById('qbtn').style.display='block';
+  }
+
+  /* 다시 풀기 · 오답 정리 표시 (064) — 1차 점수 옆에 '다시 +n · 정리 ✓' */
+  let RETRY_COL = false;
+  function retryTag(r){
+    if(r.retryGot==null) return '';
+    return ` <span class="rtag">다시 +${Number(r.retryGot)||0}${r.reviewed?' · 정리 ✓':''}</span>`;
   }
 
   function shortDate(s){
@@ -333,13 +350,15 @@
   /* 한 제출의 상세 — 원본(수파베이스, _id) 우선 · 시트 목록(폴백)이면 옛 행 조회 */
   async function reportOf(r){
     if (r && r._id){
-      const rows = await sbGet('/hwork_submissions?id=eq.' + r._id +
-        '&select=ts,teacher,code,school,grade,name,got,total,detail,questions');
+      const cols = 'ts,teacher,code,school,grade,name,got,total,detail,questions' + (RETRY_COL ? ',retry_detail,retry_got,retry_at,review,review_at' : '');
+      const rows = await sbGet('/hwork_submissions?id=eq.' + r._id + '&select=' + cols);
       if (!rows || !rows.length) throw new Error('gone');
       const x = rows[0];
       return { student: { teacher: x.teacher, code: x.code, school: x.school, grade: x.grade, name: x.name },
                result: { got: Number(x.got), total: Number(x.total), detail: x.detail },
-               questions: x.questions || {}, submittedAt: x.ts };
+               questions: x.questions || {}, submittedAt: x.ts,
+               retry: x.retry_detail || null, retryGot: x.retry_got, retryAt: x.retry_at || '',
+               review: x.review || null, reviewAt: x.review_at || '' };
     }
     const json = await fetchJSON(API_URL+'?action=report&row='+encodeURIComponent(r.row));
     if (!json.ok) throw new Error(json.error || '조회 오류');
@@ -365,19 +384,20 @@
     let rows='';
     const qmap = rep.questions || {};
     const n=itemCount(r); let ne=0;
+    const hasR=!!rep.retry;
     for(let q=1;q<=n;q++){ const d=r.detail[q]||{};
       const mine=(d.mine&&String(d.mine).length)?escapeHtml(d.mine):'<span class="blank">무응답</span>';
       const qtext = qmap[q] ? escapeHtml(qmap[q]) : '';
       if(d.type==='essay'){ ne++;   // 서술형(예시 답 비교) — 채점하지 않음, 학생 답·예시 답을 그대로 보여 준다
         rows+=`<tr class="essay"><td class="qn">${q}</td>
           <td class="mine">${mine}</td><td class="ansc">${escapeHtml(d.ans||'')}</td>
-          <td class="cmp">비교</td>
+          <td class="cmp">비교</td>${hasR?'<td></td>':''}
           <td class="qcell${qtext?' has':''}">${qtext}</td></tr>`;
         continue;
       }
       rows+=`<tr class="${d.ok?'':'wrong'}"><td class="qn">${q}</td>
         <td class="mine">${mine}</td><td class="ansc">${escapeHtml(d.ans||'')}</td>
-        <td class="${d.ok?'o':'x'}">${d.ok?'O':'X'}</td>
+        <td class="${d.ok?'o':'x'}">${d.ok?'O':'X'}</td>${hasR?r2cell(rep.retry[q]):''}
         <td class="qcell${qtext?' has':''}">${qtext}</td></tr>`;
     }
     window.CURNAME = st.name || '학생'; window.CURCODE = st.code || '';
@@ -391,13 +411,36 @@
         <tr><td>${escapeHtml(st.name)}</td><td>${escapeHtml(st.school)}</td><td>${escapeHtml(st.grade)}</td>
         <td>${escapeHtml(st.teacher)}</td><td>${escapeHtml(shortDate(rep.submittedAt))}</td></tr></table></section>
       <section><h2>채점 결과</h2>
-        <div class="scoreline"><span class="big">${r.got} / ${r.total}</span> <span class="pct">(${pct}점)</span></div>${ne?`<div class="snote">서술형 ${ne}문항은 채점하지 않습니다 — 학생 답과 예시 답을 비교해 주세요.</div>`:''}</section>
+        <div class="scoreline"><span class="big">${r.got} / ${r.total}</span> <span class="pct">(${pct}점)</span></div>${retryLine(rep, r)}${ne?`<div class="snote">서술형 ${ne}문항은 채점하지 않습니다 — 학생 답과 예시 답을 비교해 주세요.</div>`:''}</section>
       <section><h2>문항별 채점</h2>
-        <table class="detail"><colgroup><col style="width:12%"><col style="width:18%"><col style="width:18%"><col style="width:17%"><col style="width:35%"></colgroup><tr><th>문항</th><th>학생 답</th><th>정답</th><th>정오</th><th>질문</th></tr>${rows}</table></section>
+        <table class="detail">${hasR?'<colgroup><col style="width:10%"><col style="width:17%"><col style="width:17%"><col style="width:11%"><col style="width:15%"><col style="width:30%"></colgroup>':'<colgroup><col style="width:12%"><col style="width:18%"><col style="width:18%"><col style="width:17%"><col style="width:35%"></colgroup>'}<tr><th>문항</th><th>학생 답</th><th>정답</th><th>${hasR?'1차':'정오'}</th>${hasR?'<th>다시 풀기</th>':''}<th>질문</th></tr>${rows}</table></section>
+      ${reviewHtml(rep)}
       </div>`;
     document.getElementById('listView').style.display='none';
     document.getElementById('report').style.display='block';
     window.scrollTo(0,0);
+  }
+  function r2cell(x){
+    if(!x) return '<td></td>';
+    return `<td class="${x.ok?'o':'x'}">${x.ok?'O':'X'}<div class="m2">${x.mine?escapeHtml(x.mine):'무응답'}</div></td>`;
+  }
+  function retryLine(rep, r){
+    const wrong=Object.keys(r.detail||{}).filter(k=>r.detail[k]&&r.detail[k].ok===false).length;
+    if(!rep.retry){
+      if(!RETRY_COL || !rep.student || !wrong) return '';
+      return `<div class="snote">아직 틀린 문항 ${wrong}개를 다시 풀지 않았습니다.</div>`;
+    }
+    const still=Object.keys(rep.retry).filter(k=>!rep.retry[k].ok).length;
+    let t=`다시 풀기: 틀린 ${wrong}문항 중 <b>${Number(rep.retryGot)||0}문항</b>을 맞혔습니다 (${escapeHtml(shortDate(rep.retryAt))}).`;
+    if(still) t+= rep.reviewAt ? ` 오답 정리 완료 (${escapeHtml(shortDate(rep.reviewAt))}).` : ` 오답 정리 ${still}문항이 남았습니다.`;
+    return `<div class="snote">${t}</div>`;
+  }
+  function reviewHtml(rep){
+    const rv=rep.review; if(!rv) return '';
+    const ks=Object.keys(rv).map(Number).sort((a,b)=>a-b); if(!ks.length) return '';
+    return `<section><h2>오답 정리</h2><table class="detail rvt"><colgroup><col style="width:10%"><col style="width:22%"><col style="width:68%"></colgroup>
+      <tr><th>문항</th><th>왜 틀렸나요</th><th>바르게 고친 풀이</th></tr>${ks.map(q=>`<tr><td class="qn">${q}</td>
+      <td><span class="whytag">${escapeHtml(rv[q].why||'')}</span></td><td class="fixc">${escapeHtml(rv[q].fix||'')}</td></tr>`).join('')}</table></section>`;
   }
   function closeReport(){
     document.getElementById('report').style.display='none';
@@ -445,10 +488,12 @@
       const N=valid.length;
       const stat=[];
       for(let qn=1; qn<=total; qn++){
-        let wrong=0, ans='', essay=false;
-        valid.forEach(v=>{ const d=v.result.detail[qn]; if(d){ if(d.type==='essay') essay=true; if(d.ok===false) wrong++; if(!ans && d.ans) ans=d.ans; } });
+        let wrong=0, ans='', essay=false, still=0, concept=0;
+        valid.forEach(v=>{ const d=v.result.detail[qn]; if(d){ if(d.type==='essay') essay=true; if(d.ok===false) wrong++; if(!ans && d.ans) ans=d.ans; }
+          const r2=v.retry&&v.retry[qn]; if(r2&&r2.ok===false) still++;
+          const rv=v.review&&v.review[qn]; if(rv&&rv.why==='개념을 몰라서') concept++; });
         if(essay) continue;   // 서술형(예시 답 비교)은 채점하지 않아 오답률에서 뺀다
-        stat.push({ q:qn, wrong:wrong, n:N, rate: N? wrong/N : 0, ans:ans });
+        stat.push({ q:qn, wrong:wrong, n:N, rate: N? wrong/N : 0, ans:ans, still:still, concept:concept });
       }
       stat.sort((a,b)=> (b.rate-a.rate) || (a.q-b.q));
       renderQ(stat, code, N);
@@ -465,11 +510,11 @@
       return `<tr${hi}>
         <td class="q">${s.q}</td>
         <td><div class="ratecell"><div class="qbar"><i style="width:${pct}%"></i></div><span class="rate">${pct}%</span></div></td>
-        <td>${s.wrong} / ${s.n}</td>
+        <td>${s.wrong} / ${s.n}</td>${RETRY_COL?`<td>${s.still||''}</td><td>${s.concept?`<b class="cpt">${s.concept}</b>`:''}</td>`:''}
         <td class="ansc">${escapeHtml(s.ans||'')}</td></tr>`;
     }).join('');
     document.getElementById('qbody').innerHTML=`<table class="qrank">
-      <thead><tr><th>문항</th><th>오답률</th><th>틀림/응시</th><th>정답</th></tr></thead>
+      <thead><tr><th>문항</th><th>오답률</th><th>틀림/응시</th>${RETRY_COL?'<th>다시 풀어도 틀림</th><th>개념을 몰라서</th>':''}<th>정답</th></tr></thead>
       <tbody>${rows}</tbody></table>`;
     document.getElementById('qpanel').style.display='block';
     document.getElementById('qpanel').scrollIntoView({behavior:'smooth', block:'nearest'});
