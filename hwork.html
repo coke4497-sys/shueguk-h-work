@@ -207,6 +207,14 @@
   .fixed .fv{ flex:1; word-break:keep-all; overflow-wrap:anywhere; }
   .fixed .fv.code{ font-family:'Gowun Batang',serif; font-weight:700; }
   .fixed .fnote{ margin-top:10px; font-size:12.5px; color:var(--muted); }
+.dnd{background:#EDE4F4;border-radius:14px;padding:16px 16px 14px;margin:6px 0 14px;color:#4A4266}
+.dnd-h{font-family:'Gowun Batang',serif;font-weight:700;font-size:16px;margin-bottom:6px}
+.dnd-p,.dnd-n{font-size:13.5px;line-height:1.6;margin:4px 0}
+.dnd-n{color:#6B5B7B}
+.dnd-l{margin:8px 0 8px 18px;padding:0;font-size:13.5px;line-height:1.65}
+.dnd-l li{margin:3px 0}
+.dnd-l li.me{font-weight:600}
+.dnd-go{display:block;width:100%;margin-top:10px;border:0;border-radius:12px;padding:13px;background:#4A4266;color:#fff;font-size:15px;font-family:inherit;cursor:pointer}
 </style>
 </head>
 <body>
@@ -309,6 +317,18 @@
   })();
   let meta=null;     // 선택된 H WORK 메타(정답 없음)
   const picks={};    // q -> 답
+  /* 화면 이탈 기록 (2026-11-12 원장님) — 문항을 펼친 뒤 제출하기 전까지 다른 앱으로 넘어가거나 화면을 끄면
+   * (visibilitychange hidden) 횟수와 시간을 세어 제출에 싣는다. 막지는 않고 기록만 남긴다(교사 화면에 보임). */
+  const AWAY={ on:false, n:0, ms:0, since:0 };
+  function awayStart(){ AWAY.on=true; AWAY.n=0; AWAY.ms=0; AWAY.since=0; }
+  function awayStop(){ awayVis(true); AWAY.on=false; }
+  function awayVis(forceBack){
+    if(!AWAY.on) return;
+    if(document.visibilityState==='hidden' && !forceBack){ if(!AWAY.since){ AWAY.n++; AWAY.since=Date.now(); } }
+    else if(AWAY.since){ AWAY.ms+=Date.now()-AWAY.since; AWAY.since=0; }
+  }
+  document.addEventListener('visibilitychange', function(){ awayVis(false); });
+  function awayNow(){ return { n:AWAY.n, sec:Math.round((AWAY.ms+(AWAY.since?Date.now()-AWAY.since:0))/1000) }; }
   const questions={};// q -> 질문 내용
 
   function escapeHtml(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
@@ -471,16 +491,39 @@
   function buildQuiz(meta){
     const quiz=document.getElementById('quiz');
     quiz.innerHTML='';
+    quiz.insertAdjacentHTML('beforeend', dndHtml());
+    const wrap=document.createElement('div'); wrap.id='qwrap'; wrap.style.display='none';
     const label=document.createElement('div');
     label.className='sec-label';
     label.textContent=`전체 ${meta.count}문항`;
-    quiz.appendChild(label);
+    wrap.appendChild(label);
     for(let q=1;q<=meta.count;q++){
       const type=(meta.items[q]&&meta.items[q].type)||'choice5';
-      quiz.appendChild(makeQ(q,type));
+      wrap.appendChild(makeQ(q,type));
     }
+    quiz.appendChild(wrap);
     document.getElementById('tot').textContent=meta.count;
     updateProgress();
+  }
+  /* 방해 금지 모드 안내 (2026-11-12 원장님) — 웹페이지는 휴대폰 알림을 막을 수 없어 학생이 직접 켜도록 안내한다.
+   * [방해 금지를 켰어요]를 눌러야 문항이 열리고, 그때부터 화면 이탈을 센다(켰는지는 확인할 수 없다). */
+  function dndHtml(){
+    const ua=navigator.userAgent||'';
+    const ios=/iPhone|iPad|iPod/.test(ua)||(/Macintosh/.test(ua)&&navigator.maxTouchPoints>1), and=/Android/.test(ua);
+    const iosL='<li class="'+(ios?'me':'')+'"><b>아이폰</b> 화면 오른쪽 위에서 아래로 내려 제어 센터를 열고 <b>집중 모드 → 방해 금지</b>를 누릅니다.</li>';
+    const andL='<li class="'+(and?'me':'')+'"><b>갤럭시</b> 화면 위에서 아래로 두 번 내려 빠른 설정을 열고 <b>방해 금지</b>를 누릅니다.</li>';
+    return `<div class="dnd" id="dndBox">
+      <div class="dnd-h">시작하기 전에 방해 금지 모드를 켜 주세요</div>
+      <p class="dnd-p">푸는 동안 다른 알림이 뜨지 않게 휴대폰에서 직접 켜야 합니다.</p>
+      <ol class="dnd-l">${and&&!ios? andL+iosL : iosL+andL}</ol>
+      <p class="dnd-n">푸는 중에 다른 앱으로 넘어가거나 화면을 끄면 그 횟수와 시간이 선생님 화면에 기록돼요. 다 풀고 나면 방해 금지를 다시 꺼 주세요.</p>
+      <button type="button" class="dnd-go" onclick="dndGo()">방해 금지를 켰어요 · 문제 풀기 시작</button>
+    </div>`;
+  }
+  function dndGo(){
+    const b=document.getElementById('dndBox'); if(b) b.style.display='none';
+    const w=document.getElementById('qwrap'); if(w) w.style.display='';
+    awayStart();
   }
 
   function makeQ(q,type){
@@ -562,11 +605,13 @@
     if(!grade){ toast('학년을 선택해 주세요'); window.scrollTo({top:0,behavior:'smooth'}); return; }
     if(!name){ toast('이름을 입력해 주세요'); document.getElementById('name').focus(); return; }
 
+    const qw=document.getElementById('qwrap');
+    if(qw && qw.style.display==='none'){ toast('먼저 [방해 금지를 켰어요]를 눌러 문제를 열어 주세요'); document.getElementById('dndBox').scrollIntoView({behavior:'smooth',block:'center'}); return; }
     const missing=[];
     for(let q=1;q<=meta.count;q++) if(picks[q]==null) missing.push(q);
     if(missing.length && !confirm(`미응답 ${missing.length}문항이 있습니다 (${missing.slice(0,5).join(', ')}${missing.length>5?'…':''}).\n그대로 제출할까요?`)) return;
 
-    const payload={ action:'submit', data:{ teacher, code, school, grade, name, answers:picks, questions:questions } };
+    const payload={ action:'submit', data:{ teacher, code, school, grade, name, answers:picks, questions:questions, away:awayNow() } };
     const btn=document.getElementById('submit'); btn.disabled=true; btn.textContent='채점 중…';
     function showFail(json){ btn.disabled=false; btn.textContent='제출하기'; toast('채점 오류: '+((json&&json.error)||'알 수 없음')); }
     // 원본(수파베이스)에 먼저 제출·채점 — 성공하면 시트 사본은 옛 백엔드로 뒤에서(결과 무시,
@@ -575,7 +620,7 @@
       const json=await sbRpc('hwork_submit', { p: payload.data });
       if(json.ok){
         fetch(API_URL,{ method:'POST', body:JSON.stringify(payload) }).catch(function(){});
-        renderReport(json);
+        awayStop(); renderReport(json);
       }
       else showFail(json);   // 마감 등 판정 거절 — 옛 백엔드도 같은 판정이라 폴백하지 않는다
       return;
@@ -583,7 +628,7 @@
     try{
       const res=await fetch(API_URL,{ method:'POST', body:JSON.stringify(payload) });
       const json=await res.json();
-      if(json.ok){ sbMirrorHwork(payload.data, json.result); renderReport(json); }
+      if(json.ok){ awayStop(); sbMirrorHwork(payload.data, json.result); renderReport(json); }
       else showFail(json);
     }catch(err){ btn.disabled=false; btn.textContent='제출하기'; toast('제출 실패: 다시 시도해 주세요'); }
   }

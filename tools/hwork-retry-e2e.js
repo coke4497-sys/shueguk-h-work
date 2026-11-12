@@ -29,6 +29,7 @@ const wrongAns = d => { const o = {}; for (const k in d) if (d[k].ok === false) 
 function rpc(fn, p) {
   DB.calls.push({ fn, p });
   if (fn === 'hwork_submit') {
+    DB.lastSubmit = p;
     const r = grade(p.answers || {});
     DB.row = { id: 41, key: 'abcdef0123456789abcdef0123456789', detail: r.detail, got: r.got, total: r.total, retry: null, review: null,
       teacher: p.teacher, code: p.code, name: p.name };
@@ -87,11 +88,25 @@ function rpc(fn, p) {
   ok(!(await p.locator('#resume').isVisible()), '처음엔 이어 하기 상자 없음');
   await p.selectOption('#teacherSel', '이수경'); await p.waitForTimeout(300);
   await p.selectOption('#codeSel', 'T세트'); await p.waitForTimeout(700);
+  // 066 방해 금지 안내 — 누르기 전에는 문항이 닫혀 있고 제출도 안 된다
+  ok(await p.locator('#dndBox').isVisible() && !(await p.locator('#qwrap').isVisible()), '방해 금지 안내가 먼저, 문항은 닫힘');
+  if (SHOT) await p.locator('#dndBox').screenshot({ path: SHOT + '/dnd.png' });
+  ok((await p.textContent('#dndBox')).includes('아이폰') && (await p.textContent('#dndBox')).includes('갤럭시'), '안내에 아이폰·갤럭시 방법');
+  await p.selectOption('#schoolSel', '무원고등학교'); await p.selectOption('#gradeSel', '고2'); await p.fill('#name', '박보검');
+  await p.click('#submit'); await p.waitForTimeout(300);
+  ok(!DB.lastSubmit, '시작 전 제출 막음');
+  await p.click('.dnd-go'); await p.waitForTimeout(200);
+  ok(!(await p.locator('#dndBox').isVisible()) && await p.locator('#qwrap').isVisible(), '[방해 금지를 켰어요] → 문항 열림');
+  const hide = async ms => { await p.evaluate(() => { Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true }); document.dispatchEvent(new Event('visibilitychange')); });
+    await p.waitForTimeout(ms);
+    await p.evaluate(() => { Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true }); document.dispatchEvent(new Event('visibilitychange')); }); };
+  await hide(1300); await hide(900);
   // 1:1(틀림) 2:서술 3:가(틀림) 4:O(맞음) 5:2(맞음)
   await p.click('#q1 .choices button:nth-child(1)'); await p.fill('#q2 textarea', '내 서술'); await p.fill('#q3 input', '가');
   await p.click('#q4 .ox button:nth-child(1)'); await p.click('#q5 .choices button:nth-child(2)');
   await p.selectOption('#schoolSel', '무원고등학교'); await p.selectOption('#gradeSel', '고2'); await p.fill('#name', '박보검');
   await p.click('#submit'); await p.waitForTimeout(700);
+  ok(DB.lastSubmit && DB.lastSubmit.away && DB.lastSubmit.away.n === 2 && DB.lastSubmit.away.sec >= 2 && DB.lastSubmit.away.sec <= 4, '화면 이탈 2회·약 2초 제출에 실림 ' + JSON.stringify(DB.lastSubmit && DB.lastSubmit.away));
 
   let rep = await p.textContent('#report');
   ok(rep.includes('2 / 4'), '1차 점수 2/4');
@@ -164,7 +179,7 @@ function rpc(fn, p) {
   const p2 = await ctx.newPage(); p2.on('dialog', d => d.accept());
   await p2.goto('http://localhost:' + PORT + '/hwork.html'); await p2.waitForTimeout(600);
   await p2.selectOption('#teacherSel', '이수경'); await p2.waitForTimeout(300);
-  await p2.selectOption('#codeSel', 'T세트'); await p2.waitForTimeout(600);
+  await p2.selectOption('#codeSel', 'T세트'); await p2.waitForTimeout(600); await p2.click('.dnd-go');
   await p2.click('#q1 .choices button:nth-child(3)'); await p2.fill('#q3 input', '나');
   await p2.click('#q4 .ox button:nth-child(1)'); await p2.click('#q5 .choices button:nth-child(2)');
   await p2.selectOption('#schoolSel', '무원고등학교'); await p2.selectOption('#gradeSel', '고2'); await p2.fill('#name', '정해인');
@@ -179,7 +194,8 @@ function rpc(fn, p) {
       retry_got: 1, retry_at: '2026-11-11 15:05', review_at: '2026-11-11 15:09', detail: R.detail, review: R.review },
     { id: 42, ts: '2026-11-11 15:10', teacher: '이수경', code: 'T세트', school: '무원고등학교', grade: '고2', name: '정해인', got: 1, total: 4, questions: {},
       retry_got: null, retry_at: null, review_at: null, detail: grade({ '1': '1', '3': '가', '4': 'O' }).detail, review: null } ];
-  let oldDb = false;
+  sub[0].away_n = 3; sub[0].away_sec = 130; sub[0].ts = '2026-11-12 15:00';
+  let oldDb = false, awayOld = false;
   await tp.route('**/*', async rt => {
     const u = rt.request().url();
     if (u.startsWith('http://localhost:' + PORT)) return rt.continue();
@@ -187,6 +203,7 @@ function rpc(fn, p) {
     if (u.includes('/rest/v1/hwork_submissions')) {
       const q = new URL(u).searchParams; const cols = (q.get('select') || '').split(',');
       if (oldDb && cols.some(c => c.startsWith('retry') || c.startsWith('review'))) return rt.fulfill({ status: 400, json: { message: 'column does not exist' } });
+      if ((oldDb || awayOld) && cols.some(c => c.startsWith('away'))) return rt.fulfill({ status: 400, json: { message: 'column does not exist' } });
       let rows = sub; const id = q.get('id'); if (id) rows = rows.filter(r => 'eq.' + r.id === id);
       if (q.get('offset') && q.get('offset') !== '0') rows = [];
       return rt.fulfill({ json: rows.map(r => { const o = {}; cols.forEach(c => o[c] = r[c] === undefined ? null : r[c]); return o; }) });
@@ -198,8 +215,10 @@ function rpc(fn, p) {
   await tp.selectOption('#fTeacher', '이수경'); await tp.waitForTimeout(200);
   ok((await tp.textContent('#listBody')).includes('오답 2/2 ✓') && (await tp.textContent('#listBody')).includes('도움 1') && (await tp.textContent('#listBody')).includes('신고 1'), '교사 목록: 오답 2/2 ✓ · 도움 · 신고');
   ok((await tp.locator('#listBody tr:has-text("정해인") .rtag').count()) === 0, '오답하기 안 한 학생은 표시 없음');
+  ok((await tp.textContent('#listBody tr:has-text("박보검")')).includes('이탈 3회 · 2분 10초'), '교사 목록: 화면 이탈 3회 · 2분 10초');
   await tp.click('#listBody tr:has-text("박보검")'); await tp.waitForTimeout(500);
   let tr = await tp.textContent('#report');
+  ok(tr.includes('화면을 벗어난 기록: 3회 · 모두 2분 10초'), '교사 성적표: 화면 이탈 줄');
   ok(tr.includes('틀린 2문항 중 2문항 클리어') && tr.includes('도움 요청 1') && tr.includes('오류 신고 1'), '교사 성적표: 요약 줄');
   ok((await tp.locator('#report table.detail th').allTextContents()).includes('오답하기'), '교사 성적표: 오답하기 열');
   ok(tr.includes('오답하기 기록') && tr.includes('그냥 찍었다') && tr.includes('4번 보기를 잘못 읽었다') && tr.includes('3번이 지문과 맞는다'), '교사 성적표: 시도 기록');
@@ -212,6 +231,12 @@ function rpc(fn, p) {
   await tp.click('#qbtn button'); await tp.waitForTimeout(600);
   const heads = await tp.locator('table.qrank th').allTextContents();
   ok(heads.includes('도움 요청') && heads.includes('오류 신고'), '문항 분석: 두 열');
+  // 066 전 DB — 이탈 열만 없음
+  awayOld = true;
+  await tp.goto('http://localhost:' + PORT + '/hwork_teacher.html'); await tp.waitForTimeout(700);
+  await tp.selectOption('#fTeacher', '이수경'); await tp.waitForTimeout(200);
+  ok((await tp.textContent('#listBody')).includes('오답 2/2 ✓') && !(await tp.textContent('#listBody')).includes('이탈'), '066 전 DB: 오답하기는 그대로, 이탈 표시 없음');
+  awayOld = false;
   // 064 전 DB — 옛 열로 다시 읽는다
   oldDb = true;
   await tp.goto('http://localhost:' + PORT + '/hwork_teacher.html'); await tp.waitForTimeout(700);
