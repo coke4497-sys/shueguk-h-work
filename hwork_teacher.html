@@ -135,6 +135,8 @@
   #report .whytag{ font-size:12px; background:#EDE4F4; color:#5A4A6A; padding:2px 8px; border-radius:9px; }
   #report td.fixc{ text-align:left; white-space:pre-wrap; word-break:break-all; }
   .qrank .cpt{ color:#8A4A40; }
+  .rtag.aw{ background:#F9EFD0; color:#7A6230; }
+  .snote.awl{ color:#7A6230; }
   .rtag.hp{ background:#F7E2DE; color:#8A4A40; }
   #report .whytag.err{ background:#F7E2DE; color:#8A4A40; }
   #report .flg{ color:#8A4A40; }
@@ -265,12 +267,16 @@
       try{
         const BASE = 'id,ts,teacher,code,school,grade,name,got,total,questions';
         let rows;   // 다시 풀기 열(064)이 없는 DB면 옛 열만 다시 읽는다
-        try{ rows = await sbAllRows('/hwork_submissions?select=' + BASE + ',retry_at,review,review_at&order=id.desc'); RETRY_COL = true; }
-        catch(e){ rows = await sbAllRows('/hwork_submissions?select=' + BASE + '&order=id.desc'); RETRY_COL = false; }
+        // 화면 이탈 열(066)·다시 풀기 열(064)이 없는 DB면 있는 열만 다시 읽는다
+        try{ rows = await sbAllRows('/hwork_submissions?select=' + BASE + ',retry_at,review,review_at,away_n,away_sec&order=id.desc'); RETRY_COL = true; AWAY_COL = true; }
+        catch(e0){ AWAY_COL = false;
+          try{ rows = await sbAllRows('/hwork_submissions?select=' + BASE + ',retry_at,review,review_at&order=id.desc'); RETRY_COL = true; }
+          catch(e){ rows = await sbAllRows('/hwork_submissions?select=' + BASE + '&order=id.desc'); RETRY_COL = false; } }
         list = rows.map(r => ({ _id: r.id, submittedAt: r.ts, teacher: r.teacher, code: r.code,
           school: r.school, grade: r.grade, name: r.name, got: String(r.got), total: String(r.total),
           qCount: Object.keys(r.questions || {}).length,
-          fix: fixSum(r.review, (Number(r.total)||0) - (Number(r.got)||0)), reviewed: !!r.review_at }));
+          fix: fixSum(r.review, (Number(r.total)||0) - (Number(r.got)||0)), reviewed: !!r.review_at,
+          awayN: Number(r.away_n)||0, awaySec: Number(r.away_sec)||0 }));
       }catch(e){ console.warn('수파베이스 목록 실패 — 기존 백엔드(시트)로 폴백', e); }
       if (!list){
         const json=await fetchJSON(API_URL+'?action=responses');
@@ -341,9 +347,14 @@
     Object.values(rv||{}).forEach(v=>{ o.any=true; if(v.cleared_at) o.clr++; if(v.help) o.help++; if(v.error) o.err++; });
     return o;
   }
+  /* 화면 이탈 (066, 2026-11-12) — 푸는 동안 다른 앱으로 넘어가거나 화면을 끈 횟수·시간. 0이면 표시 안 함 */
+  let AWAY_COL = false;
+  const AWAY_FROM = '2026-11-12';   // 이 날부터 센다 — 그 전 제출의 0은 '기록 없음'이 아니라 '세지 않음'
+  function awayDur(sec){ sec=Number(sec)||0; if(sec<60) return sec+'초'; const m=Math.floor(sec/60), x=sec%60; return m+'분'+(x?' '+x+'초':''); }
+  function awayTag(r){ return r.awayN? ` <span class="rtag aw" title="푸는 동안 다른 앱으로 넘어가거나 화면을 끈 횟수와 시간">이탈 ${r.awayN}회 · ${awayDur(r.awaySec)}</span>` : ''; }
   function retryTag(r){
-    const f=r.fix; if(!f || !f.any) return '';
-    return ` <span class="rtag">오답 ${f.clr}/${f.n}${r.reviewed?' ✓':''}</span>`+(f.help?` <span class="rtag hp">도움 ${f.help}</span>`:'')+(f.err?` <span class="rtag hp">신고 ${f.err}</span>`:'');
+    const f=r.fix; if(!f || !f.any) return awayTag(r);
+    return ` <span class="rtag">오답 ${f.clr}/${f.n}${r.reviewed?' ✓':''}</span>`+(f.help?` <span class="rtag hp">도움 ${f.help}</span>`:'')+(f.err?` <span class="rtag hp">신고 ${f.err}</span>`:'')+awayTag(r);
   }
 
   function shortDate(s){
@@ -359,14 +370,15 @@
   /* 한 제출의 상세 — 원본(수파베이스, _id) 우선 · 시트 목록(폴백)이면 옛 행 조회 */
   async function reportOf(r){
     if (r && r._id){
-      const cols = 'ts,teacher,code,school,grade,name,got,total,detail,questions' + (RETRY_COL ? ',retry_at,review,review_at' : '');
+      const cols = 'ts,teacher,code,school,grade,name,got,total,detail,questions' + (RETRY_COL ? ',retry_at,review,review_at' : '') + (AWAY_COL ? ',away_n,away_sec' : '');
       const rows = await sbGet('/hwork_submissions?id=eq.' + r._id + '&select=' + cols);
       if (!rows || !rows.length) throw new Error('gone');
       const x = rows[0];
       return { student: { teacher: x.teacher, code: x.code, school: x.school, grade: x.grade, name: x.name },
                result: { got: Number(x.got), total: Number(x.total), detail: x.detail },
                questions: x.questions || {}, submittedAt: x.ts,
-               review: x.review || null, reviewAt: x.review_at || '', fixOn: RETRY_COL };
+               review: x.review || null, reviewAt: x.review_at || '', fixOn: RETRY_COL,
+               away: AWAY_COL ? { n: Number(x.away_n)||0, sec: Number(x.away_sec)||0 } : null };
     }
     const json = await fetchJSON(API_URL+'?action=report&row='+encodeURIComponent(r.row));
     if (!json.ok) throw new Error(json.error || '조회 오류');
@@ -419,7 +431,7 @@
         <tr><td>${escapeHtml(st.name)}</td><td>${escapeHtml(st.school)}</td><td>${escapeHtml(st.grade)}</td>
         <td>${escapeHtml(st.teacher)}</td><td>${escapeHtml(shortDate(rep.submittedAt))}</td></tr></table></section>
       <section><h2>채점 결과</h2>
-        <div class="scoreline"><span class="big">${r.got} / ${r.total}</span> <span class="pct">(${pct}점)</span></div>${retryLine(rep, r)}${ne?`<div class="snote">서술형 ${ne}문항은 채점하지 않습니다 — 학생 답과 예시 답을 비교해 주세요.</div>`:''}</section>
+        <div class="scoreline"><span class="big">${r.got} / ${r.total}</span> <span class="pct">(${pct}점)</span></div>${retryLine(rep, r)}${awayLine(rep)}${ne?`<div class="snote">서술형 ${ne}문항은 채점하지 않습니다 — 학생 답과 예시 답을 비교해 주세요.</div>`:''}</section>
       <section><h2>문항별 채점</h2>
         <table class="detail">${hasR?'<colgroup><col style="width:10%"><col style="width:17%"><col style="width:17%"><col style="width:11%"><col style="width:15%"><col style="width:30%"></colgroup>':'<colgroup><col style="width:12%"><col style="width:18%"><col style="width:18%"><col style="width:17%"><col style="width:35%"></colgroup>'}<tr><th>문항</th><th>학생 답</th><th>정답</th><th>${hasR?'1차':'정오'}</th>${hasR?'<th>오답하기</th>':''}<th>질문</th></tr>${rows}</table></section>
       ${reviewHtml(rep)}
@@ -427,6 +439,11 @@
     document.getElementById('listView').style.display='none';
     document.getElementById('report').style.display='block';
     window.scrollTo(0,0);
+  }
+  function awayLine(rep){
+    const a=rep.away; if(!a) return '';
+    return a.n? `<div class="snote awl">푸는 동안 화면을 벗어난 기록: ${a.n}회 · 모두 ${awayDur(a.sec)} (다른 앱으로 넘어가거나 화면을 끈 경우)</div>`
+              : (String(rep.submittedAt||'')>=AWAY_FROM ? '<div class="snote">푸는 동안 화면을 벗어난 기록이 없습니다.</div>' : '');
   }
   function r2cell(v, wrong){
     if(!wrong) return '<td></td>';
