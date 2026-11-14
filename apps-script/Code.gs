@@ -44,6 +44,7 @@ function doPost(e){
     if(body.action === 'saveHomework') return jsonOut(saveHomework(body.data));
     if(body.action === 'deleteHomework') return jsonOut(deleteHomework(body));
     if(body.action === 'setHomeworkDue') return jsonOut(setHomeworkDue(body));
+    if(body.action === 'deleteSubmission') return jsonOut(deleteSubmission(body));
     if(body.action === 'submit')       return jsonOut(submit(body.data));
     return jsonOut({ ok:false, error:'알 수 없는 요청: ' + body.action });
   }catch(err){
@@ -148,6 +149,32 @@ function deleteHomework(body){
     try{ CacheService.getScriptCache().remove(hwCacheKey(teacher, code)); }catch(e){}
     try{ CacheService.getScriptCache().remove(hwDueKey(teacher, code)); }catch(e){}
     return { ok:true, deletedSubs: subRows.length };
+  } finally {
+    try{ lock.releaseLock(); }catch(e){}
+  }
+}
+
+// 제출 한 건 지우기 (시트 사본 정리 — 원본 수파베이스는 따로 지운다). { pw, teacher, code, name, ts:'yyyy-MM-dd HH:mm' }
+// 강사·제목·이름·제출시각(분까지)이 모두 맞는 줄이 딱 하나일 때만 지운다.
+function deleteSubmission(body){
+  if(String(body.pw||'') !== 'sh') return { ok:false, error:'unauthorized' };
+  const teacher = String(body.teacher||'').trim(), code = String(body.code||'').trim();
+  const name = String(body.name||'').trim(), ts = String(body.ts||'').trim();
+  if(!teacher || !code || !name || !ts) return { ok:false, error:'강사·제목·이름·제출시각이 필요합니다.' };
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try{
+    const sub = SS().getSheetByName(SHEET_SUB);
+    if(!sub || sub.getLastRow() < 2) return { ok:false, error:'제출 기록이 없습니다.' };
+    const v = sub.getDataRange().getValues(), hit = [];
+    for(let i=1;i<v.length;i++){
+      const t = v[i][0] instanceof Date ? Utilities.formatDate(v[i][0], 'Asia/Seoul', 'yyyy-MM-dd HH:mm') : String(v[i][0]||'');
+      if(String(v[i][1]||'').trim() === teacher && String(v[i][2]||'').trim() === code &&
+         String(v[i][5]||'').trim() === name && t.indexOf(ts) === 0) hit.push(i+1);
+    }
+    if(hit.length !== 1) return { ok:false, error:'맞는 줄이 '+hit.length+'개입니다.', rows: hit };
+    sub.deleteRow(hit[0]);
+    return { ok:true, row: hit[0] };
   } finally {
     try{ lock.releaseLock(); }catch(e){}
   }
