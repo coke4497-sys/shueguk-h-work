@@ -198,6 +198,7 @@ function isTextCorrect(studentAns, modelAns){
 function gradeOne(item, studentAns){
   if(!item) return false;
   if(item.type === 'essay') return null;   // 서술형(예시 답 비교) — 채점하지 않음 (수파베이스 063 과 같은 규칙)
+  if(String(item.ans) === '*') return true;  // 정답 없는 문항 = 모두 정답 (수파베이스 067 과 같은 규칙)
   if(item.type === 'text') return isTextCorrect(studentAns, item.ans);
   return String(studentAns) === String(item.ans);   // choice5 · ox 공통
 }

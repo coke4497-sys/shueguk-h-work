@@ -44,3 +44,7 @@
 - ② **화면 이탈 기록**: 문항을 연 뒤 제출 전까지 `visibilitychange`(다른 앱으로 넘어감·화면 끔)의 횟수·시간을 세어(`AWAY`·`awayNow`) 제출 본문 `away {n, sec}`로 보낸다 → `hwork_submissions.away_n`·`away_sec`. 막지는 않고 기록만. 오답하기 단계는 세지 않는다.
 - 교사 화면(hwork_teacher.html): 목록 점수 옆 노란 알약 '이탈 3회 · 2분 10초'(0이면 없음), 성적표 채점 결과 아래 한 줄. `AWAY_FROM`(2026-11-12) 전 제출의 0은 '세지 않음'이라 '기록 없음' 줄을 쓰지 않는다. 066 전 DB면 열 없이 다시 읽는다.
 - 검증: `NODE_PATH=$(npm root -g) LC_ALL=C.UTF-8 node tools/hwork-retry-e2e.js [캡처 폴더]`(53건) + 리포트 `tools/hwork-retry-sql-test.sh`(46건).
+
+## 정답 없는 문항 = 모두 정답 (2026-11-16 원장님, 리포트 마이그레이션 067)
+- 문항의 ans 를 `'*'`로 저장하면 어떤 답(빈 답 포함)이든 정답으로 채점하고, 결과의 정답 칸은 '모두 정답'으로 보낸다(오답하기 대상이 되지 않음). 처음 쓴 곳: 「문장 1권 02 서술어 자릿수·필수 성분 · 기본」 33번(원장님 "33번 답이 없음", 수정 요청함 827).
+- 채점 규칙 두 벌 — `apps-script/Code.gs` gradeOne 과 리포트 `supabase/migrations/067_hwork_any_answer.sql` hwork_grade_. Code.gs 는 재배포해야 시트 폴백에도 적용된다.
