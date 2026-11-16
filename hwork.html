@@ -217,6 +217,14 @@
 .dnd-go{display:block;width:100%;margin-top:10px;border:0;border-radius:12px;padding:13px;background:#4A4266;color:#fff;font-size:15px;font-family:inherit;cursor:pointer}
   /* 선생님 답장 · 리테스트 (2026-11-16, 리포트 마이그레이션 067) */
   #report .reply{ margin-top:8px; background:#EAF3ED; border-radius:10px; padding:9px 12px; font-size:13.5px; line-height:1.6; white-space:pre-wrap; word-break:break-all; }
+  #report .reply .rfs{ display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; white-space:normal; }
+  #report .reply .rfimg{ border:none; padding:0; background:#fff; border-radius:10px; overflow:hidden; cursor:zoom-in; max-width:100%; min-height:44px; }
+  #report .reply .rfimg img{ display:block; max-width:100%; max-height:320px; }
+  #report .reply .rfimg .ld{ display:block; padding:12px 14px; font-size:12.5px; color:#5C6A64; }
+  #report .reply .rfvid{ width:100%; }
+  #report .reply .rfvid video{ width:100%; max-height:360px; border-radius:10px; background:#000; }
+  #report .reply .rfb{ border:none; border-radius:999px; background:#fff; color:#2F6B52; padding:7px 13px; font-family:inherit; font-size:13px; cursor:pointer; text-align:left; word-break:break-all; }
+  #report .reply .rfb .sz{ color:#7A8780; font-size:11.5px; }
   #report .reply .rh{ display:block; font-size:12px; color:#2F6B52; font-weight:700; margin-bottom:2px; white-space:normal; }
   #report .rtq{ border-top:1px solid var(--line); padding:12px 0; display:flex; gap:12px; align-items:flex-start; }
   #report .rtq .qno{ min-width:34px; height:34px; border-radius:50%; background:#E9EDF8; color:#3F4E75; font-weight:700; display:flex; align-items:center; justify-content:center; }
@@ -766,9 +774,57 @@
   }
   /* 선생님 답장 (067) — [선생님 도와주세요]를 누른 문항에 선생님이 남긴 글 */
   function replyHtml(q){
-    const v=(RS.reply||{})[q]; if(!v || !v.text) return '';
-    return `<div class="reply"><span class="rh">선생님 답장${v.by?' · '+escapeHtml(v.by)+' 선생님':''}${v.at?' · '+escapeHtml(v.at):''}</span>${escapeHtml(v.text)}</div>`;
+    const v=(RS.reply||{})[q]; if(!v || (!v.text && !(v.files||[]).length)) return '';
+    return `<div class="reply"><span class="rh">선생님 답장${v.by?' · '+escapeHtml(v.by)+' 선생님':''}${v.at?' · '+escapeHtml(v.at):''}</span>${escapeHtml(v.text||'')}${rfHtml(v.files)}</div>`;
   }
+  /* 답장 첨부 — 사진·영상·파일 (같은 날 원장님 "답장할 때 사진, 영상, 파일 첨부 기능 필요", 리포트 067)
+   * 비공개 버킷이라 hwork_reply_file_url(이 제출의 오답하기 열쇠)로 10분 창을 열고 공개 키로 받는다.
+   * 사진은 바로 작게 보이고 누르면 크게, 영상은 [영상 보기]를 누르면 그 자리에서 재생, 그 밖 파일은 내려받기.
+   * 학생 페이지(리포트 s.html rf*)와 같은 모양 — 고치면 둘 다. */
+  const SB_STORE = "https://bangdbhqpphqqdwcledg.supabase.co/storage/v1";
+  const RF_BLOB = {};
+  function rfKind(f){ const m=String(f.mime||''), n=String(f.name||'');
+    if(m.indexOf('image/')===0 || /\.(png|jpe?g|gif|webp)$/i.test(n)) return 'img';
+    if(m.indexOf('video/')===0 || /\.(mp4|mov|m4v|webm)$/i.test(n)) return 'vid'; return 'file'; }
+  function rfSize(n){ n=Number(n)||0; return n>=1048576?(n/1048576).toFixed(1)+'MB':Math.max(1,Math.round(n/1024))+'KB'; }
+  function rfHtml(files){
+    if(!files || !files.length) return '';
+    return '<div class="rfs">'+files.map(f=>{ const k=rfKind(f);
+      if(k==='img') return `<button type="button" class="rfimg" data-rf="${f.id}" data-rk="img" title="크게 보기"><span class="ld">사진 불러오는 중</span></button>`;
+      if(k==='vid') return `<div class="rfvid" id="rfv${f.id}"><button type="button" class="rfb" data-rf="${f.id}" data-rk="vid">영상 보기 · ${escapeHtml(f.name)} <span class="sz">${rfSize(f.size)}</span></button></div>`;
+      return `<button type="button" class="rfb" data-rf="${f.id}" data-rk="file" data-nm="${escapeHtml(f.name)}">내려받기 · ${escapeHtml(f.name)} <span class="sz">${rfSize(f.size)}</span></button>`;
+    }).join('')+'</div>';
+  }
+  async function rfBlob(fid){
+    if(RF_BLOB[fid]) return RF_BLOB[fid];
+    const j=await sbRpc('hwork_reply_file_url', { p:{ via:'retry', id:RS.id, key:RS.key, file:fid } });
+    if(!j || !j.ok) throw new Error((j&&j.error)||'no');
+    const r=await fetch(SB_STORE+'/object/authenticated/'+j.bucket+'/'+j.path.split('/').map(encodeURIComponent).join('/'),
+      { headers:{ apikey:SB_KEY, Authorization:'Bearer '+SB_KEY } });
+    if(!r.ok) throw new Error('file '+r.status);
+    return RF_BLOB[fid]={ url:URL.createObjectURL(await r.blob()), name:j.name, mime:j.mime };
+  }
+  function rfThumbs(root){
+    (root||document).querySelectorAll('.rfimg[data-rf]:not([data-ldd])').forEach(b=>{
+      b.setAttribute('data-ldd','1');
+      rfBlob(b.dataset.rf).then(x=>{ b.innerHTML=`<img src="${x.url}" alt="${escapeHtml(x.name)}">`; })
+        .catch(()=>{ b.innerHTML='<span class="ld">사진을 불러오지 못했어요 · 눌러서 다시</span>'; b.removeAttribute('data-ldd'); });
+    });
+  }
+  document.addEventListener('click', async e=>{
+    const b=e.target.closest && e.target.closest('[data-rf]'); if(!b) return;
+    const fid=b.dataset.rf, k=b.dataset.rk;
+    if(k==='img' && !RF_BLOB[fid]){ b.removeAttribute('data-ldd'); rfThumbs(b.parentNode); return; }
+    try{
+      if(k!=='img'){ b.disabled=true; b.dataset.t=b.dataset.t||b.innerHTML; b.textContent='불러오는 중…'; }
+      const x=await rfBlob(fid);
+      if(k==='img'){ window.open(x.url, '_blank'); return; }
+      if(k==='vid'){ const box=document.getElementById('rfv'+fid); if(box) box.innerHTML=`<video src="${x.url}" controls playsinline preload="metadata"></video>`; return; }
+      const a=document.createElement('a'); a.href=x.url; a.download=b.dataset.nm||x.name||'파일'; document.body.appendChild(a); a.click(); a.remove();
+      b.disabled=false; b.innerHTML=b.dataset.t;
+    }catch(err){ b.disabled=false; if(b.dataset.t) b.innerHTML=b.dataset.t; alert('파일을 열지 못했습니다. 잠시 뒤 다시 눌러 주세요.'); }
+  });
+  new MutationObserver(()=>rfThumbs(document.getElementById('report'))).observe(document.getElementById('report'), { childList:true, subtree:true });
   function fixCard(q){
     const r=rvOf(q), d=RS.detail[q]||{}, dr=RS.draft[q]||{}, tries=r.tries||[];
     const flags=(r.help?'<span class="fl">선생님 도움 요청함</span>':'')+(r.error?'<span class="fl">문항 오류 신고함</span>':'');

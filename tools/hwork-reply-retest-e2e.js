@@ -30,23 +30,27 @@ const SUB4 = { id: 44, teacher: '이수경', code: 'T세트', name: '김미등�
 const SUBS = [SUB, SUB2, SUB3, SUB4];
 const STUS = [{ code: 'K1', name: '박보검', school: '무원고', grade: '2026 고등 2학년', enrolled: '재원', phone_student: '01011112222', phone_parent1: '010-3333-4444', phone_parent2: '01011112222' },
               { code: 'K2', name: '정해인', school: '무원고', grade: '2026 고등 2학년', enrolled: '재원', phone_student: '', phone_parent1: '01055556666', phone_parent2: '' }];
-let RETESTS = [], POSTS = [], ALIM = [], CFG_READY = false, RT = null;
+let RETESTS = [], POSTS = [], ALIM = [], CFG_READY = false, RT = null, FILES = [], OBJ = {}, STORE = [];
 const hide = d => { const o = {}; for (const k in d) { o[k] = Object.assign({}, d[k]); if (d[k].ok === false) delete o[k].ans; } return o; };
 
 function rpc(fn, p) {
   if (fn === 'hwork_reply') {
     if (!(SUB.review[p.q] || {}).help) return { ok: false, reason: 'no_help', error: '도움 요청 아님' };
     SUB.reply = SUB.reply || {};
-    if (!p.text) { delete SUB.reply[p.q]; return { ok: true, q: p.q, removed: true }; }
+    const fl = FILES.filter(f => f.sub_id === p.id && f.q === p.q).map(f => ({ id: f.id, name: f.name, size: f.size, mime: f.mime }));
+    if (!p.text && !fl.length) { delete SUB.reply[p.q]; return { ok: true, q: p.q, removed: true }; }
     SUB.reply[p.q] = { text: p.text, by: p.by, at: '2026-11-16 15:10' };
     POSTS.push({ fn, p });
-    return { ok: true, q: p.q, reply: SUB.reply[p.q], removed: false };
+    return { ok: true, q: p.q, reply: SUB.reply[p.q], removed: false, files: fl };
   }
   if (fn === 'hwork_retry_state') {
     if (p.id !== SUB.id || p.key !== SUB.key) return { ok: false, error: '제출 기록을 찾을 수 없습니다.' };
     return { ok: true, stage: 'done', teacher: SUB.teacher, code: SUB.code, name: SUB.name, got: SUB.got, total: SUB.total,
-      detail: hide(SUB.detail), review: SUB.review, answers: { '4': 'O' }, reply: SUB.reply || {} };
+      detail: hide(SUB.detail), review: SUB.review, answers: { '4': 'O' },
+      reply: Object.fromEntries(Object.entries(SUB.reply || {}).map(([k, v]) => [k, Object.assign({}, v, { files: FILES.filter(f => f.q === k).map(f => ({ id: f.id, name: f.name, size: f.size, mime: f.mime })) })])) };
   }
+  if (fn === 'hwork_reply_file_url') { POSTS.push({ fn, p }); const f = FILES.find(x => x.id === +p.file);
+    return f && p.via === 'retry' && p.id === SUB.id && p.key === SUB.key ? { ok: true, bucket: 'hwork-reply-files', path: f.path, name: f.name, mime: f.mime } : { ok: false, error: 'not_mine' }; }
   if (fn === 'hwork_open_mine') { POSTS.push({ fn, p }); return p.key === 'K1' ? { ok: true, id: SUB.id, key: SUB.key } : { ok: false, reason: 'none' }; }
   if (fn === 'hwork_retest_open') {
     if (!RT || p.key !== 'K1' || p.id !== RT.id) return { ok: false, error: '리테스트를 찾을 수 없습니다.' };
@@ -76,6 +80,16 @@ function pick(o, sel) { if (!sel) return o; const cols = sel.split(','); const r
     const m = /\/rest\/v1\/rpc\/(\w+)/.exec(u);
     if (m) { const body = JSON.parse(req.postData() || '{}'); return json(rt, rpc(m[1], body.p || {})); }
     if (u.includes('/auth/v1/token')) return json(rt, { access_token: 'tok', expires_in: 3600 });
+    const sm = /\/storage\/v1\/object\/(authenticated\/)?hwork-reply-files\/(.+)$/.exec(u);
+    if (sm) { const pth = decodeURIComponent(sm[2]); STORE.push({ m: req.method(), path: pth, auth: req.headers()['authorization'], type: req.headers()['content-type'] });
+      if (req.method() === 'POST') { OBJ[pth] = req.postDataBuffer() || Buffer.from(''); return json(rt, { Key: pth }); }
+      if (req.method() === 'DELETE') { delete OBJ[pth]; return json(rt, {}); }
+      return OBJ[pth] ? rt.fulfill({ status: 200, contentType: pth.endsWith('.png') ? 'image/png' : 'application/octet-stream', body: OBJ[pth] }) : rt.fulfill({ status: 400, body: '' }); }
+    if (u.includes('/rest/v1/hwork_reply_files')) {
+      if (req.method() === 'POST') { const rows = JSON.parse(req.postData()); rows.forEach(r => FILES.push(Object.assign({ id: 700 + FILES.length }, r))); POSTS.push({ fn: 'rpfiles', rows }); return rt.fulfill({ status: 201, body: '' }); }
+      if (req.method() === 'DELETE') { const id = +(/id=eq\.(\d+)/.exec(u) || [])[1]; FILES = FILES.filter(f => f.id !== id); POSTS.push({ fn: 'rpdel', id }); return rt.fulfill({ status: 204, body: '' }); }
+      const sub = +(/sub_id=eq\.(\d+)/.exec(u) || [])[1]; return json(rt, FILES.filter(f => f.sub_id === sub).map(f => pick(f, new URL(u).searchParams.get('select'))));
+    }
     const U = new URL(u), sel = U.searchParams.get('select');
     if (u.includes('/rest/v1/hwork_submissions')) {
       let rows = SUBS.slice();
@@ -123,6 +137,34 @@ function pick(o, sel) { if (!sel) return o; const cols = sel.split(','); const r
   ok(rp && rp.p.id === 41 && rp.p.q === '1' && rp.p.by === '김현지' && /둘째 문단/.test(rp.p.text), 'hwork_reply 본문(id·q·by)');
   ok(/김현지 · 2026-11-16 15:10 저장/.test(await tp.textContent('#rpM1')), '저장 표시');
   ok(await tp.isDisabled('#rpA1'), '템플릿 준비 전이면 알림톡 잠김');
+  // 첨부 — 사진·영상·파일
+  const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
+  ok(await tp.locator('#rpF1').count() === 1 && /사진·영상·파일 첨부/.test(await tp.textContent('#report .rpbtns')), '첨부 단추');
+  await tp.setInputFiles('#rpI1', [{ name: '풀이.png', mimeType: 'image/png', buffer: PNG }, { name: '설명.mp4', mimeType: 'video/mp4', buffer: Buffer.from('vid') },
+                                    { name: '빈파일.txt', mimeType: 'text/plain', buffer: Buffer.from('') }]);
+  await tp.waitForTimeout(200);
+  let chips = await tp.textContent('#rpF1');
+  ok(/풀이\.png/.test(chips) && /설명\.mp4/.test(chips) && /저장 전/.test(chips) && !/빈파일/.test(chips), '고른 파일 칩(빈 파일은 뺌)');
+  ok(STORE.length === 0, '저장 전에는 올리지 않음');
+  // 캡처 붙여 넣기
+  await tp.evaluate(() => { const dt = new DataTransfer(); dt.items.add(new File([new Uint8Array([1,2,3])], 'image.png', { type: 'image/png' }));
+    const ev = new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }); document.getElementById('rpT1').dispatchEvent(ev); });
+  await tp.waitForTimeout(150);
+  ok(/캡처_\d{4}_\d{6}\.png/.test(await tp.textContent('#rpF1')), '글 칸에 캡처 붙여 넣기 → 캡처 이름');
+  await tp.click('#rpF1 .rpf.pend:nth-child(2) .x'); await tp.waitForTimeout(100);   // 영상 빼기
+  ok(!/설명\.mp4/.test(await tp.textContent('#rpF1')), '저장 전 칩 빼기');
+  await tp.setInputFiles('#rpI1', [{ name: '설명.mp4', mimeType: 'video/mp4', buffer: Buffer.from('vid') }]);
+  await tp.click('#rpS1'); await tp.waitForTimeout(700);
+  const ups = STORE.filter(x => x.m === 'POST');
+  ok(ups.length === 3 && ups.every(x => /^r\/41\/[0-9a-f]{24}\.(png|mp4)$/.test(x.path) && x.auth === 'Bearer tok'), '저장 → 교사 신분으로 r/제출/무작위 경로에 3개 올림', JSON.stringify(ups));
+  const ins = POSTS.find(x => x.fn === 'rpfiles');
+  ok(ins && ins.rows.length === 3 && ins.rows.every(r => r.sub_id === 41 && r.q === '1' && r.created_by === '김현지') && ins.rows.some(r => r.name === '설명.mp4' && r.mime === 'video/mp4'), 'hwork_reply_files 줄(이름·종류)');
+  chips = await tp.textContent('#rpF1');
+  ok(/사진 · 풀이\.png/.test(chips) && /영상 · 설명\.mp4/.test(chips) && !/저장 전/.test(chips), '저장 뒤 올린 파일 칩');
+  // 지우기
+  const before = FILES.length;
+  await tp.click('#rpF1 .rpf:nth-child(2) .x'); await tp.waitForTimeout(500);
+  ok(FILES.length === before - 1 && STORE.some(x => x.m === 'DELETE'), '× → 저장소·표에서 지움');
   if (SHOT) await tp.screenshot({ path: SHOT + '/reply-teacher.png', fullPage: true });
   // 템플릿 준비됨 → 알림톡
   CFG_READY = true;
@@ -143,7 +185,7 @@ function pick(o, sel) { if (!sel) return o; const cols = sel.split(','); const r
   ok(/알림톡 2건 보냄/.test(await tp.textContent('#rpM1')), '보낸 결과 표시');
   // 지우기
   await tp.fill('#rpT1', ''); await tp.click('#rpS1'); await tp.waitForTimeout(500);
-  ok(!SUB.reply || !SUB.reply['1'], '빈 글로 저장 = 답장 지움(확인 창 뒤)');
+  ok(SUB.reply && SUB.reply['1'] && SUB.reply['1'].text === '', '첨부가 있으면 빈 글로 저장해도 답장(파일)은 남음');
   await tp.fill('#rpT1', '지문 둘째 문단의 근거를 다시 찾아보세요.'); await tp.click('#rpS1'); await tp.waitForTimeout(500);
 
   /* ── ② 교사: 리테스트 만들기 ── */
@@ -176,6 +218,13 @@ function pick(o, sel) { if (!sel) return o; const cols = sel.split(','); const r
   const rv1 = await p.textContent('#rv1');
   ok(/선생님 답장 · 김현지 선생님/.test(rv1) && /둘째 문단/.test(rv1), '1번 카드에 선생님 답장');
   ok(!/선생님 답장/.test(await p.textContent('#rv5')), '답장 없는 문항엔 없음');
+  await p.waitForTimeout(400);
+  ok(await p.$('#rv1 .rfimg img') !== null, '학생: 사진 첨부가 바로 그림으로');
+  ok(POSTS.some(x => x.fn === 'hwork_reply_file_url' && x.p.via === 'retry' && x.p.id === 41 && x.p.key === SUB.key), '오답하기 열쇠로 파일 창 열기');
+  ok(STORE.some(x => x.m === 'GET' && /sb_publishable/.test(x.auth || '')), '공개 키로 받기');
+  const vb = await p.$('#rv1 [data-rk="vid"]');
+  if (vb) { await vb.click(); await p.waitForTimeout(300); }
+  ok(vb && await p.$('#rv1 .rfvid video') !== null, '영상 보기 → 그 자리에서 재생');
   if (SHOT) await p.screenshot({ path: SHOT + '/reply-student.png', fullPage: true });
   // 접근코드가 없거나 남의 것이면 종전 안내
   const p3 = await ctx.newPage();

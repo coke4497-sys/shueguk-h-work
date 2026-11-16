@@ -154,6 +154,19 @@
   #report .rpbtns button.pri{ background:#EDE4F4; color:#5A4A6A; font-weight:700; }
   #report .rpbtns button:disabled{ opacity:.5; cursor:default; }
   #report .rplab{ font-size:12px; color:#5A4A6A; margin-bottom:4px; }
+  /* 답장 첨부 — 사진·영상·파일 (067, 2026-11-16) */
+  #report .rpfiles{ display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
+  #report .rpf{ display:inline-flex; align-items:center; gap:6px; max-width:100%; padding:5px 6px 5px 10px; border-radius:999px;
+    background:#E9EDF8; color:#3F4E75; font-size:12.5px; }
+  #report .rpf.pend{ background:#FBF3DA; color:#6B5520; }
+  #report .rpf .nm{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:220px; cursor:pointer; border:none; background:none;
+    color:inherit; font:inherit; padding:0; text-decoration:underline; text-underline-offset:2px; }
+  #report .rpf.pend .nm{ text-decoration:none; cursor:default; }
+  #report .rpf .sz{ color:#7A8496; font-size:11.5px; }
+  #report .rpf .x{ border:none; background:rgba(255,255,255,.7); color:#8A4A40; width:20px; height:20px; border-radius:50%;
+    cursor:pointer; font-size:13px; line-height:1; padding:0; }
+  #report .rpf img{ width:28px; height:28px; object-fit:cover; border-radius:6px; }
+  #report .rpbox.drop{ outline:2px dashed #98A9D4; outline-offset:3px; border-radius:10px; }
   /* 개인 리테스트 (067) */
   .rtrow td{ white-space:normal !important; }
   table.rtt{ width:100%; border-collapse:collapse; }
@@ -421,7 +434,8 @@
                result: { got: Number(x.got), total: Number(x.total), detail: x.detail },
                questions: x.questions || {}, submittedAt: x.ts,
                review: x.review || null, reviewAt: x.review_at || '', fixOn: RETRY_COL,
-               away: AWAY_COL ? { n: Number(x.away_n)||0, sec: Number(x.away_sec)||0 } : null };
+               away: AWAY_COL ? { n: Number(x.away_n)||0, sec: Number(x.away_sec)||0 } : null,
+               files: (REPLY_COL && x.review && Object.values(x.review).some(v=>v&&v.help)) ? await rpFilesOf(r._id) : {} };
     }
     const json = await fetchJSON(API_URL+'?action=report&row='+encodeURIComponent(r.row));
     if (!json.ok) throw new Error(json.error || '조회 오류');
@@ -626,31 +640,165 @@
     const meta = v ? `${escapeHtml(v.by||'')}${v.by?' · ':''}${escapeHtml(v.at||'')} 저장` : '아직 답장하지 않았습니다';
     const ready = ALIM_CFG && ALIM_CFG.templates && ALIM_CFG.templates[RP_KIND] && ALIM_CFG.templates[RP_KIND].ready;
     const why = !ALIM_CFG ? '알림톡 설정을 불러오는 중이거나 불러오지 못했습니다' : (!ready ? "'H WORK 질문 답변 안내' 템플릿이 아직 심사 중입니다" : '학생·학부모님께 알림톡을 보냅니다');
-    return `<tr class="replyrow"><td class="qn"></td><td colspan="5"><div class="rpbox">
+    return `<tr class="replyrow"><td class="qn"></td><td colspan="5"><div class="rpbox" data-rpq="${q}">
       <div class="rplab">선생님 답장 · 학생 페이지와 오답하기 화면에 ${q}번 문항과 함께 보여요</div>
-      <textarea id="rpT${q}" maxlength="1000" placeholder="학생이 이해할 수 있게 풀이의 실마리를 적어 주세요. (예: 둘째 문단 마지막 문장을 다시 읽어 보세요)">${escapeHtml(v?v.text:'')}</textarea>
+      <textarea id="rpT${q}" maxlength="1000" data-rpq="${q}" placeholder="학생이 이해할 수 있게 풀이의 실마리를 적어 주세요. (예: 둘째 문단 마지막 문장을 다시 읽어 보세요) 캡처한 그림은 여기에 붙여 넣어도 돼요.">${escapeHtml(v?v.text:'')}</textarea>
+      ${RPF_ON?`<div class="rpfiles" id="rpF${q}" data-html2canvas-ignore="true">${rpChips(rep, q)}</div>`:''}
       <div class="rpbtns" data-html2canvas-ignore="true"><button type="button" class="pri" id="rpS${q}" onclick="saveReply(${q})">${v?'답장 고치기':'답장 저장'}</button>
+        ${RPF_ON?`<button type="button" onclick="document.getElementById('rpI${q}').click()">사진·영상·파일 첨부</button>
+        <input type="file" id="rpI${q}" multiple hidden onchange="rpPick(${q}, this.files); this.value=''">`:''}
         <button type="button" id="rpA${q}" onclick="replyAlim(${q})" ${v&&ready?'':'disabled'} title="${escapeHtml(v?why:'답장을 먼저 저장해 주세요')}">알림톡 보내기</button>
         <span class="m2" id="rpM${q}">${meta}</span></div></div></td></tr>`;
   }
   async function saveReply(q){
     const rep=window.CURREP; if(!rep||!rep.id) return;
     const el=document.getElementById('rpT'+q), txt=(el.value||'').trim(), had=!!(rep.reply||{})[q];
-    if(!txt && !had){ toast('답장을 적어 주세요'); el.focus(); return; }
-    if(!txt && !confirm(q+'번 답장을 지울까요? 학생 화면에서도 사라집니다.')) return;
+    const pend=rpPend(rep, q), nOld=((rep.files||{})[q]||[]).length;
+    if(!txt && !had && !pend.length){ toast('답장을 적거나 파일을 붙여 주세요'); el.focus(); return; }
+    if(!txt && !pend.length && !nOld && !confirm(q+'번 답장을 지울까요? 학생 화면에서도 사라집니다.')) return;
     const btn=document.getElementById('rpS'+q); btn.disabled=true;
+    const msg=document.getElementById('rpM'+q);
     try{
+      if(pend.length){
+        const up=await rpUpload(rep, q, pend, t=>{ if(msg) msg.textContent=t; });
+        if(!up){ btn.disabled=false; return; }
+      }
       const j=await sbSend('POST', '/rpc/hwork_reply', { p:{ id:rep.id, q:String(q), text:txt, by:ME_NAME } });
       if(!j || !j.ok){ toast((j&&j.error)||'저장하지 못했어요'); btn.disabled=false; return; }
       rep.reply=rep.reply||{};
       if(j.removed) delete rep.reply[q]; else rep.reply[q]=j.reply;
+      delete RP_PEND[rep.id+'|'+q];
+      if(RPF_ON) rep.files=await rpFilesOf(rep.id);
       const row=ALL.find(x=>x._id===rep.id);
       if(row && row.fix){ row.fix.rep=Object.keys(rep.reply).filter(k=>(rep.review||{})[k]&&rep.review[k].help).length; }
       toast(j.removed?'답장을 지웠습니다':'답장을 저장했습니다. 학생 화면에 바로 보여요');
-      renderReport(rep);
-      const box=document.getElementById('rpT'+q); if(box) box.scrollIntoView({block:'center'});
+      rpRerender(q);
     }catch(e){ btn.disabled=false; toast('저장하지 못했어요 · 다시 눌러 주세요'); }
   }
+
+  /* ── 답장 첨부 — 사진·영상·파일 (같은 날 원장님 "답장할 때 사진, 영상, 파일 첨부 기능 필요") ──
+   * 고른 파일은 [답장 저장]을 누를 때 비공개 버킷 hwork-reply-files(경로 r/{제출}/{무작위}.{확장자})에 올리고
+   * 표 hwork_reply_files 에 줄을 넣는다. 파일당 50MB · 문항마다 10개. 글 칸에 캡처를 붙여 넣거나 답장 칸에 끌어 놓아도 된다.
+   * 학생은 hwork_reply_file_url 로 10분 창을 열어 받는다. 067 전 DB(표 없음)면 첨부 단추를 숨긴다. */
+  const RPF_BUCKET='hwork-reply-files', RPF_MAX=50*1024*1024, RPF_N=10;
+  let RPF_ON=false;
+  const RP_PEND={};   // '제출|문항' → File[]
+  function rpPend(rep, q){ return RP_PEND[rep.id+'|'+q] || []; }
+  async function rpFilesOf(sub){
+    try{
+      const rows=await sbGet('/hwork_reply_files?sub_id=eq.'+sub+'&select=id,q,path,name,size,mime&order=id');
+      RPF_ON=true;
+      const out={}; rows.forEach(f=>{ (out[f.q]=out[f.q]||[]).push(f); }); return out;
+    }catch(e){ RPF_ON=false; return {}; }
+  }
+  function rpSize(n){ n=Number(n)||0; return n>=1048576?(n/1048576).toFixed(1)+'MB':Math.max(1,Math.round(n/1024))+'KB'; }
+  function rpKind(m, nm){ m=String(m||''); if(m.indexOf('image/')===0) return '사진'; if(m.indexOf('video/')===0) return '영상';
+    return /\.(png|jpe?g|gif|webp|heic)$/i.test(nm||'')?'사진':/\.(mp4|mov|m4v|webm)$/i.test(nm||'')?'영상':'파일'; }
+  function rpChips(rep, q){
+    const old=((rep.files||{})[q]||[]).map(f=>`<span class="rpf"><button type="button" class="nm" title="열어 보기" onclick="rpOpen(${f.id})">${rpKind(f.mime,f.name)} · ${escapeHtml(f.name)}</button><span class="sz">${rpSize(f.size)}</span><button type="button" class="x" title="지우기" onclick="rpDel(${q},${f.id})">×</button></span>`).join('');
+    const pend=rpPend(rep, q).map((f,i)=>`<span class="rpf pend" title="[답장 저장]을 누르면 올라갑니다">${rpKind(f.type,f.name)} · <span class="nm">${escapeHtml(f.name)}</span><span class="sz">${rpSize(f.size)} · 저장 전</span><button type="button" class="x" title="빼기" onclick="rpUnpick(${q},${i})">×</button></span>`).join('');
+    return old+pend;
+  }
+  function rpRerender(q){
+    const rep=window.CURREP; if(!rep) return;
+    const keep=document.getElementById('rpT'+q); const txt=keep?keep.value:null;
+    const y=window.scrollY; renderReport(rep); window.scrollTo(0,y);
+    const el=document.getElementById('rpT'+q); if(el && txt!=null && !(rep.reply||{})[q]) el.value=txt;
+  }
+  function rpDraw(q){ const rep=window.CURREP, box=document.getElementById('rpF'+q); if(rep && box) box.innerHTML=rpChips(rep, q); }
+  function rpPasteName(f){
+    if(f.name && !/^image\.(png|jpe?g|gif|webp)$/i.test(f.name)) return f.name;
+    const d=new Date(), z=n=>String(n).padStart(2,'0');
+    return '캡처_'+z(d.getMonth()+1)+z(d.getDate())+'_'+z(d.getHours())+z(d.getMinutes())+z(d.getSeconds())+'.'+((f.type.split('/')[1]||'png').replace('jpeg','jpg'));
+  }
+  function rpPick(q, list, pasted){
+    const rep=window.CURREP; if(!rep||!rep.id||!list) return;
+    const k=rep.id+'|'+q, arr=RP_PEND[k]=RP_PEND[k]||[], have=((rep.files||{})[q]||[]).length;
+    const big=[], empty=[]; let over=0;
+    Array.from(list).forEach(f=>{
+      if(!f.size){ empty.push(f.name||'이름 없는 파일'); return; }
+      if(f.size>RPF_MAX){ big.push(f.name); return; }
+      if(have+arr.length>=RPF_N){ over++; return; }
+      if(pasted) try{ f=new File([f], rpPasteName(f), { type:f.type }); }catch(e){}
+      arr.push(f);
+    });
+    rpDraw(q);
+    const why=[]; if(big.length) why.push('50MB가 넘어 뺀 파일: '+big.join(', ')+' (긴 영상은 유튜브 일부 공개 주소를 답장 글에 붙여 주세요)');
+    if(empty.length) why.push('빈 파일이라 뺐습니다: '+empty.join(', '));
+    if(over) why.push('한 문항에 '+RPF_N+'개까지 붙일 수 있어요');
+    if(why.length) toast(why.join(' · '));
+  }
+  function rpUnpick(q, i){ const rep=window.CURREP; if(!rep) return; const a=RP_PEND[rep.id+'|'+q]; if(a){ a.splice(i,1); rpDraw(q); } }
+  function rpRand(){ const a=new Uint8Array(12); crypto.getRandomValues(a); return Array.from(a,b=>b.toString(16).padStart(2,'0')).join('').slice(0,24); }
+  function rpExt(f){ const m=/\.([A-Za-z0-9]{1,8})$/.exec(f.name||''); if(m) return m[1].toLowerCase();
+    const t=String(f.type||'').split('/')[1]||'bin'; return t.replace('jpeg','jpg').replace('quicktime','mov').replace(/[^a-z0-9]/gi,'').slice(0,8)||'bin'; }
+  async function rpStorage(method, path, body, type){
+    const t=await sbAuth();
+    const h={ 'apikey':SB_KEY, 'Authorization':'Bearer '+t };
+    if(type) h['Content-Type']=type;
+    if(method==='POST') h['x-upsert']='false';
+    const r=await fetch(SB_URL+'/storage/v1/object/'+(method==='GET'?'authenticated/':'')+RPF_BUCKET+'/'+path, { method, headers:h, body });
+    if(!r.ok) throw new Error('storage '+r.status);
+    return r;
+  }
+  async function rpUpload(rep, q, files, say){
+    const done=[];
+    try{
+      for(let i=0;i<files.length;i++){
+        const f=files[i], path='r/'+rep.id+'/'+rpRand()+'.'+rpExt(f);
+        say('파일 올리는 중 '+(i+1)+' / '+files.length+' · '+f.name);
+        await rpStorage('POST', path, f, f.type||'application/octet-stream');
+        done.push({ sub_id:rep.id, q:String(q), path, name:String(f.name||'파일').slice(0,200), size:f.size, mime:f.type||'', created_by:ME_NAME||'' });
+      }
+      await sbSend('POST', '/hwork_reply_files', done, 'return=minimal');
+      return true;
+    }catch(e){
+      for(const d of done){ try{ await rpStorage('DELETE', d.path); }catch(e2){} }
+      say('파일을 올리지 못했습니다');
+      toast('파일을 올리지 못했어요. 답장은 저장하지 않았습니다 · 다시 눌러 주세요');
+      return false;
+    }
+  }
+  async function rpOpen(fid){
+    const rep=window.CURREP; if(!rep) return;
+    const f=[].concat(...Object.values(rep.files||{})).find(x=>x.id===fid); if(!f) return;
+    const w=window.open('', '_blank');
+    try{
+      const r=await rpStorage('GET', f.path);
+      const url=URL.createObjectURL(await r.blob());
+      if(w) w.location.href=url; else { const a=document.createElement('a'); a.href=url; a.download=f.name; a.click(); }
+      setTimeout(()=>URL.revokeObjectURL(url), 120000);
+    }catch(e){ if(w) w.close(); toast('파일을 열지 못했어요'); }
+  }
+  async function rpDel(q, fid){
+    const rep=window.CURREP; if(!rep) return;
+    const f=((rep.files||{})[q]||[]).find(x=>x.id===fid); if(!f) return;
+    if(!confirm(f.name+' 파일을 지울까요? 학생 화면에서도 사라집니다.')) return;
+    try{
+      try{ await rpStorage('DELETE', f.path); }catch(e){}
+      await sbSend('DELETE', '/hwork_reply_files?id=eq.'+fid, null, 'return=minimal');
+      rep.files=await rpFilesOf(rep.id);
+      const v=(rep.reply||{})[q];
+      if(v && !String(v.text||'').trim() && !((rep.files||{})[q]||[]).length){   // 글 없이 파일만 있던 답장 → 답장도 지움
+        const j=await sbSend('POST', '/rpc/hwork_reply', { p:{ id:rep.id, q:String(q), text:'', by:ME_NAME } });
+        if(j && j.ok && j.removed) delete rep.reply[q];
+      }
+      toast('파일을 지웠습니다'); rpRerender(q);
+    }catch(e){ toast('지우지 못했어요 · 다시 눌러 주세요'); }
+  }
+  // 글 칸에 캡처 붙여 넣기 · 답장 칸에 끌어 놓기
+  document.addEventListener('paste', e=>{
+    const ta=e.target && e.target.closest && e.target.closest('textarea[data-rpq]'); if(!ta || !RPF_ON) return;
+    const fs=Array.from((e.clipboardData&&e.clipboardData.files)||[]); if(!fs.length) return;
+    e.preventDefault(); rpPick(ta.dataset.rpq, fs, true);
+  });
+  ['dragover','dragleave','drop'].forEach(t=>document.addEventListener(t, e=>{
+    const box=e.target && e.target.closest && e.target.closest('.rpbox[data-rpq]'); if(!box || !RPF_ON) return;
+    if(!e.dataTransfer || Array.from(e.dataTransfer.types||[]).indexOf('Files')<0) return;
+    e.preventDefault();
+    if(t==='dragover') box.classList.add('drop'); else box.classList.remove('drop');
+    if(t==='drop') rpPick(box.dataset.rpq, e.dataTransfer.files);
+  }));
   function alimCfgLoad(){
     if(ALIM_CFG || ALIM_LOADING) return ALIM_LOADING;
     ALIM_LOADING = fetch(REPORT_API+'?'+new URLSearchParams({ action:'alimConfig', pw:REPORT_KEY, t:Date.now() }))
