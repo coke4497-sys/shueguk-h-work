@@ -141,7 +141,37 @@
   #report .whytag.err{ background:#F7E2DE; color:#8A4A40; }
   #report .flg{ color:#8A4A40; }
   #report tr.flagrow td{ text-align:left; background:#FDF6F4; }
+  /* 도움 요청 답장 (067, 2026-11-16) */
+  .rtag.rp{ background:#E4F1EA; color:#2F6B52; }
+  .filter label.hlp{ font-size:13px; color:#5A4A6A; display:flex; align-items:center; gap:5px; cursor:pointer; }
+  .filter label.hlp input{ flex:none; min-width:0; width:16px; height:16px; padding:0; margin:0; }
+  #report tr.replyrow td{ text-align:left; background:#FBFAF6; }
+  #report .rpbox textarea{ width:100%; min-height:64px; padding:9px 11px; border:1.5px solid var(--line); border-radius:9px;
+    font-family:inherit; font-size:13.5px; resize:vertical; background:#fff; }
+  #report .rpbtns{ display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-top:6px; }
+  #report .rpbtns button{ padding:7px 13px; border:none; border-radius:9px; background:#E9EDF8; color:#3F4E75;
+    font-family:inherit; font-size:13px; cursor:pointer; }
+  #report .rpbtns button.pri{ background:#EDE4F4; color:#5A4A6A; font-weight:700; }
+  #report .rpbtns button:disabled{ opacity:.5; cursor:default; }
+  #report .rplab{ font-size:12px; color:#5A4A6A; margin-bottom:4px; }
+  /* 개인 리테스트 (067) */
+  .rtrow td{ white-space:normal !important; }
+  table.rtt{ width:100%; border-collapse:collapse; }
+  table.rtt th{ background:#efeef1; font-size:12.5px; padding:9px 6px; }
+  table.rtt td{ padding:9px 6px; font-size:13px; text-align:center; border-bottom:1px solid var(--line); }
+  table.rtt td.l{ text-align:left; word-break:break-all; }
+  table.rtt tr.skip td{ color:var(--muted); }
+  .rtst{ display:inline-block; font-size:11.5px; padding:2px 8px; border-radius:9px; background:#efeef1; color:#5C6A64; white-space:nowrap; }
+  .rtst.new{ background:#E9EDF8; color:#3F4E75; }
+  .rtst.done{ background:#E4F1EA; color:#2F6B52; }
+  .rtst.wait{ background:#F9EFD0; color:#7A6230; }
+  .rtfoot{ padding:12px 16px; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .rtfoot button{ padding:10px 16px; border:none; border-radius:10px; background:#EDE4F4; color:#5A4A6A; font-family:inherit; font-weight:700; font-size:14px; cursor:pointer; }
+  .rtfoot button:disabled{ opacity:.5; cursor:default; }
+  .rtfoot .m{ font-size:12.5px; color:var(--muted); }
+  .rtdel{ border:none; background:none; color:#8A4A40; font-size:12px; cursor:pointer; text-decoration:underline; }
 </style>
+<script src="https://coke4497-sys.github.io/shueguk-report/teacher-name.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 <body>
@@ -159,10 +189,17 @@
     <select id="fSchool" onchange="applyFilter()"><option value="">전체 학교</option></select>
     <select id="fGrade" onchange="applyFilter()"><option value="">전체 학년</option></select>
     <input type="text" id="q" placeholder="이름 검색" oninput="applyFilter()">
+    <label class="hlp" title="학생이 [선생님 도와주세요]를 눌렀는데 아직 답장하지 않은 제출만"><input type="checkbox" id="fHelp" onchange="applyFilter()"> 답장 안 한 도움 요청만</label>
     <button onclick="reload()">새로고침</button>
   </div>
   <div class="summary" id="summary"></div>
   <div class="qbtn" id="qbtn"><button onclick="analyzeQuestions()">이 시험 문항별 오답률 분석</button></div>
+  <div class="qbtn" id="rtbtn"><button onclick="openRetest()">이 과제 리테스트 만들기 · 학생마다 처음 제출에서 틀린 문항</button></div>
+  <div class="qpanel" id="rtpanel">
+    <div class="qhead"><span id="rtTitle">리테스트</span><span class="x" onclick="closeRetest()">닫기</span></div>
+    <div class="qnote">학생마다 이 과제를 <b>처음 제출했을 때 틀린 문항</b>(서술형 제외)만 모아 그 학생에게만 리테스트를 냅니다. 학생 페이지 H WORK 목록에 바로 보여요. 슈퍼스타 별은 주지 않습니다.</div>
+    <div id="rtbody"></div>
+  </div>
   <div class="qpanel" id="qpanel">
     <div class="qhead"><span id="qhTitle">문항별 오답률</span><span class="x" onclick="closeQ()">닫기</span></div>
     <div class="qnote">오답률 = 틀린 학생 수 ÷ 제출 학생 수 · 높은 순으로 정렬</div>
@@ -268,14 +305,15 @@
         const BASE = 'id,ts,teacher,code,school,grade,name,got,total,questions';
         let rows;   // 다시 풀기 열(064)이 없는 DB면 옛 열만 다시 읽는다
         // 화면 이탈 열(066)·다시 풀기 열(064)이 없는 DB면 있는 열만 다시 읽는다
-        try{ rows = await sbAllRows('/hwork_submissions?select=' + BASE + ',retry_at,review,review_at,away_n,away_sec&order=id.desc'); RETRY_COL = true; AWAY_COL = true; }
+        try{ rows = await sbAllRows('/hwork_submissions?select=' + BASE + ',retry_at,review,review_at,away_n,away_sec,reply&order=id.desc'); RETRY_COL = true; AWAY_COL = true; REPLY_COL = true; }
+        catch(eR){ REPLY_COL = false; try{ rows = await sbAllRows('/hwork_submissions?select=' + BASE + ',retry_at,review,review_at,away_n,away_sec&order=id.desc'); RETRY_COL = true; AWAY_COL = true; }
         catch(e0){ AWAY_COL = false;
           try{ rows = await sbAllRows('/hwork_submissions?select=' + BASE + ',retry_at,review,review_at&order=id.desc'); RETRY_COL = true; }
-          catch(e){ rows = await sbAllRows('/hwork_submissions?select=' + BASE + '&order=id.desc'); RETRY_COL = false; } }
+          catch(e){ rows = await sbAllRows('/hwork_submissions?select=' + BASE + '&order=id.desc'); RETRY_COL = false; } } }
         list = rows.map(r => ({ _id: r.id, submittedAt: r.ts, teacher: r.teacher, code: r.code,
           school: r.school, grade: r.grade, name: r.name, got: String(r.got), total: String(r.total),
           qCount: Object.keys(r.questions || {}).length,
-          fix: fixSum(r.review, (Number(r.total)||0) - (Number(r.got)||0)), reviewed: !!r.review_at,
+          fix: fixSum(r.review, (Number(r.total)||0) - (Number(r.got)||0), r.reply), reviewed: !!r.review_at,
           awayN: Number(r.away_n)||0, awaySec: Number(r.away_sec)||0 }));
       }catch(e){ console.warn('수파베이스 목록 실패 — 기존 백엔드(시트)로 폴백', e); }
       if (!list){
@@ -302,9 +340,12 @@
     const s=document.getElementById('fSchool').value;
     const g=document.getElementById('fGrade').value;
     const q=document.getElementById('q').value.trim();
+    const onlyHelp=document.getElementById('fHelp').checked;
     const tbl=document.getElementById('listTbl'), body=document.getElementById('listBody'), empty=document.getElementById('empty');
     document.getElementById('qbtn').style.display='none';
     document.getElementById('qpanel').style.display='none';
+    document.getElementById('rtbtn').style.display='none';
+    document.getElementById('rtpanel').style.display='none';
 
     // 담당 강사를 고르기 전에는 목록을 보여주지 않음
     if(!t){
@@ -317,7 +358,7 @@
 
     const rows=ALL.filter(r=>
       (r.teacher===t) && (!c||r.code===c) && (!s||r.school===s) && (!g||r.grade===g) &&
-      (!q||(r.name||'').includes(q)) );
+      (!q||(r.name||'').includes(q)) && (!onlyHelp || (r.fix && r.fix.help > r.fix.rep)) );
     CUR=rows;
 
     // 요약
@@ -338,13 +379,15 @@
       <td>${escapeHtml(r.school||'')}</td><td>${escapeHtml(r.grade||'')}</td>
       <td class="date">${escapeHtml(shortDate(r.submittedAt))}</td></tr>`).join('');
     if(c && rows.length) document.getElementById('qbtn').style.display='block';
+    if(c && rows.length && rows[0]._id) document.getElementById('rtbtn').style.display='block';
   }
 
   /* 오답하기 표시 (064·065) — 1차 점수 옆에 '오답 클리어 n/m · 도움 k · 신고 j' */
   let RETRY_COL = false;
-  function fixSum(rv, nwrong){
-    const o={ n:nwrong, clr:0, help:0, err:0, any:false };
-    Object.values(rv||{}).forEach(v=>{ o.any=true; if(v.cleared_at) o.clr++; if(v.help) o.help++; if(v.error) o.err++; });
+  let REPLY_COL = false;   // 도움 요청 답장 열(067)
+  function fixSum(rv, nwrong, rp){
+    const o={ n:nwrong, clr:0, help:0, err:0, rep:0, any:false };
+    Object.keys(rv||{}).forEach(k=>{ const v=rv[k]; o.any=true; if(v.cleared_at) o.clr++; if(v.help){ o.help++; if(rp && rp[k]) o.rep++; } if(v.error) o.err++; });
     return o;
   }
   /* 화면 이탈 (066, 2026-11-12) — 푸는 동안 다른 앱으로 넘어가거나 화면을 끈 횟수·시간. 0이면 표시 안 함 */
@@ -354,7 +397,7 @@
   function awayTag(r){ return r.awayN? ` <span class="rtag aw" title="푸는 동안 다른 앱으로 넘어가거나 화면을 끈 횟수와 시간">이탈 ${r.awayN}회 · ${awayDur(r.awaySec)}</span>` : ''; }
   function retryTag(r){
     const f=r.fix; if(!f || !f.any) return awayTag(r);
-    return ` <span class="rtag">오답 ${f.clr}/${f.n}${r.reviewed?' ✓':''}</span>`+(f.help?` <span class="rtag hp">도움 ${f.help}</span>`:'')+(f.err?` <span class="rtag hp">신고 ${f.err}</span>`:'')+awayTag(r);
+    return ` <span class="rtag">오답 ${f.clr}/${f.n}${r.reviewed?' ✓':''}</span>`+(f.help?(REPLY_COL&&f.rep>=f.help?` <span class="rtag rp">도움 ${f.help} · 답장함</span>`:` <span class="rtag hp">도움 ${f.help}${REPLY_COL&&f.rep?` · 답장 ${f.rep}`:''}</span>`):'')+(f.err?` <span class="rtag hp">신고 ${f.err}</span>`:'')+awayTag(r);
   }
 
   function shortDate(s){
@@ -370,11 +413,11 @@
   /* 한 제출의 상세 — 원본(수파베이스, _id) 우선 · 시트 목록(폴백)이면 옛 행 조회 */
   async function reportOf(r){
     if (r && r._id){
-      const cols = 'ts,teacher,code,school,grade,name,got,total,detail,questions' + (RETRY_COL ? ',retry_at,review,review_at' : '') + (AWAY_COL ? ',away_n,away_sec' : '');
+      const cols = 'ts,teacher,code,school,grade,name,got,total,detail,questions' + (RETRY_COL ? ',retry_at,review,review_at' : '') + (AWAY_COL ? ',away_n,away_sec' : '') + (REPLY_COL ? ',reply' : '');
       const rows = await sbGet('/hwork_submissions?id=eq.' + r._id + '&select=' + cols);
       if (!rows || !rows.length) throw new Error('gone');
       const x = rows[0];
-      return { student: { teacher: x.teacher, code: x.code, school: x.school, grade: x.grade, name: x.name },
+      return { id: r._id, reply: x.reply || {}, student: { teacher: x.teacher, code: x.code, school: x.school, grade: x.grade, name: x.name },
                result: { got: Number(x.got), total: Number(x.total), detail: x.detail },
                questions: x.questions || {}, submittedAt: x.ts,
                review: x.review || null, reviewAt: x.review_at || '', fixOn: RETRY_COL,
@@ -420,7 +463,7 @@
         <td class="${d.ok?'o':'x'}">${d.ok?'O':'X'}</td>${hasR?r2cell(d.ok===false?(rep.review||{})[q]:null, d.ok===false):''}
         <td class="qcell${qtext?' has':''}">${qtext}</td></tr>`;
     }
-    window.CURNAME = st.name || '학생'; window.CURCODE = st.code || '';
+    window.CURNAME = st.name || '학생'; window.CURCODE = st.code || ''; window.CURREP = rep;
     document.getElementById('report').innerHTML=`
       <div class="back"><button onclick="closeReport()">← 목록으로</button><button class="saveimg" onclick="saveImage()">이미지로 저장</button></div>
       <div id="shot">
@@ -439,6 +482,7 @@
     document.getElementById('listView').style.display='none';
     document.getElementById('report').style.display='block';
     window.scrollTo(0,0);
+    if(REPLY_COL && rep.id && Object.values(rep.review||{}).some(v=>v&&v.help)) alimCfgLoad();
   }
   function awayLine(rep){
     const a=rep.away; if(!a) return '';
@@ -473,7 +517,7 @@
       tr.forEach((t,i)=>{ rows+=`<tr><td class="qn">${i?'':q}</td><td>${i+1}</td><td>${escapeHtml(t.wrong||'')}</td>
         <td class="fixc">${escapeHtml(t.why_wrong||'')}</td><td>${escapeHtml(t.pick||'')} <b class="${t.ok?'o':'x'}">${t.ok?'O':'X'}</b></td>
         <td class="fixc">${escapeHtml(t.why_right||'')}</td></tr>`; });
-      if(v.help) rows+=`<tr class="flagrow"><td class="qn">${tr.length?'':q}</td><td colspan="5"><span class="whytag">선생님 도와주세요</span> ${escapeHtml(v.help.text||'')} <span class="m2">${escapeHtml(v.help.at||'')}</span></td></tr>`;
+      if(v.help) rows+=`<tr class="flagrow"><td class="qn">${tr.length?'':q}</td><td colspan="5"><span class="whytag">선생님 도와주세요</span> ${escapeHtml(v.help.text||'')} <span class="m2">${escapeHtml(v.help.at||'')}</span></td></tr>`+replyRow(rep, q);
       if(v.error) rows+=`<tr class="flagrow"><td class="qn">${tr.length||v.help?'':q}</td><td colspan="5"><span class="whytag err">문항 오류 신고</span> ${escapeHtml(v.error.text||'')} <span class="m2">${escapeHtml(v.error.at||'')}</span></td></tr>`;
     });
     return `<section><h2>오답하기 기록</h2><table class="detail rvt"><colgroup><col style="width:8%"><col style="width:6%"><col style="width:10%"><col style="width:30%"><col style="width:12%"><col style="width:34%"></colgroup>
@@ -557,6 +601,193 @@
   }
   function closeQ(){ document.getElementById('qpanel').style.display='none'; }
 
+
+  /* ── 도움 요청 답장 (2026-11-16 원장님, 리포트 마이그레이션 067) ──
+   * 학생이 오답하기에서 [선생님 도와주세요]를 누른 문항 아래에 답장 칸. 저장 = hwork_reply(교사 계정만, 빈 글이면 지움).
+   * 학생은 학생 페이지 H WORK 목록과 H WORK 오답하기 화면에서 그 문항과 함께 본다.
+   * [알림톡 보내기] = 'H WORK 질문 답변 안내'(notice_hwreply) — 확인 창을 거쳐서만, 템플릿이 준비 전이면 잠금. */
+  const REPORT_API = "https://script.google.com/macros/s/AKfycbzhCncBwn-JlqXARC3wfrWUCuNHzlNK2df0bdhx-w78Xr8mzYUcIYZOJdRi9N4bHtsb/exec";
+  const REPORT_KEY = 'sh';   // 리포트 백엔드 교사용 값(허브 알림톡 화면과 같은 공개 수준)
+  const RP_KIND = 'notice_hwreply';
+  let ME_NAME = '', ALIM_CFG = null, ALIM_LOADING = null;
+  try{ if(window.shuegukTeacherName) shuegukTeacherName().then(n=>{ ME_NAME = n || ''; }).catch(()=>{}); }catch(e){}
+  async function sbSend(method, path, body, prefer){
+    const t = await sbAuth();
+    const h = { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + t, 'Content-Type': 'application/json' };
+    if (prefer) h['Prefer'] = prefer;
+    const r = await fetch(SB_URL + '/rest/v1' + path, { method, headers: h, body: body == null ? undefined : JSON.stringify(body) });
+    const txt = await r.text();
+    if (!r.ok){ const e = new Error('sb ' + r.status + ' ' + txt.slice(0, 200)); e.status = r.status; throw e; }
+    return txt ? JSON.parse(txt) : null;
+  }
+  function replyRow(rep, q){
+    if(!REPLY_COL || !rep.id) return '';
+    const v=(rep.reply||{})[q];
+    const meta = v ? `${escapeHtml(v.by||'')}${v.by?' · ':''}${escapeHtml(v.at||'')} 저장` : '아직 답장하지 않았습니다';
+    const ready = ALIM_CFG && ALIM_CFG.templates && ALIM_CFG.templates[RP_KIND] && ALIM_CFG.templates[RP_KIND].ready;
+    const why = !ALIM_CFG ? '알림톡 설정을 불러오는 중이거나 불러오지 못했습니다' : (!ready ? "'H WORK 질문 답변 안내' 템플릿이 아직 심사 중입니다" : '학생·학부모님께 알림톡을 보냅니다');
+    return `<tr class="replyrow"><td class="qn"></td><td colspan="5"><div class="rpbox">
+      <div class="rplab">선생님 답장 · 학생 페이지와 오답하기 화면에 ${q}번 문항과 함께 보여요</div>
+      <textarea id="rpT${q}" maxlength="1000" placeholder="학생이 이해할 수 있게 풀이의 실마리를 적어 주세요. (예: 둘째 문단 마지막 문장을 다시 읽어 보세요)">${escapeHtml(v?v.text:'')}</textarea>
+      <div class="rpbtns" data-html2canvas-ignore="true"><button type="button" class="pri" id="rpS${q}" onclick="saveReply(${q})">${v?'답장 고치기':'답장 저장'}</button>
+        <button type="button" id="rpA${q}" onclick="replyAlim(${q})" ${v&&ready?'':'disabled'} title="${escapeHtml(v?why:'답장을 먼저 저장해 주세요')}">알림톡 보내기</button>
+        <span class="m2" id="rpM${q}">${meta}</span></div></div></td></tr>`;
+  }
+  async function saveReply(q){
+    const rep=window.CURREP; if(!rep||!rep.id) return;
+    const el=document.getElementById('rpT'+q), txt=(el.value||'').trim(), had=!!(rep.reply||{})[q];
+    if(!txt && !had){ toast('답장을 적어 주세요'); el.focus(); return; }
+    if(!txt && !confirm(q+'번 답장을 지울까요? 학생 화면에서도 사라집니다.')) return;
+    const btn=document.getElementById('rpS'+q); btn.disabled=true;
+    try{
+      const j=await sbSend('POST', '/rpc/hwork_reply', { p:{ id:rep.id, q:String(q), text:txt, by:ME_NAME } });
+      if(!j || !j.ok){ toast((j&&j.error)||'저장하지 못했어요'); btn.disabled=false; return; }
+      rep.reply=rep.reply||{};
+      if(j.removed) delete rep.reply[q]; else rep.reply[q]=j.reply;
+      const row=ALL.find(x=>x._id===rep.id);
+      if(row && row.fix){ row.fix.rep=Object.keys(rep.reply).filter(k=>(rep.review||{})[k]&&rep.review[k].help).length; }
+      toast(j.removed?'답장을 지웠습니다':'답장을 저장했습니다. 학생 화면에 바로 보여요');
+      renderReport(rep);
+      const box=document.getElementById('rpT'+q); if(box) box.scrollIntoView({block:'center'});
+    }catch(e){ btn.disabled=false; toast('저장하지 못했어요 · 다시 눌러 주세요'); }
+  }
+  function alimCfgLoad(){
+    if(ALIM_CFG || ALIM_LOADING) return ALIM_LOADING;
+    ALIM_LOADING = fetch(REPORT_API+'?'+new URLSearchParams({ action:'alimConfig', pw:REPORT_KEY, t:Date.now() }))
+      .then(r=>r.json()).then(d=>{ ALIM_CFG=(d&&d.result==='success')?d:null; })
+      .catch(()=>{ ALIM_CFG=null; })
+      .then(()=>{ ALIM_LOADING=null; if(ALIM_CFG && window.CURREP && document.getElementById('report').style.display==='block'){
+        const y=window.scrollY; renderReport(window.CURREP); window.scrollTo(0,y); } });
+    return ALIM_LOADING;
+  }
+  const PHONE_COL = { '학생':'phone_student', '학부모1':'phone_parent1', '학부모2':'phone_parent2' };
+  function phoneOk(v){ const d=String(v||'').replace(/\D/g,''); return /^01\d{8,9}$/.test(d)?d:''; }
+  function phoneFmt(d){ return d.length===11? d.slice(0,3)+'-'+d.slice(3,7)+'-'+d.slice(7) : d.slice(0,3)+'-'+d.slice(3,6)+'-'+d.slice(6); }
+  function kstYmd(){ const d=new Date(Date.now()+9*3600e3), p=n=>('0'+n).slice(-2); return d.getUTCFullYear()+'-'+p(d.getUTCMonth()+1)+'-'+p(d.getUTCDate()); }
+  /* 제출 ↔ 재원 학생 — 학생 페이지(s.html hworkDoneSet_)·DB hwork_is_me_ 와 같은 규칙. 하나로 정해질 때만 */
+  const LEFT_RE = /퇴원|아웃|휴원/;
+  function gdOf(g){ const s=String(g||'').replace(/\s+/g,''); const m=s.match(/([1-3])학년/)||s.match(/고([1-3])/); if(m) return m[1]; const a=s.match(/[1-3]/g); return a?a[a.length-1]:''; }
+  function stuIsSub(st, sub){
+    const nm=String(st.name||'').trim(), base=nm.replace(/[A-Za-z]$/,''), rn=String(sub.name||'').trim();
+    if(!nm || (rn!==nm && rn!==base)) return false;
+    const mg=gdOf(st.grade), rg=gdOf(sub.grade); if(mg && rg && mg!==rg) return false;
+    const ms=String(st.school||'').replace(/\s+/g,''), rs=String(sub.school||'').replace(/\s+/g,'');
+    if(ms && rs && ms.indexOf(rs)<0 && rs.indexOf(ms)<0) return false;
+    return true;
+  }
+  let STU_CACHE = null;
+  async function students(){
+    if(STU_CACHE) return STU_CACHE;
+    const rows = await sbAllRows('/students?select=code,name,school,grade,enrolled,phone_student,phone_parent1,phone_parent2&order=id.asc');
+    STU_CACHE = rows.filter(s=>!LEFT_RE.test(String(s.enrolled||'')));
+    return STU_CACHE;
+  }
+  function findStu(list, sub){ const hit=list.filter(s=>stuIsSub(s, sub)); return hit.length===1?hit[0]:(hit.length?'dup':null); }
+  async function replyAlim(q){
+    const rep=window.CURREP, st=rep&&rep.student; if(!rep||!st) return;
+    if(!(rep.reply||{})[q]){ toast('답장을 먼저 저장해 주세요'); return; }
+    const btn=document.getElementById('rpA'+q); btn.disabled=true;
+    try{
+      const s=findStu(await students(), st);
+      if(s==='dup'){ toast('같은 이름의 학생이 여럿이라 받는 분을 정하지 못했습니다'); btn.disabled=false; return; }
+      if(!s){ toast('재원 명단에서 이 학생을 찾지 못했습니다'); btn.disabled=false; return; }
+      if(!s.code){ toast('이 학생은 접근코드가 없어 학생 페이지 버튼을 보낼 수 없습니다'); btn.disabled=false; return; }
+      const seen={}, items=[], lines=[];
+      ['학생','학부모1','학부모2'].forEach(w=>{ const to=phoneOk(s[PHONE_COL[w]]); if(!to || seen[to]) return; seen[to]=1;
+        items.push({ student:s.name, to, who:w, cls:'H WORK', date:'N:'+kstYmd()+'|'+st.code,
+                     vars:{ '학생명':s.name, '제목':st.code, '접근코드':s.code } });
+        lines.push((w==='학생'?'학생':w.replace('학부모','학부모님'))+' '+phoneFmt(to)); });
+      if(!items.length){ toast('등록된 연락처가 없습니다'); btn.disabled=false; return; }
+      if(!confirm(s.name+" 학생에게 'H WORK 질문 답변 안내' 알림톡을 보낼까요?\n\n▶ "+st.code+"\n받는 분: "+lines.join(', ')+"\n\n같은 날 같은 과제로 이미 받은 분은 건너뜁니다.")){ btn.disabled=false; return; }
+      const res=await fetch(REPORT_API,{ method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+        body:JSON.stringify({ pw:REPORT_KEY, action:'alimSend', kind:RP_KIND, by:ME_NAME, items }) }).then(r=>r.json());
+      if(!res || res.result!=='success' || !Array.isArray(res.sent)) throw new Error((res&&res.message)||'알 수 없는 답');
+      const ok=res.sent.filter(x=>x.ok&&!x.dup).length, dup=res.sent.filter(x=>x.dup).length, bad=res.sent.filter(x=>!x.ok&&!x.dup);
+      document.getElementById('rpM'+q).textContent='알림톡 '+ok+'건 보냄'+(dup?' · 이미 받은 '+dup+'건 건너뜀':'')+(bad.length?' · 실패 '+bad.map(x=>x.who+'('+x.message+')').join(', '):'');
+      toast(bad.length?'일부를 보내지 못했습니다':'알림톡을 보냈습니다');
+    }catch(e){ toast('알림톡을 보내지 못했습니다: '+((e&&e.message)||'')); }
+    btn.disabled=false;
+  }
+
+  /* ── 개인 리테스트 (2026-11-16 원장님, 리포트 마이그레이션 067) ──
+   * 고른 과제(+ 학교·학년·이름 거르기)를 낸 학생마다 **처음 제출**에서 틀린 문항(서술형 제외)을 모아
+   * hwork_retests 에 한 줄씩 넣는다 — 그 학생에게만 보이고, 원 제출 하나에 리테스트 하나. 별은 주지 않는다. */
+  let RT = null;
+  function closeRetest(){ document.getElementById('rtpanel').style.display='none'; }
+  async function openRetest(){
+    const t=document.getElementById('fTeacher').value, c=document.getElementById('fCode').value;
+    if(!t||!c){ toast('담당 강사와 제목을 골라 주세요'); return; }
+    const panel=document.getElementById('rtpanel'), body=document.getElementById('rtbody');
+    document.getElementById('rtTitle').textContent=c+' · 리테스트';
+    panel.style.display='block'; body.innerHTML='<div class="loading">불러오는 중…</div>';
+    try{
+      const enc=encodeURIComponent;
+      const [subs, list, have] = await Promise.all([
+        sbAllRows('/hwork_submissions?teacher=eq.'+enc(t)+'&code=eq.'+enc(c)+'&select=id,ts,name,school,grade,detail&order=id.asc'),
+        students(),
+        sbGet('/hwork_retests?teacher=eq.'+enc(t)+'&code=eq.'+enc(c)+'&select=id,src_id,name,qs,submitted_at,got,total,detail,created_by,created_at&order=id.asc')
+      ]);
+      const allow={}; CUR.forEach(r=>{ allow[[r.name,r.school,r.grade].join('|')]=1; });
+      const first={}, order=[];
+      subs.forEach(r=>{ const k=[r.name,r.school,r.grade].join('|'); if(!allow[k] || first[k]) return; first[k]=r; order.push(k); });
+      const bySrc={}; (have||[]).forEach(x=>{ if(x.src_id!=null) bySrc[x.src_id]=x; });
+      RT={ t, c, rows: order.map(k=>{
+        const r=first[k], d=r.detail||{};
+        const wq=Object.keys(d).filter(q=>d[q]&&d[q].ok===false&&d[q].type!=='essay').sort((a,b)=>a-b);
+        const ex=bySrc[r.id], st=findStu(list, r);
+        let state='new';
+        if(ex) state='made'; else if(!wq.length) state='perfect'; else if(st==='dup') state='dup'; else if(!st || !st.code) state='nostu';
+        return { r, wq, ex, st:(st&&st!=='dup')?st:null, state, on: state==='new' };
+      }) };
+      drawRetest();
+    }catch(e){
+      body.innerHTML='<div class="empty">'+(String(e&&e.message).indexOf('hwork_retests')>=0||(e&&e.status===404)
+        ? '리테스트 표가 아직 없습니다. 리포트 마이그레이션 067을 적용해 주세요.' : '불러오지 못했습니다 · 다시 눌러 주세요')+'</div>';
+    }
+  }
+  function drawRetest(){
+    const rows=RT.rows, body=document.getElementById('rtbody');
+    if(!rows.length){ body.innerHTML='<div class="empty">이 과제를 낸 학생이 없습니다.</div>'; return; }
+    const n=rows.filter(x=>x.on).length, made=rows.filter(x=>x.ex).length, sol=rows.filter(x=>x.ex&&x.ex.submitted_at).length;
+    const tr=rows.map((x,i)=>{
+      const r=x.r; let st='';
+      if(x.ex){
+        const e=x.ex, still=e.detail?Object.keys(e.detail).filter(q=>e.detail[q]&&e.detail[q].ok===false).sort((a,b)=>a-b):[];
+        st = e.submitted_at ? `<span class="rtst done">리테스트 ${e.got} / ${e.total}</span><div class="m2">${escapeHtml(e.submitted_at)}${still.length?' · 또 틀림 '+still.join(', ')+'번':' · 모두 맞힘'}</div>`
+          : `<span class="rtst wait">아직 안 풂</span> <button class="rtdel" onclick="delRetest(${i})">지우기</button>`;
+      }
+      else if(x.state==='perfect') st='<span class="rtst">처음부터 모두 맞힘</span>';
+      else if(x.state==='dup') st='<span class="rtst">같은 이름 학생이 여럿 — 만들 수 없음</span>';
+      else if(x.state==='nostu') st='<span class="rtst">재원 명단·접근코드 없음 — 만들 수 없음</span>';
+      else st='<span class="rtst new">새로 만듦</span>';
+      const qs = x.ex ? (x.ex.qs||[]) : x.wq;
+      return `<tr class="${x.state==='new'||x.ex?'':'skip'}"><td>${x.state==='new'?`<input type="checkbox" ${x.on?'checked':''} onchange="RT.rows[${i}].on=this.checked;drawRetest()">`:''}</td>
+        <td class="l"><b>${escapeHtml(r.name)}</b><div class="m2" style="color:var(--muted);font-size:11.5px">${escapeHtml(r.school)} ${escapeHtml(r.grade)} · 처음 제출 ${escapeHtml(r.ts||'')}</div></td>
+        <td class="l">${qs.length?qs.length+'문항 · '+qs.join(', ')+'번':'—'}</td><td>${st}</td></tr>`;
+    }).join('');
+    body.innerHTML=`<table class="rtt"><tr><th style="width:34px"></th><th>학생</th><th>다시 풀 문항</th><th>상태</th></tr>${tr}</table>
+      <div class="rtfoot"><button id="rtGo" onclick="makeRetest()" ${n?'':'disabled'}>${n}명 리테스트 만들기</button>
+      <span class="m">이미 만든 리테스트 ${made}명 · 푼 학생 ${sol}명</span></div>`;
+  }
+  async function makeRetest(){
+    const pick=RT.rows.filter(x=>x.on && x.state==='new');
+    if(!pick.length) return;
+    const nq=pick.reduce((a,x)=>a+x.wq.length,0);
+    if(!confirm(RT.c+'\n\n학생 '+pick.length+'명에게 각자 처음 제출에서 틀린 문항(모두 '+nq+'문항)으로 리테스트를 냅니다.\n학생 페이지 H WORK 목록에 바로 보여요. 별은 주지 않습니다.\n만들까요?')) return;
+    const btn=document.getElementById('rtGo'); btn.disabled=true; btn.textContent='만드는 중…';
+    try{
+      await sbSend('POST', '/hwork_retests?on_conflict=src_id', pick.map(x=>({ teacher:RT.t, code:RT.c, src_id:x.r.id, stu_code:x.st.code,
+        name:x.r.name, school:x.r.school, grade:x.r.grade, qs:x.wq.map(String), created_by:ME_NAME })), 'resolution=ignore-duplicates,return=minimal');
+      toast(pick.length+'명에게 리테스트를 냈습니다');
+      openRetest();
+    }catch(e){ btn.disabled=false; btn.textContent=pick.length+'명 리테스트 만들기'; toast('만들지 못했습니다 · 다시 눌러 주세요'); }
+  }
+  async function delRetest(i){
+    const x=RT.rows[i]; if(!x||!x.ex||x.ex.submitted_at) return;
+    if(!confirm(x.r.name+' 학생의 리테스트를 지울까요? 학생 화면에서도 사라집니다.')) return;
+    try{ await sbSend('DELETE', '/hwork_retests?id=eq.'+x.ex.id+'&submitted_at=is.null', null, 'return=minimal'); toast('지웠습니다'); openRetest(); }
+    catch(e){ toast('지우지 못했습니다'); }
+  }
   reload();
 </script>
 </body>
