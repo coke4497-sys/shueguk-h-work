@@ -33,7 +33,15 @@ const STUS = [{ code: 'K1', name: '박보검', school: '무원고', grade: '2026
 let RETESTS = [], POSTS = [], ALIM = [], CFG_READY = false, RT = null, FILES = [], OBJ = {}, STORE = [];
 const hide = d => { const o = {}; for (const k in d) { o[k] = Object.assign({}, d[k]); if (d[k].ok === false) delete o[k].ans; } return o; };
 
+const ITEMS = { '1': [{ path: 'b/t/q001_0.png', w: 500, h: 300 }], '4': [{ path: 'b/t/q004_0.png', w: 500, h: 300 }],
+  '5': [{ path: 'b/t/q005_0.png', w: 500, h: 200 }, { path: 'b/t/q005_1.png', w: 500, h: 100 }] };
+const QGET = [];
 function rpc(fn, p) {
+  if (fn === 'hwork_item_imgs') { POSTS.push({ fn, p });
+    if (p.via === 'retry' && p.id === SUB.id && p.key === SUB.key) return { ok: true, bucket: 'hwork-items', items: ITEMS };
+    if (p.via === 'retest' && RT && p.id === RT.id && p.key === 'K1') return { ok: true, bucket: 'hwork-items', items: Object.fromEntries(RT.qs.filter(q => ITEMS[q]).map(q => [q, ITEMS[q]])) };
+    return { ok: false, error: 'not_mine' }; }
+  if (fn === 'hwork_item_imgs_t') { POSTS.push({ fn, p }); return { ok: true, bucket: 'hwork-items', items: ITEMS }; }
   if (fn === 'hwork_reply') {
     if (!(SUB.review[p.q] || {}).help) return { ok: false, reason: 'no_help', error: '도움 요청 아님' };
     SUB.reply = SUB.reply || {};
@@ -80,6 +88,9 @@ function pick(o, sel) { if (!sel) return o; const cols = sel.split(','); const r
     const m = /\/rest\/v1\/rpc\/(\w+)/.exec(u);
     if (m) { const body = JSON.parse(req.postData() || '{}'); return json(rt, rpc(m[1], body.p || {})); }
     if (u.includes('/auth/v1/token')) return json(rt, { access_token: 'tok', expires_in: 3600 });
+    const qm = /\/storage\/v1\/object\/authenticated\/hwork-items\/(.+)$/.exec(u);
+    if (qm) { QGET.push({ path: decodeURIComponent(qm[1]), auth: req.headers()['authorization'] });
+      return rt.fulfill({ status: 200, contentType: 'image/png', body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64') }); }
     const sm = /\/storage\/v1\/object\/(authenticated\/)?hwork-reply-files\/(.+)$/.exec(u);
     if (sm) { const pth = decodeURIComponent(sm[2]); STORE.push({ m: req.method(), path: pth, auth: req.headers()['authorization'], type: req.headers()['content-type'] });
       if (req.method() === 'POST') { OBJ[pth] = req.postDataBuffer() || Buffer.from(''); return json(rt, { Key: pth }); }
@@ -130,6 +141,13 @@ function pick(o, sel) { if (!sel) return o; const cols = sel.split(','); const r
   await tp.click('#listBody tr'); await tp.waitForTimeout(600);
   ok(await tp.locator('#rpT1').count() === 1 && await tp.locator('#rpT4').count() === 0, '도움 요청 문항(1번)에만 답장 칸');
   ok(await tp.isDisabled('#rpA1'), '저장 전 알림톡 잠김');
+  await tp.waitForTimeout(300);
+  ok(POSTS.some(x => x.fn === 'hwork_item_imgs_t' && x.p.code === 'T세트'), '교사: 과제 제목으로 교재 문항 그림 목록');
+  ok(await tp.locator('#tqi1 .qip img').count() === 1, '교사: 도움 요청 문항(1번)은 교재 문항이 펼쳐져 있음');
+  ok(await tp.isVisible('.qibtn[data-qi="4"]') && !(await tp.isVisible('#tqi4')), '교사: 다른 문항(4번)은 [교재 문항 보기]로 접힘');
+  await tp.click('.qibtn[data-qi="4"]'); await tp.waitForTimeout(300);
+  ok(await tp.locator('#tqi4 .qip img').count() === 1 && /접기/.test(await tp.textContent('.qibtn[data-qi="4"]')), '교사: 눌러서 펼침');
+  ok(QGET.length >= 2 && QGET.every(x => x.auth === 'Bearer tok'), '교사: 교사 신분으로 그림 받기');
   await tp.click('#rpS1'); await tp.waitForTimeout(200);
   ok(!POSTS.some(x => x.fn === 'hwork_reply'), '빈 답장은 보내지 않음');
   await tp.fill('#rpT1', '지문 둘째 문단의 근거를 다시 찾아보세요.'); await tp.click('#rpS1'); await tp.waitForTimeout(500);
@@ -219,6 +237,11 @@ function pick(o, sel) { if (!sel) return o; const cols = sel.split(','); const r
   ok(/선생님 답장 · 김현지 선생님/.test(rv1) && /둘째 문단/.test(rv1), '1번 카드에 선생님 답장');
   ok(!/선생님 답장/.test(await p.textContent('#rv5')), '답장 없는 문항엔 없음');
   await p.waitForTimeout(400);
+  ok(POSTS.some(x => x.fn === 'hwork_item_imgs' && x.p.via === 'retry' && x.p.id === 41 && x.p.key === SUB.key), '학생: 오답하기 열쇠로 문항 그림 창 열기');
+  ok(await p.locator('#rv1 .qimg .qip img').count() === 1 && /교재 1번 문항/.test(await p.textContent('#rv1 .qimg')), '학생: 1번 카드에 교재 문항 그림');
+  ok(await p.locator('#rv5 .qimg .qip img').count() === 2, '학생: 여러 단에 걸친 문항은 조각 둘');
+  ok(QGET.some(x => /sb_publishable/.test(x.auth || '')), '학생: 공개 키로 그림 받기');
+  await p.waitForTimeout(400);
   ok(await p.$('#rv1 .rfimg img') !== null, '학생: 사진 첨부가 바로 그림으로');
   ok(POSTS.some(x => x.fn === 'hwork_reply_file_url' && x.p.via === 'retry' && x.p.id === 41 && x.p.key === SUB.key), '오답하기 열쇠로 파일 창 열기');
   ok(STORE.some(x => x.m === 'GET' && /sb_publishable/.test(x.auth || '')), '공개 키로 받기');
@@ -238,6 +261,9 @@ function pick(o, sel) { if (!sel) return o; const cols = sel.split(','); const r
   ok(await q.locator('.rtq').count() === 3, '문항 3개(1·4·5)');
   const types = await q.$$eval('.rtq .qt', a => a.map(e => e.textContent));
   ok(types[0] === '1번 · 5지선다' && types[1] === '4번 · OX', '문항 번호·종류');
+  await q.waitForTimeout(400);
+  ok(POSTS.some(x => x.fn === 'hwork_item_imgs' && x.p.via === 'retest' && x.p.id === RT.id && x.p.key === 'K1'), '리테스트: 접근코드로 문항 그림 창 열기');
+  ok(await q.locator('.rtq .qimg .qip img').count() === 4, '리테스트: 문항마다 교재 그림(1·4·5번)');
   await q.click('.rtq:nth-child(3) .choices button:nth-child(3)');
   await q.click('.rtq:nth-child(4) .ox button:nth-child(1)');
   await q.click('.rtq:nth-child(5) .choices button:nth-child(4)');

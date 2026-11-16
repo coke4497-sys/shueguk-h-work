@@ -146,6 +146,11 @@
   .filter label.hlp{ font-size:13px; color:#5A4A6A; display:flex; align-items:center; gap:5px; cursor:pointer; }
   .filter label.hlp input{ flex:none; min-width:0; width:16px; height:16px; padding:0; margin:0; }
   #report tr.replyrow td{ text-align:left; background:#FBFAF6; }
+  #report .qirow td{ padding-top:10px; padding-bottom:4px; }
+  #report .qibtn{ border:none; background:#EDE4F4; color:#5A4A6A; border-radius:999px; padding:5px 12px; font-size:12.5px; cursor:pointer; font-family:inherit; }
+  #report .tqimg{ margin-top:6px; }
+  #report .tqimg .qip{ background:#fff; border-radius:10px; overflow:hidden; max-width:560px; width:100%; margin-bottom:4px; box-shadow:0 1px 3px rgba(40,60,50,.08); }
+  #report .tqimg .qip img{ display:block; width:100%; height:auto; }
   #report .rpbox textarea{ width:100%; min-height:64px; padding:9px 11px; border:1.5px solid var(--line); border-radius:9px;
     font-family:inherit; font-size:13.5px; resize:vertical; background:#fff; }
   #report .rpbtns{ display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-top:6px; }
@@ -497,6 +502,49 @@
     document.getElementById('report').style.display='block';
     window.scrollTo(0,0);
     if(REPLY_COL && rep.id && Object.values(rep.review||{}).some(v=>v&&v.help)) alimCfgLoad();
+    tqiPaint(st.code);
+  }
+  /* 교재 문항 그림 (2026-11-16, 리포트 마이그레이션 068) — 오답하기 기록에 그 번호의 교재 문항을 띄운다.
+   * hwork_item_imgs_t(교사 계정)로 목록을 받고 hwork-items 버킷에서 교사 신분으로 받는다. 그림이 없는 과제면 버튼을 숨긴다. */
+  const TQI={ code:null, items:null, blobs:{}, busy:false };
+  function tqiRow(q, open){
+    return `<tr class="qirow" data-html2canvas-ignore="true"><td class="qn"></td><td colspan="5">
+      <button type="button" class="qibtn" data-qi="${q}" onclick="tqiToggle(${q})" style="display:none">${open?'교재 문항 접기':'교재 '+q+'번 문항 보기'}</button>
+      <div class="tqimg" id="tqi${q}" data-q="${q}" data-open="${open?1:0}"></div></td></tr>`;
+  }
+  function tqiToggle(q){
+    const box=document.getElementById('tqi'+q), b=document.querySelector('.qibtn[data-qi="'+q+'"]'); if(!box) return;
+    const open=box.dataset.open!=='1'; box.dataset.open=open?'1':'0';
+    if(b) b.textContent=open?'교재 문항 접기':'교재 '+q+'번 문항 보기';
+    tqiPaint(TQI.code);
+  }
+  async function tqiBlob(path){
+    if(TQI.blobs[path]) return TQI.blobs[path];
+    const t=await sbAuth();
+    const r=await fetch(SB_URL+'/storage/v1/object/authenticated/hwork-items/'+path.split('/').map(encodeURIComponent).join('/'),
+      { headers:{ apikey:SB_KEY, Authorization:'Bearer '+t } });
+    if(!r.ok) throw new Error('img '+r.status);
+    return TQI.blobs[path]=URL.createObjectURL(await r.blob());
+  }
+  async function tqiPaint(code){
+    if(!document.querySelector('.tqimg')) return;
+    if(TQI.code!==code){
+      if(TQI.busy) return; TQI.busy=true;
+      try{ const j=await sbSend('POST', '/rpc/hwork_item_imgs_t', { p:{ code } }); TQI.items=(j&&j.ok)?(j.items||{}):{}; }
+      catch(e){ TQI.items={}; }
+      TQI.code=code; TQI.busy=false;
+    }
+    document.querySelectorAll('.tqimg').forEach(box=>{
+      const q=box.dataset.q, list=(TQI.items||{})[q]||[], b=document.querySelector('.qibtn[data-qi="'+q+'"]');
+      if(!list.length){ if(b) b.style.display='none'; box.style.display='none'; return; }
+      if(b) b.style.display='';
+      const open=box.dataset.open==='1'; box.style.display=open?'block':'none';
+      if(!open || box.dataset.ldd) return;
+      box.dataset.ldd='1';
+      box.innerHTML=list.map(x=>`<div class="qip" style="aspect-ratio:${Number(x.w)||500}/${Number(x.h)||300}" data-p="${escapeHtml(x.path)}"></div>`).join('');
+      box.querySelectorAll('.qip').forEach(el=>tqiBlob(el.dataset.p).then(u=>{ el.innerHTML=`<img src="${u}" alt="${q}번 문항">`; })
+        .catch(()=>{ el.innerHTML='<span class="m2">문항 그림을 불러오지 못했어요</span>'; delete box.dataset.ldd; }));
+    });
   }
   function awayLine(rep){
     const a=rep.away; if(!a) return '';
@@ -528,6 +576,7 @@
     const ks=Object.keys(rv).map(Number).sort((a,b)=>a-b); if(!ks.length) return '';
     let rows='';
     ks.forEach(q=>{ const v=rv[q]||{}, tr=v.tries||[];
+      rows+=tqiRow(q, !!(v.help||v.error));
       tr.forEach((t,i)=>{ rows+=`<tr><td class="qn">${i?'':q}</td><td>${i+1}</td><td>${escapeHtml(t.wrong||'')}</td>
         <td class="fixc">${escapeHtml(t.why_wrong||'')}</td><td>${escapeHtml(t.pick||'')} <b class="${t.ok?'o':'x'}">${t.ok?'O':'X'}</b></td>
         <td class="fixc">${escapeHtml(t.why_right||'')}</td></tr>`; });

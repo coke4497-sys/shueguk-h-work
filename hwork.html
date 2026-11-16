@@ -226,6 +226,11 @@
   #report .reply .rfb{ border:none; border-radius:999px; background:#fff; color:#2F6B52; padding:7px 13px; font-family:inherit; font-size:13px; cursor:pointer; text-align:left; word-break:break-all; }
   #report .reply .rfb .sz{ color:#7A8780; font-size:11.5px; }
   #report .reply .rh{ display:block; font-size:12px; color:#2F6B52; font-weight:700; margin-bottom:2px; white-space:normal; }
+  #report .qimg{ margin:8px 0 10px; }
+  #report .qimg .qil{ font-size:11.5px; color:#5C6A64; margin-bottom:4px; }
+  #report .qimg .qip{ background:#fff; border-radius:10px; overflow:hidden; max-width:560px; width:100%; margin-bottom:4px; box-shadow:0 1px 3px rgba(40,60,50,.08); }
+  #report .qimg .qip img{ display:block; width:100%; height:auto; }
+  #report .qimg .ld{ display:block; width:100%; height:100%; min-height:44px; border:none; background:#F2F5F3; color:#5C6A64; font-size:12.5px; cursor:pointer; font-family:inherit; }
   #report .rtq{ border-top:1px solid var(--line); padding:12px 0; display:flex; gap:12px; align-items:flex-start; }
   #report .rtq .qno{ min-width:34px; height:34px; border-radius:50%; background:#E9EDF8; color:#3F4E75; font-weight:700; display:flex; align-items:center; justify-content:center; }
   #report .rtq .qb{ flex:1; }
@@ -824,19 +829,57 @@
       b.disabled=false; b.innerHTML=b.dataset.t;
     }catch(err){ b.disabled=false; if(b.dataset.t) b.innerHTML=b.dataset.t; alert('파일을 열지 못했습니다. 잠시 뒤 다시 눌러 주세요.'); }
   });
-  new MutationObserver(()=>rfThumbs(document.getElementById('report'))).observe(document.getElementById('report'), { childList:true, subtree:true });
+  /* 교재 문항 그림 (2026-11-16, 리포트 마이그레이션 068) — 오답하기·리테스트 화면에 그 번호의 교재 문항을 띄운다.
+   * hwork_item_imgs 가 이 학생의 과제(오답하기 열쇠) 또는 리테스트(접근코드) 문항 그림의 10분 창을 열고, 공개 키로 받는다. */
+  const QI={ key:'', items:null, bucket:'hwork-items', blobs:{}, busy:false };
+  function qiParam(){
+    if(RTM && RTM.key) return { via:'retest', id:RTM.id, key:RTM.key };
+    if(RS && RS.id && RS.key) return { via:'retry', id:RS.id, key:RS.key };
+    return null;
+  }
+  function qiHtml(q){ return `<div class="qimg" data-qi="${escapeHtml(String(q))}"></div>`; }
+  async function qiBlob(path){
+    if(QI.blobs[path]) return QI.blobs[path];
+    const r=await fetch(SB_STORE+'/object/authenticated/'+QI.bucket+'/'+path.split('/').map(encodeURIComponent).join('/'),
+      { headers:{ apikey:SB_KEY, Authorization:'Bearer '+SB_KEY } });
+    if(!r.ok) throw new Error('img '+r.status);
+    return QI.blobs[path]=URL.createObjectURL(await r.blob());
+  }
+  function qiReload(){ QI.key=''; QI.items=null; document.querySelectorAll('.qimg[data-ldd]').forEach(b=>{ b.removeAttribute('data-ldd'); b.innerHTML=''; }); qiPaint(); }
+  function qiPaint(){
+    const boxes=document.querySelectorAll('.qimg[data-qi]:not([data-ldd])'); if(!boxes.length) return;
+    const p=qiParam(); if(!p) return;
+    const k=JSON.stringify(p);
+    if(QI.key!==k){
+      if(QI.busy) return;
+      QI.busy=true;
+      sbRpc('hwork_item_imgs', { p }).then(j=>{ QI.key=k; QI.items=(j&&j.ok)?(j.items||{}):{}; QI.bucket=(j&&j.bucket)||'hwork-items'; })
+        .catch(()=>{ QI.key=k; QI.items={}; }).finally(()=>{ QI.busy=false; qiPaint(); });
+      return;
+    }
+    boxes.forEach(box=>{
+      box.setAttribute('data-ldd','1');
+      const list=(QI.items||{})[box.dataset.qi];
+      if(!list || !list.length){ box.style.display='none'; return; }
+      box.innerHTML='<div class="qil">교재 '+escapeHtml(box.dataset.qi)+'번 문항</div>'+list.map(x=>
+        `<div class="qip" style="aspect-ratio:${Number(x.w)||500}/${Number(x.h)||300}" data-p="${escapeHtml(x.path)}"></div>`).join('');
+      box.querySelectorAll('.qip').forEach(el=>qiBlob(el.dataset.p).then(u=>{ el.innerHTML=`<img src="${u}" alt="${escapeHtml(box.dataset.qi)}번 문항">`; })
+        .catch(()=>{ el.innerHTML='<button type="button" class="ld" onclick="qiReload()">문항 그림을 불러오지 못했어요 · 눌러서 다시</button>'; }));
+    });
+  }
+  new MutationObserver(()=>{ const r=document.getElementById('report'); rfThumbs(r); qiPaint(); }).observe(document.getElementById('report'), { childList:true, subtree:true });
   function fixCard(q){
     const r=rvOf(q), d=RS.detail[q]||{}, dr=RS.draft[q]||{}, tries=r.tries||[];
     const flags=(r.help?'<span class="fl">선생님 도움 요청함</span>':'')+(r.error?'<span class="fl">문항 오류 신고함</span>':'');
     const hist=tries.length?`<div class="hist">${tries.map((t,i)=>`<div>${i+1}번째 · ${escapeHtml(t.pick)} ${t.ok?'<b class="ok">맞음</b>':'<b class="ng">틀림</b>'}</div>`).join('')}</div>`:'';
     if(r.cleared_at){
-      return `<div class="rv clr" id="rv${q}"><div class="rvh">${q}번 · <b class="ok">클리어</b> · 정답 <b class="ok">${escapeHtml(RS.answers[q]!=null?RS.answers[q]:'')}</b>${flags}</div>${replyHtml(q)}${hist}</div>`;
+      return `<div class="rv clr" id="rv${q}"><div class="rvh">${q}번 · <b class="ok">클리어</b> · 정답 <b class="ok">${escapeHtml(RS.answers[q]!=null?RS.answers[q]:'')}</b>${flags}</div>${qiHtml(q)}${replyHtml(q)}${hist}</div>`;
     }
     const w=curWrong(q);
     const errBox = r.error ? `<div class="errdone">신고 내용: ${escapeHtml(r.error.text||'')}</div>`
       : `<div class="errbox" style="display:${dr.errOpen?'block':'none'};"><textarea class="fix" data-f="err" maxlength="300" placeholder="어디가 잘못된 것 같은지 적어 주세요. (예: 정답이 ③도 맞는 것 같아요)" oninput="setDraft(${q},'err',this.value)">${escapeHtml(dr.err||'')}</textarea>
           <button type="button" class="sbtn" onclick="sendFlag(${q},'error')">오류 신고 보내기</button></div>`;
-    return `<div class="rv" id="rv${q}"><div class="rvh">${q}번 · 지금 틀린 답 <b>${escapeHtml(w||'무응답')}</b>${tries.length?` · ${tries.length}번 시도`:''}${flags}</div>${replyHtml(q)}${hist}
+    return `<div class="rv" id="rv${q}"><div class="rvh">${q}번 · 지금 틀린 답 <b>${escapeHtml(w||'무응답')}</b>${tries.length?` · ${tries.length}번 시도`:''}${flags}</div>${qiHtml(q)}${replyHtml(q)}${hist}
       <div class="lab">① 내가 틀린 답(${escapeHtml(w||'무응답')})을 고른 이유</div>
       <textarea class="fix" data-f="ww" maxlength="300" placeholder="그 답을 왜 골랐는지 그때 생각을 적어 보세요." oninput="setDraft(${q},'ww',this.value)">${escapeHtml(dr.ww||'')}</textarea>
       <div class="lab">② 다시 고른 답</div>${pickInput(q, d.type||'choice5', dr.pick)}
@@ -965,9 +1008,9 @@
     const tl=t=>t==='ox'?'OX':(t==='text'?'단답형':'5지선다');
     rtShell(`<div class="tbar">${escapeHtml(d.code||'')}</div>
       <section><h2>리테스트 · ${qs.length}문항</h2>
-        <div class="guide">${escapeHtml(d.name||'')} 학생이 이 과제를 <b>처음 냈을 때 틀린 문항</b>만 모았습니다. 교재의 같은 번호 문항을 다시 풀고 답을 넣으십시오. 한 번만 제출할 수 있어요.</div>
+        <div class="guide">${escapeHtml(d.name||'')} 학생이 이 과제를 <b>처음 냈을 때 틀린 문항</b>만 모았습니다. 문항을 다시 풀고 답을 넣으십시오(문항 그림이 없으면 교재의 같은 번호를 보세요). 한 번만 제출할 수 있어요.</div>
         ${qs.map(q=>{ const t=((d.items||{})[q]||{}).type||'choice5';
-          return `<div class="rtq"><div class="qno">${escapeHtml(q)}</div><div class="qb"><div class="qt">${q}번 · ${tl(t)}</div>${rtInput(q,t)}</div></div>`; }).join('')}
+          return `<div class="rtq"><div class="qno">${escapeHtml(q)}</div><div class="qb"><div class="qt">${q}번 · ${tl(t)}</div>${qiHtml(q)}${rtInput(q,t)}</div></div>`; }).join('')}
         <button type="button" class="rtgo" id="rtGo" onclick="rtSubmit()">리테스트 제출하기</button>
       </section>`);
   }
