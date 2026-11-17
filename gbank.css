@@ -18,7 +18,7 @@
 .gq .bl{position:absolute;top:-2.4mm;left:0;right:0;text-align:center;line-height:1}
 .gq .bl span{background:#fff;border:.3mm solid #c3dcd5;border-radius:3mm;padding:.5mm 3mm;font-size:8pt;color:#3d675d}
 .gq .box p{margin:0 0 .6mm}
-.gq table.ot{border-collapse:collapse;margin:1.2mm auto;font-size:8.6pt;line-height:1.45;max-width:100%}
+.gq table.ot{border-collapse:collapse;margin:1.2mm auto;font-size:.93em;line-height:1.5;max-width:100%}
 .gq table.ot td{border:.2mm solid #b9cfc9;padding:.8mm 1.4mm;vertical-align:middle}
 .gq table.ot td div{min-height:1em}
 .gq .tw{overflow:hidden;max-width:100%}
