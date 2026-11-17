@@ -27,6 +27,8 @@ let PAS = [{ pid: 'p7', html: '<p class="pp">지문 본문 글입니다.</p>' }]
 if (process.env.GBANK_JSON) { const d = JSON.parse(fs.readFileSync(process.env.GBANK_JSON, 'utf8')); ITEMS = d.items; PAS = d.passages; }
 const REAL = !!process.env.GBANK_JSON;
 
+let RS_MODE = false;   // 068 — 이미 낸 교재 과제(SHUEGUK REAL) 원문 잇기
+const RQ = n => `<div class="qh"><div class="stem">교재 문항 ${n}</div></div><div class="qb"><div class="bogi"><div class="bl">보기</div><div class="cp">㉠ 보기 글</div></div>` + [1, 2, 3, 4, 5].map(k => `<div class="ch"><span class="cn">${'①②③④⑤'[k - 1]}</span> 선지</div>`).join('') + '</div>';
 const DB = { hws: [{ teacher: '이현지', code: '일반 과제', data: { count: 2, items: {} } }], posts: [], saved: null, qa: [], patches: [], deletes: [], calls: [] };
 
 function fake(rt, u, method, body) {
@@ -42,9 +44,12 @@ function fake(rt, u, method, body) {
   if (rest.startsWith('/gbank_passages')) { const m = rest.match(/pid=eq\.([^&]+)/); return rt.fulfill({ json: m ? PAS.filter(p => p.pid === decodeURIComponent(m[1])) : (rest.includes('offset=0') ? PAS : []) }); }
   if (rest.startsWith('/hwork_homeworks')) {
     if (method === 'POST') { DB.saved = JSON.parse(body)[0]; return rt.fulfill({ status: 201, body: '' }); }
+    if (rest.includes('teacher=eq') && RS_MODE) return rt.fulfill({ json: [{ data: { count: 3 } }] });
     if (rest.includes('teacher=eq')) return rt.fulfill({ json: [{ data: { bank: { '1': 101, '2': 102, '3': 103 } } }] });
     return rt.fulfill({ json: rest.includes('offset=0') ? DB.hws : [] });
   }
+  if (rest.startsWith('/hwork_src_items')) { DB.calls.push({ fn: 'src', rest }); return rt.fulfill({ json: [{ html: RQ(2), pid: 'wb-P1', type: '5지', ans: '③', essay: '', src: '건대부고3 24 1 중간', err: false, book: '문장 1권(기본·실력)' }] }); }
+  if (rest.startsWith('/hwork_src_passages')) return rt.fulfill({ json: [{ html: '<div class="psg">교재 지문 글</div>' }] });
   if (rest.startsWith('/students')) return rt.fulfill({ json: rest.includes('offset=0') ? [{ school: '화정고', enrolled: '재원' }, { school: '능곡고', enrolled: '재원' }, { school: '옛학교', enrolled: '퇴원' }] : [] });
   if (rest.startsWith('/hwork_submissions')) return rt.fulfill({ json: [] });
   if (rest.startsWith('/hwork_qa')) {
@@ -65,6 +70,7 @@ const S = { id: 55, key: 'ffffffffffffffffffffffffffffffff', review: {}, msgs: [
 function rpc(fn, p) {
   if (fn === 'hwork_list') return { ok: true, list: [{ teacher: '이현지', code: '[모의고사 문법] 음운 1회', due: '', closed: false }] };
   if (fn === 'hwork_meta') return { ok: true, meta: { teacher: '이현지', code: '[모의고사 문법] 음운 1회', count: 3, schools: ['화정고'], items: { '1': { type: 'choice5' }, '2': { type: 'choice5' }, '3': { type: 'choice5' } }, due: '', closed: false, bank: true } };
+  if (fn === 'hwork_qs' && RS_MODE) return { ok: true, style: 'real', items: { '1': { html: RQ(1), pid: 'wb-P1', src: 'A고' }, '2': { html: RQ(2), pid: 'wb-P1', src: 'B고' }, '3': { html: RQ(3), pid: '', src: 'C고' } }, passages: { 'wb-P1': '<div class="psg">교재 지문 글</div>' } };
   if (fn === 'hwork_qs') { const it = {}, ps = {}; for (const k in BANK) { const g = ITEMS.find(x => x.id === BANK[k]); it[k] = { html: g.html, pid: g.pid, src: g.src }; if (g.pid) ps[g.pid] = PAS.find(x => x.pid === g.pid).html; } return { ok: true, items: it, passages: ps }; }
   if (fn === 'hwork_submit') {
     const d = {}; let got = 0; for (const q in KEY) { const okv = String(p.answers[q]) === String(KEY[q]); if (okv) got++; d[q] = { type: 'choice5', mine: String(p.answers[q] || ''), ok: okv }; if (okv) d[q].ans = String(KEY[q]); }
@@ -77,6 +83,7 @@ function rpc(fn, p) {
   if (fn === 'hwork_qa_list') { const r = msgs(); S.msgs.forEach(m => { if (m.who === '선생님') m.read = true; }); return { ok: true, msgs: r }; }
   if (fn === 'hwork_qa_post') { if (!p.text) return { ok: false, error: '질문을 적어 주세요.' }; S.msgs.push({ id: S.msgs.length + 1, q: p.q, who: '학생', name: S.name, body: p.text, mine: S.detail[p.q].mine, at: '2026-11-17 15:10', read: false }); return { ok: true, msgs: msgs() }; }
   if (fn === 'hwork_flag') { (S.review[p.q] = S.review[p.q] || { tries: [] })[p.kind] = { at: '15:10', text: p.text }; return { ok: true, q: p.q, kind: p.kind, at: '15:10' }; }
+  if (fn === 'hwork_expl' && RS_MODE) { if (!S.detail[p.q].ok && !(S.review[p.q] || {}).cleared_at) return { ok: false, reason: 'locked', error: '잠김' }; return { ok: true, q: p.q, kind: 'src', type: '5지', ans_text: '②', essay: '', err: false }; }
   if (fn === 'hwork_expl') { if (!S.detail[p.q].ok && !(S.review[p.q] || {}).cleared_at) return { ok: false, reason: 'locked', error: '잠김' }; const g = ITEMS.find(x => x.id === BANK[p.q]); return { ok: true, ans: g.ans, good: g.good, bad: g.bad }; }
   if (fn === 'hwork_retry_state') return { ok: true, stage: 'fix', teacher: S.teacher, code: S.code, name: S.name, got: 1, total: 3, detail: S.detail, review: S.review, answers: {} };
   return { ok: false };
@@ -222,6 +229,39 @@ function rpc(fn, p) {
   ok(r && r.r.who === '선생님' && r.r.name === '이현지' && r.r.sub_id === 55 && r.r.q === '2', '답장 POST — 선생님·이름·제출·문항');
   if (SHOT) await t.screenshot({ path: path.join(SHOT, 'bank-teacher-qa.png') });
   ok(!terr.length, '질문함 오류 없음 ' + terr.join(' | '));
+
+  // ── 4. 이미 낸 교재 과제(SHUEGUK REAL, 068) — 같은 화면이 교재 모양(.rq)으로 ──
+  RS_MODE = true; S.review = {}; S.msgs = [];
+  const rctx = await b.newContext({ viewport: { width: 400, height: 860 } });
+  await rctx.route('**/*', rt => { const r = rt.request(), u = r.url(); if (u.startsWith(U)) return rt.continue(); return fake(rt, u, r.method(), r.postData()); });
+  const rs = await rctx.newPage(); rs.on('dialog', d => d.accept()); const rerr = []; rs.on('pageerror', e => rerr.push(e.message));
+  await rs.goto(U + 'hwork.html?c=' + encodeURIComponent('[모의고사 문법] 음운 1회') + '&t=' + encodeURIComponent('이현지') + '&nm=' + encodeURIComponent('김철수') + '&sc=' + encodeURIComponent('화정고') + '&gr=' + encodeURIComponent('고1'));
+  await rs.waitForSelector('#dndBox'); await rs.click('.dnd-go');
+  ok(await rs.locator('#qwrap .gqp .rq').count() === 1 && (await rs.locator('#qwrap .gqp .prng').textContent()) === '[1~2]', '교재 — 지문 한 번 [1~2]');
+  ok(await rs.locator('#q1 .rq .stem').isVisible() && await rs.locator('#q1 .gq').count() === 0, '교재 — 문제가 교재 모양(.rq)');
+  ok(await rs.locator('#q1 .rq .bogi .bl').isVisible(), '교재 — 〈보기〉 상자');
+  await rs.click('#q1 .choices button:nth-child(2)'); await rs.click('#q2 .choices button:nth-child(1)'); await rs.click('#q3 .choices button:nth-child(3)');
+  await rs.click('#submit'); await rs.waitForSelector('#report table.detail');
+  await rs.locator('#report tr:has(td.qn:text-is("2")) .qa-btn').click();
+  ok((await rs.locator('#qv .lockn').textContent()).includes('정답은 오답하기로 클리어하면'), '교재 — 틀린 문항 정답 잠김');
+  await rs.click('#qv .x');
+  await rs.locator('#report tr:has(td.qn:text-is("1")) .qa-btn').click();
+  ok((await rs.locator('#qvExpl button').textContent()) === '정답 보기', '교재 — 맞힌 문항 정답 보기 버튼');
+  await rs.click('#qvExpl button'); await rs.waitForSelector('#qv .expl');
+  const ex = await rs.locator('#qv .expl').textContent();
+  ok(ex.includes('정답 ②') && ex.includes('해설은 없어요'), '교재 — 정답만, 해설 없음 안내');
+  if (SHOT) await rs.screenshot({ path: path.join(SHOT, 'real-student-qa.png') });
+  ok(!rerr.length, '교재 학생 화면 오류 없음 ' + rerr.join(' | '));
+  DB.qa = [{ id: 11, sub_id: 77, q: '2', who: '학생', name: '김철수', body: '교재 질문', mine: '1', at: '2026-11-17T06:10:00Z', read_at: null,
+    s: Object.assign({}, sub, { id: 77, code: 'SHUEGUK REAL 내신 기출 문장 1권(기본·실력) 01 문장 성분 · 기본' }) }];
+  const rt2 = await ctx.newPage(); const rterr = []; rt2.on('pageerror', e => rterr.push(e.message));
+  await rt2.goto(U + 'hwork_qa.html'); await rt2.waitForSelector('.th'); await rt2.click('.th'); await rt2.waitForSelector('#det .bub');
+  ok((await rt2.locator('#det .rq .stem').textContent()) === '교재 문항 2', '질문함 — 교재 문제');
+  ok(await rt2.locator('body.teacher #det .rq .cn.ok').count() === 1 && (await rt2.locator('#det .rq .cn.ok').textContent()) === '③', '질문함 — 교재 정답 ③ 표시');
+  ok(DB.calls.some(c => c.fn === 'src' && c.rest.includes('no=eq.2') && c.rest.includes(encodeURIComponent('문장 1권'))), '질문함 — 과제 이름·번호로 원문 찾음');
+  ok(await rt2.locator('#det .pasd .rq').count() === 1, '질문함 — 교재 지문');
+  if (SHOT) await rt2.screenshot({ path: path.join(SHOT, 'real-teacher-qa.png') });
+  ok(!rterr.length, '교재 질문함 오류 없음 ' + rterr.join(' | '));
   await b.close(); srv.close();
   console.log(`통과 ${pass} · 실패 ${fail}`); process.exit(fail ? 1 : 0);
 })().catch(e => { console.error(e); srv.close(); process.exit(1); });

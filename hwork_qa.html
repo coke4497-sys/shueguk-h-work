@@ -11,6 +11,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&family=Do+Hyeon&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="gbank.css">
+<link rel="stylesheet" href="real.css">
 <style>
   :root{ --ink:#2C2F2D; --muted:#6B746E; --line:#DCE4DF; --paper:#E4EFEA; --lav-bg:#E9EDF8; --lav-d:#4F5E86; }
   *{box-sizing:border-box}
@@ -246,11 +247,23 @@ async function gbItem(id){
   }
   return GB[id];
 }
+/* 068 — 이미 낸 교재 과제(SHUEGUK REAL)는 과제 이름·번호로 문제 원문을 잇는다(hwork_src_items — 교사만 읽음) */
+const SRC={}, SP={};
+async function srcItem(code, no){
+  const k=code+'|'+no;
+  if(!(k in SRC)){
+    SRC[k]=null;
+    try{ const r=await sb('/hwork_src_items?select=html,pid,type,ans,essay,src,err,book&active=is.true&no=eq.'+no+'&code=eq.'+encodeURIComponent(code)); SRC[k]=r[0]||null;
+      if(SRC[k]&&SRC[k].pid&&!(SRC[k].pid in SP)){ const p=await sb('/hwork_src_passages?select=html&pid=eq.'+encodeURIComponent(SRC[k].pid)); SP[SRC[k].pid]=(p[0]||{}).html||''; } }catch(e){}
+  }
+  return SRC[k];
+}
 async function drawDet(t, keep){
   CUR=t.k; drawList(); $('cols').classList.add('open');
   const s=t.sub, d=(s.detail||{})[t.q]||{}, rv=((s.review||{})[t.q])||{}, tries=rv.tries||[];
   const draft=keep&&$('rIn')?$('rIn').value:'';
   const bank=await bankOf(s); const it=bank&&bank[t.q]?await gbItem(bank[t.q]):null;
+  const rs=!bank?await srcItem(s.code, t.q):null;
   if(CUR!==t.k) return;
   let qb='';
   if(it){
@@ -258,6 +271,13 @@ async function drawDet(t, keep){
     qb=`<div class="qbox">${it.pid?`<details class="pasd"><summary>지문 보기</summary><div class="pb gq">${GP[it.pid]||''}</div></details>`:''}
       <div class="gq">${html}</div><div class="tag" style="display:inline-block;margin-top:6px">${esc(it.area)} · ${esc(it.lvl)} · ${esc(it.src)}</div>
       <details style="margin-top:6px"><summary style="cursor:pointer;color:#3d675d;font-size:14px">정답·해설</summary><div class="ex"><b>정답 ${CHS[it.ans-1]}</b> ${it.good||''}${(it.bad||[]).map(b=>`<div>${b}</div>`).join('')}</div></details></div>`;
+  }
+  if(!it && rs){
+    const n='①②③④⑤'.indexOf((rs.ans||'').trim());
+    const html=n>=0&&rs.type==='5지'?rs.html.replace(/<span class="cn">([①②③④⑤])<\/span>/g,(m,c)=>c===CHS[n]?'<span class="cn ok">'+c+'</span>':m):rs.html;
+    qb=`<div class="qbox">${rs.pid?`<details class="pasd"><summary>지문 보기</summary><div class="pb rq">${SP[rs.pid]||''}</div></details>`:''}
+      <div class="rq">${html}</div><div class="tag" style="display:inline-block;margin-top:6px">${esc(rs.book)} · ${esc(rs.src)}</div>
+      <details style="margin-top:6px"><summary style="cursor:pointer;color:#3d675d;font-size:14px">정답</summary><div class="ex">${rs.err?'<b>오류 문항</b> (교재에서 풀지 않고 넘어감)':`<b>정답 ${esc(rs.ans||'—')}</b>`}${rs.essay?`<div>예시 답: ${esc(rs.essay)}</div>`:''}</div></details></div>`;
   }
   const st = d.ok===true?'<b class="ok">맞힘</b>':(d.ok===false?(rv.cleared_at?'<b class="ok">오답하기 클리어</b>':'<b class="ng">틀림</b>'):'');
   const tr = tries.length?`<div class="tries">${tries.map((x,i)=>`<div class="t">${i+1}번째 오답하기 · 고른 답 <b>${esc(x.pick)}</b> ${x.ok?'<span class="ok">맞음</span>':'<span class="ng">틀림</span>'}
