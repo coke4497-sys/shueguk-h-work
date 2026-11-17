@@ -118,3 +118,6 @@
 
 ## H WORK 배정하기 — 옛 비밀번호 잠금 없앰 (2026-11-18 원장님 "이게 뭐죠?" → "네, 없애주세요")
 - hwork_assign.html 에만 남아 있던 비밀번호 창('sh', localStorage `shueguk_teacher_unlocked`)을 지웠다. 허브 로그인 게이트(teacher-gate.js)가 이미 막는다. 시작 호출 `init()`은 스크립트 맨 끝(위 `var picker=null` 선언이 값을 덮지 않게). 되살리지 말 것.
+
+## H WORK 메뉴 이름 정리 (2026-11-18 원장님 "혼란스럽다" — '배정 · 현황'과 '배정 현황' 카드가 나란히 있었다)
+- 허브 H WORK 메뉴 순서·이름 = 출제 → **배정하기**(hwork_assign.html — 옛 '배정·현황') → **제출 현황**(hwork_status.html — 옛 '배정 현황') → **채점·질문 확인**(hwork_teacher.html — 옛 '확인') → 오답 리테스트 만들기. 페이지 제목·머리 글(title·tagline)과 운영 안내(hwork_guide.html)도 같은 이름으로. 파일 이름은 그대로.
