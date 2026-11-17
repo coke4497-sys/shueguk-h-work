@@ -234,7 +234,7 @@ function rpc(fn, p) {
 
   // ── 4. 이미 낸 교재 과제(SHUEGUK REAL, 068) — 같은 화면이 교재 모양(.rq)으로 ──
   RS_MODE = true; S.review = {}; S.msgs = [];
-  const rctx = await b.newContext({ viewport: { width: 400, height: 860 } });
+  const rctx = await b.newContext({ viewport: { width: 390, height: 844 } });
   await rctx.route('**/*', rt => { const r = rt.request(), u = r.url(); if (u.startsWith(U)) return rt.continue(); return fake(rt, u, r.method(), r.postData()); });
   const rs = await rctx.newPage(); rs.on('dialog', d => d.accept()); const rerr = []; rs.on('pageerror', e => rerr.push(e.message));
   await rs.goto(U + 'hwork.html?c=' + encodeURIComponent('[모의고사 문법] 음운 1회') + '&t=' + encodeURIComponent('이현지') + '&nm=' + encodeURIComponent('김철수') + '&sc=' + encodeURIComponent('화정고') + '&gr=' + encodeURIComponent('고1'));
@@ -244,7 +244,11 @@ function rpc(fn, p) {
   ok(await rs.locator('#q1 .rq .bogi .bl').isVisible(), '교재 — 〈보기〉 상자');
   ok((await rs.locator('#qwrap .gqp .oh').textContent()) === '말ᄊᆞ미' && (await rs.locator('#qwrap .gqp .oh').evaluate(e => getComputedStyle(e).fontFamily)).includes('Noto Sans CJK KR'), '옛한글 낱말만 기기 글꼴(.oh)로');
   await rs.click('#q1 .choices button:nth-child(2)'); await rs.click('#q2 .choices button:nth-child(1)'); await rs.click('#q3 .choices button:nth-child(3)');
+  if (SHOT) await rs.screenshot({ path: path.join(SHOT, 'real-student-solve.png'), fullPage: true });
+  ok(await rs.evaluate(() => document.documentElement.scrollWidth <= 391), '교재 학생 풀이 화면 — 휴대폰 가로 넘침 없음 (' + await rs.evaluate(() => document.documentElement.scrollWidth) + ')');
   await rs.click('#submit'); await rs.waitForSelector('#rvq2');
+  ok(await rs.evaluate(() => document.documentElement.scrollWidth <= 391), '교재 학생 결과 화면 — 휴대폰 가로 넘침 없음');
+  if (SHOT) await rs.screenshot({ path: path.join(SHOT, 'real-student-result.png'), fullPage: true });
   ok((await rs.locator('#rvq2 .hid').textContent()).includes('클리어'), '교재 — 틀린 문항 정답 잠김');
   if (!(await rs.locator('#rvq1 .cmp').count())) await rs.click('#rvq1 [data-rv-tog]');
   ok((await rs.locator('#ex1 button').textContent()) === '정답 보기', '교재 — 맞힌 문항 정답 보기 버튼');

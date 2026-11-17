@@ -72,7 +72,7 @@ function rpc(fn, p) {
 
 (async () => {
   const b = await chromium.launch();
-  const ctx = await b.newContext({ viewport: { width: 420, height: 900 } });
+  const ctx = await b.newContext({ viewport: { width: 390, height: 844 } });
   const p = await ctx.newPage();
   await ctx.route('**/*', async rt => {
     const u = rt.request().url();
@@ -111,7 +111,8 @@ function rpc(fn, p) {
   ok((await p.textContent('#ph5')).includes('② 골랐어요'), '고르면 안내 줄에 고른 답');
   ok((await p.locator('#omr button').count()) === 5 && (await p.textContent('#om5')).includes('②') && (await p.textContent('#om4')).includes('O'), '답안표에 고른 답');
   ok((await p.locator('#q5 .choices button').first().boundingBox()).height >= 46, '답 칸 높이 46px 이상');
-  if (SHOT) await p.screenshot({ path: SHOT + '/omr-mobile.png' });
+  ok(await p.evaluate(() => document.documentElement.scrollWidth <= 391), '휴대폰 풀이 화면 가로 넘침 없음');
+  if (SHOT) await p.screenshot({ path: SHOT + '/omr-mobile.png', fullPage: true });
   await p.click('#q5 .choices button:nth-child(2)');
   ok(!(await p.locator('#q5 .choices button.sel').count()) && !(await p.textContent('#om5')).includes('②') && (await p.textContent('#cnt')) === '4', '같은 칸을 다시 누르면 지움');
   await p.click('#q5 .choices button:nth-child(2)');
@@ -130,6 +131,7 @@ function rpc(fn, p) {
   ok((await p.textContent('#rv1')).includes('내가 틀린 답(1)을 고른 이유'), '① 칸 이름에 틀린 답');
   ok(await p.evaluate(() => JSON.parse(localStorage.getItem('hw_retry_v1')).length) === 1, '이 기기에 이어 하기 기록');
   await p.click('#rvq2 .qh2'); ok((await p.textContent('#rvq2 .ess')).includes('내 서술'), '서술형 — 카드를 열면 내 답안·예시 답');
+  ok(await p.evaluate(() => document.documentElement.scrollWidth <= 391), '휴대폰 결과 화면 가로 넘침 없음 (' + await p.evaluate(() => document.documentElement.scrollWidth) + ')');
   if (SHOT) await p.screenshot({ path: SHOT + '/retry-1.png', fullPage: true });
 
   // 빈 칸이면 보내지 않음

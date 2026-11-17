@@ -89,6 +89,15 @@
   .ox button small{ font-family:'Gowun Dodum',sans-serif; font-size:12px; margin-left:4px; }
   .ox button.sel{ background:var(--sage-d); border-color:var(--sage-d); color:#fff; font-weight:700; }
   .q{ scroll-margin-top:118px; }
+  /* 휴대폰 (2026-11-17 원장님 "학생 화면도 휴대폰에서 확인") — 문제 원문이 있는 문항은 번호를 위로 올려 문제 글 폭을 넓힌다 */
+  @media (max-width:520px){
+    .q{ margin:8px 10px; padding:12px; align-items:flex-start; }
+    .q .num{ width:24px; padding-top:2px; }
+    .q.bank{ flex-direction:column; gap:4px; }
+    .q.bank .qbody{ width:100%; align-self:stretch; }
+    .q.bank .num{ width:auto; text-align:left; font-size:17px; color:var(--sage-d); }
+    .q.bank .num::after{ content:'번'; font-size:13px; margin-left:1px; }
+  }
   /* 위 고정 줄의 답안표 — 번호 칸이 답을 고르면 채워지고, 누르면 그 문항으로 */
   .omr{ display:flex; gap:5px; overflow-x:auto; padding:8px 0 2px; scrollbar-width:none; }
   .omr::-webkit-scrollbar{ display:none; }
