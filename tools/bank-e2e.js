@@ -55,6 +55,7 @@ function fake(rt, u, method, body) {
   if (rest.startsWith('/hwork_src_items')) { DB.calls.push({ fn: 'src', rest }); return rt.fulfill({ json: [{ no: '2', html: RQ(2), pid: 'wb-P1', type: '5지', ans: '③', essay: '', src: '건대부고3 24 1 중간', err: false, book: '문장 1권(기본·실력)' }] }); }
   if (rest.startsWith('/hwork_src_passages')) return rt.fulfill({ json: [{ pid: 'wb-P1', html: '<div class="psg">교재 지문 글 나랏 말ᄊᆞ미</div>' }] });
   if (rest.startsWith('/students')) return rt.fulfill({ json: rest.includes('offset=0') ? [{ school: '화정고', enrolled: '재원' }, { school: '능곡고', enrolled: '재원' }, { school: '옛학교', enrolled: '퇴원' }] : [] });
+  if (rest.startsWith('/hwork_submissions') && method === 'PATCH') { const b = JSON.parse(body); DB.subPatch = (DB.subPatch || []).concat([b]); Object.assign(DB.sub, b); return rt.fulfill({ status: 204, body: '' }); }
   if (rest.startsWith('/hwork_submissions')) { const m = rest.match(/id=eq\.(\d+)/); return rt.fulfill({ json: m && DB.sub && DB.sub.id == m[1] ? [DB.sub] : [] }); }
   if (rest.startsWith('/hwork_retests')) return rt.fulfill({ json: [] });
   if (rest.startsWith('/hwork_reply_files')) { DB.files = (DB.files || []).concat(JSON.parse(body)); return rt.fulfill({ status: 201, body: '' }); }
@@ -95,7 +96,9 @@ function rpc(fn, p) {
     const r = S.review[p.q] = Object.assign({ tries: [] }, S.review[p.q] || {}, { understood_at: '2026-11-17 16:05' }); let cl = false;
     if (S.detail[p.q].ok === false && !r.cleared_at) { r.cleared_at = '2026-11-17 16:05'; r.via = 'qa'; cl = true; }
     return { ok: true, q: p.q, cleared: cl, at: '2026-11-17 16:05', review: r, ans: r.cleared_at ? String(KEY[p.q]) : null, done: false }; }
-  if (fn === 'hwork_retry_state') return { ok: true, stage: 'fix', teacher: S.teacher, code: S.code, name: S.name, got: 1, total: 3, detail: S.detail, review: S.review, answers: {} };
+  if (fn === 'hwork_check_seen') { S.seen = '2026-11-17 21:10'; return { ok: true, at: S.seen }; }
+  if (fn === 'hwork_retry_state') return { ok: true, stage: 'fix', teacher: S.teacher, code: S.code, name: S.name, got: 1, total: 3, detail: S.detail, review: S.review, answers: {},
+    checked: S.checked || {}, check_done: S.done || null, check_seen_at: S.seen || null };
   return { ok: false };
 }
 
@@ -157,6 +160,7 @@ function rpc(fn, p) {
   const sub = { id: 55, teacher: '이현지', code: '[모의고사 문법] 음운 1회', name: '김철수', school: '화정고', grade: '고1', ts: '2026-11-17 15:00', got: 1, total: 3,
     detail: { '1': { type: 'choice5', mine: '2', ok: true }, '2': { type: 'choice5', mine: '1', ok: false }, '3': { type: 'choice5', mine: '3', ok: false } },
     review: { '2': { tries: [{ wrong: '1', why_wrong: '느낌으로', pick: '3', why_right: '비교', ok: false }], help: { at: '15:10' } } } };
+  sub.checked = {}; sub.check_done = null; sub.check_seen_at = null;
   DB.sub = sub;
   DB.qa = [{ id: 1, sub_id: 55, q: '2', who: '학생', name: '김철수', body: 'ㄴ이 왜 틀렸는지 모르겠어요', mine: '3', at: '2026-11-17T06:10:00Z', read_at: null, s: sub }];
   DB.qa.push({ id: 50, sub_id: 70, q: '5', who: '선생님', name: '남주혜', body: '지난 설명 — 보기의 ㄴ은 반모음입니다', mine: '', at: '2026-11-10T06:10:00Z', read_at: null,
@@ -181,6 +185,14 @@ function rpc(fn, p) {
   const r = DB.calls.find(c => c.fn === 'qa-post');
   ok(r && r.r.who === '선생님' && r.r.name === '이현지' && r.r.sub_id === 55 && r.r.q === '2', '답장 POST — 선생님·이름·제출·문항');
   await t.waitForSelector('#rvq2 .msg.tc');
+  // 선생님 확인 · 과제 검사 완료 (리포트 074)
+  ok(await t.evaluate(() => getComputedStyle(document.querySelector('textarea[data-rin="2"]')).minHeight) === '150px' && (await t.getAttribute('textarea[data-rin="2"]', 'maxlength')) === '5000', '답장 칸 — 높이 150px · 5000자');
+  await t.click('#rvq2 .qchk button'); await t.waitForSelector('#rvq2 .qchk .on');
+  ok(DB.subPatch && DB.subPatch[0].checked['2'] && DB.subPatch[0].checked['2'].by === '이현지', '문항 [확인했어요] — checked[2] 이현지');
+  ok((await t.textContent('#rvq2 .qh2')).includes('♥ 선생님 확인'), '카드 머리에 ♥ 선생님 확인');
+  await t.fill('#chkNote', '오답 이유를 잘 적었어요'); await t.click('.chc button'); await t.waitForSelector('.chc .done');
+  const last = DB.subPatch[DB.subPatch.length - 1];
+  ok(last.check_done && last.check_done.note === '오답 이유를 잘 적었어요' && last.check_done.by === '이현지' && Object.keys(last.checked).length === 3, '과제 검사 완료 — 한마디·모든 문항 확인');
   if (SHOT) await t.screenshot({ path: path.join(SHOT, 'bank-teacher-result.png'), fullPage: true });
   ok(!terr.length, '선생님 결과 화면 오류 없음 ' + terr.join(' | '));
   // 휴대폰(390px) — 선생님 결과 화면
@@ -189,6 +201,18 @@ function rpc(fn, p) {
   ok(await tm.evaluate(() => document.documentElement.scrollWidth <= 391), '휴대폰 — 가로로 밀리지 않음 (' + await tm.evaluate(() => document.documentElement.scrollWidth) + ')');
   if (SHOT) { await tm.screenshot({ path: path.join(SHOT, 'teacher-mobile-top.png') }); await tm.screenshot({ path: path.join(SHOT, 'teacher-mobile-full.png'), fullPage: true }); }
   await tm.close();
+  // 학생이 다시 들어오면 하트 팝업 한 번
+  S.checked = { '2': { at: '2026-11-17 21:00', by: '이현지' } }; S.done = { at: '2026-11-17 21:01', by: '이현지', note: '오답 이유를 잘 적었어요' }; S.seen = null;
+  const sp = await ctx.newPage(); await sp.goto(U + 'hwork.html?sid=55&k=tok-kim'); await sp.waitForSelector('.hpop');
+  ok((await sp.textContent('.hpop')).includes('이현지 선생님이 이 과제를 꼼꼼히 검사했어요') && (await sp.textContent('.hpop')).includes('오답 이유를 잘 적었어요'), '학생 — 하트 팝업(선생님 이름·한마디)');
+  ok(await sp.locator('.hpop .hb').count() >= 10, '하트가 팡팡');
+  if (SHOT) await sp.screenshot({ path: path.join(SHOT, 'heart-popup.png') });
+  await sp.click('.hok');
+  ok(DB.calls.some(c => c.fn === 'hwork_check_seen') && await sp.locator('.hpop').count() === 0, '닫으면 본 때를 적음');
+  ok((await sp.textContent('#rvq2 .qh2')).includes('♥ 선생님 확인'), '학생 카드에도 ♥ 선생님 확인');
+  await sp.reload(); await sp.waitForSelector('#rvq2'); await sp.waitForTimeout(600);
+  ok(await sp.locator('.hpop').count() === 0, '한 번 본 팝업은 다시 안 뜸');
+  await sp.close();
   // 주소 없이 — 답장 기다리는 질문 목록
   DB.qa.push({ id: 2, sub_id: 56, q: '1', who: '학생', name: '이영희', body: '대기 질문', mine: '2', at: '2026-11-17T05:00:00Z', read_at: null, s: Object.assign({}, sub, { id: 56, name: '이영희' }) });
   const tl = await ctx.newPage(); await tl.goto(U + 'hwork_result.html'); await tl.waitForSelector('.wl');

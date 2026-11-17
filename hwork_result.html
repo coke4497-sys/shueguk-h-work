@@ -12,7 +12,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&family=Do+Hyeon&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="gbank.css">
 <link rel="stylesheet" href="real.css">
-<script src="result_view.js?v=20261117c"></script>
+<script src="result_view.js?v=20261117f"></script>
 <style>
   *{box-sizing:border-box}
   body{margin:0;background:#e4efea;color:#33443c;font-family:'Gowun Dodum',sans-serif;font-size:15px;line-height:1.55}
@@ -37,6 +37,18 @@
   .rtc .st.ok{background:#dcebe3;color:#4b6157}.rtc .st.wait{background:#f7f0dc;color:#7a6630}
   .rtc button{align-self:flex-start;border:0;border-radius:999px;background:#f3eff8;color:#4a3f63;padding:8px 14px;font-size:13.5px;cursor:pointer}
   .rtc button.del{background:#fbeeea;color:#a8434f}
+  .chc{background:#fff;border-radius:24px;padding:20px 22px;display:flex;flex-direction:column;gap:10px}
+  .chc h2{margin:0;font-family:'Gowun Batang',serif;font-weight:700;font-size:18px;color:#2b3a33}
+  .chc .m{font-size:14px;color:#54655c}
+  .chc .row2{display:flex;gap:8px;flex-wrap:wrap}
+  .chc input{flex:1;min-width:200px;border:1px solid #dfe5e1;border-radius:12px;padding:11px 12px;font-family:inherit;font-size:14.5px;background:#fafbf9}
+  .chc button{border:0;border-radius:12px;background:#e86a93;color:#fff;padding:11px 16px;font-size:14.5px;font-family:inherit;cursor:pointer}
+  .chc .done{background:#fdf0f4;color:#8a3a57;border-radius:12px;padding:10px 12px;font-size:14px}
+  .qchk{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .qchk button{border:0;border-radius:999px;background:#fdf0f4;color:#b0476a;padding:8px 14px;font-size:13.5px;font-family:inherit;cursor:pointer}
+  .qchk .on{font-size:13px;color:#b0476a}
+  .qchk .un{background:transparent;color:#8a978f;text-decoration:underline;padding:4px 2px;font-size:12.5px}
+  textarea[data-rin]{min-height:150px!important;max-height:60vh;overflow:auto}
   .wl{max-width:780px;margin:0 auto;padding:16px 18px 60px}
   .wl h1{font-family:'Gowun Batang',serif;font-size:24px;margin:8px 4px 4px;color:#2b3a33}
   .wl p{color:#54655c;font-size:14px;margin:0 4px 12px}
@@ -235,6 +247,32 @@ async function loadQa(){
   catch(e){ QA=await sb('/hwork_qa?select=id,q,who,name,body,mine,at,read_at&sub_id=eq.'+SUB.id+'&order=id').catch(()=>[]); }
   QA.forEach(m=>{ m.read=!!m.read_at; m.at=kst(m.at); });
 }
+function nowKst(){ return kst(new Date().toISOString()); }
+/* 선생님 확인 · 과제 검사 완료 (리포트 074) — 학생 화면에 ♥ 표시, 다음에 들어오면 하트 팝업 */
+async function saveCheck(patch, msg){
+  try{ await sb('/hwork_submissions?id=eq.'+SUB.id,{ method:'PATCH', headers:{ Prefer:'return=minimal' }, body:JSON.stringify(patch) });
+    Object.assign(SUB, patch); CTX.checked=SUB.checked||{}; CTX.checkDone=SUB.check_done||null; toast(msg); draw();
+    if(window.shuegukActivity) shuegukActivity('H WORK', '선생님 확인', SUB.name, SUB.code, false);
+  }catch(e){ toast('저장하지 못했어요. 데이터베이스 074 적용 전이면 쓸 수 없어요'); }
+}
+async function checkQ(q, on){
+  const by=await myName(); if(!by){ toast('허브 로그인 이름을 찾지 못했어요. 다시 로그인해 주세요'); return; }
+  const c=Object.assign({}, SUB.checked||{}); if(on) c[q]={ at:nowKst(), by }; else delete c[q];
+  saveCheck({ checked:c }, on?q+'번 확인 ♥':q+'번 확인을 취소했어요');
+}
+async function checkAll(){
+  const by=await myName(); if(!by){ toast('허브 로그인 이름을 찾지 못했어요. 다시 로그인해 주세요'); return; }
+  const note=(document.getElementById('chkNote')||{}).value||''; const at=nowKst();
+  const c=Object.assign({}, SUB.checked||{}); Object.keys(SUB.detail||{}).forEach(q=>{ if(!c[q]) c[q]={ at, by }; });
+  saveCheck({ checked:c, check_done:{ at, by, note:note.trim().slice(0,200) } }, '과제 검사 완료 · 학생에게 하트를 보냈어요 ♥');
+}
+function checkHtml(){
+  if(!('checked' in SUB)) return '';
+  const d=SUB.check_done, seen=SUB.check_seen_at&&d&&SUB.check_seen_at>=d.at;
+  return `<section class="chc"><h2>과제 검사</h2>${d?`<div class="done">♥ ${esc(d.by)} 선생님 · ${esc(String(d.at).slice(5,16))} 검사 완료${d.note?` · “${esc(d.note)}”`:''} — ${seen?'학생이 하트 팝업을 봤어요':'학생이 다음에 들어오면 하트 팝업이 떠요'}</div>`
+    :'<div class="m">답장이 필요 없는 문항은 카드 안 [확인했어요]를 누르거나, 여기서 한 번에 검사를 마치세요. 학생이 다음에 들어오면 하트가 팡팡 터지는 팝업이 떠요.</div>'}
+    <div class="row2"><input id="chkNote" maxlength="200" placeholder="학생에게 한마디 (선택) — 예: 오답 이유를 잘 적었어요!" value="${esc(d&&d.note||'')}"><button type="button" onclick="checkAll()">${d?'한마디 바꿔 다시 보내기 ♥':'과제 검사 완료 · 하트 보내기 ♥'}</button></div></section>`;
+}
 function kst(iso){ const d=new Date(new Date(iso).getTime()+9*3600e3); if(isNaN(d)) return String(iso||''); const p=n=>String(n).padStart(2,'0');
   return d.getUTCFullYear()+'-'+p(d.getUTCMonth()+1)+'-'+p(d.getUTCDate())+' '+p(d.getUTCHours())+':'+p(d.getUTCMinutes()); }
 function fKind(f){ const m=String(f.mime||f.type||''), n=String(f.name||'');
@@ -286,6 +324,7 @@ document.addEventListener('click', e=>{
   const r=e.target.closest&&e.target.closest('[data-rm]'); if(r){ const [q,i]=r.dataset.rm.split('|'); const f=(PEND[q]||[]).splice(Number(i),1)[0]; if(f&&f._u) URL.revokeObjectURL(f._u); redrawAtt(q); }
 });
 document.addEventListener('change', e=>{ const m=/^attF(.+)$/.exec(e.target.id||''); if(m){ attAdd(m[1], e.target.files); } });
+document.addEventListener('input', e=>{ const t=e.target; if(t.matches&&t.matches('textarea[data-rin]')){ t.style.height='auto'; t.style.height=Math.min(t.scrollHeight+4, innerHeight*0.6)+'px'; } });
 document.addEventListener('paste', e=>{
   const ta=e.target.closest&&e.target.closest('textarea[data-rin]'); if(!ta) return;
   const fs=[...((e.clipboardData&&e.clipboardData.files)||[])]; if(!fs.length) return;
@@ -378,7 +417,7 @@ function draw(){
       away:Number(SUB.away_n)>0?{ n:Number(SUB.away_n), sec:Number(SUB.away_sec)||0 }:null, reviewAt:SUB.review_at||'', qa:QA,
       hooks:{
         qhtml:q=>{ const x=QS[q]; if(!x) return null; return { pas:x.pid&&QP[x.pid]?`<div class="${STYLE}">${QP[x.pid]}</div>`:'', html:`<div class="${STYLE}">${x.html}</div>` }; },
-        composer:q=>`<div class="cmp"><span class="lab">학생에게 답장</span>${prevHtml(q)}<textarea data-rin="${q}" maxlength="1000" placeholder="답장을 적어 주세요. 학생 화면 이 문항에 바로 보입니다. 사진은 Ctrl+V 로 붙여 넣어도 돼요.">${esc(keep[q]||'')}</textarea>${reuseHtml(q)}${attHtml(q)}<button type="button" class="go" data-send="${q}">답장 보내기</button></div>`,
+        composer:q=>(('checked' in SUB)?`<div class="qchk">${(SUB.checked||{})[q]?`<span class="on">♥ ${esc(SUB.checked[q].by)} 선생님 확인 · ${esc(String(SUB.checked[q].at).slice(5,16))}</span><button type="button" class="un" onclick="checkQ('${q}',false)">확인 취소</button>`:`<button type="button" onclick="checkQ('${q}',true)">답장 없이 확인했어요 ♥</button>`}</div>`:'')+`<div class="cmp"><span class="lab">학생에게 답장</span>${prevHtml(q)}<textarea data-rin="${q}" maxlength="5000" placeholder="답장을 적어 주세요. 학생 화면 이 문항에 바로 보입니다. 사진은 Ctrl+V 로 붙여 넣어도 돼요.">${esc(keep[q]||'')}</textarea>${reuseHtml(q)}${attHtml(q)}<button type="button" class="go" data-send="${q}">답장 보내기</button></div>`,
         files:f=>fsHtml(f),
         opened:q=>markRead(q),
         after:()=>fThumbs()
@@ -386,7 +425,7 @@ function draw(){
     CTX.ui={ filter:'전체', open:RV.openDefault(CTX) };
     if(OPENQ) CTX.ui.open.add(String(OPENQ));
   }
-  CTX.qa=QA; CTX.extra=rtHtml();
+  CTX.qa=QA; CTX.extra=checkHtml()+rtHtml(); CTX.checked=SUB.checked||{}; CTX.checkDone=SUB.check_done||null;
   RV.draw($('view'), CTX);
   Object.keys(keep).forEach(q=>{ const t=document.querySelector('textarea[data-rin="'+q+'"]'); if(t) t.value=keep[q]; });
 }

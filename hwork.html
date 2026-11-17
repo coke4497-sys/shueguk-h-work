@@ -89,6 +89,21 @@
   .ox button small{ font-family:'Gowun Dodum',sans-serif; font-size:12px; margin-left:4px; }
   .ox button.sel{ background:var(--sage-d); border-color:var(--sage-d); color:#fff; font-weight:700; }
   .q{ scroll-margin-top:118px; }
+  /* 선생님 확인 하트 팝업 */
+  .hpop{ position:fixed; inset:0; z-index:80; background:rgba(40,46,43,.42); display:flex; align-items:center; justify-content:center; padding:20px; }
+  .hpc{ background:#fff; border-radius:24px; padding:22px 20px 18px; max-width:340px; width:100%; text-align:center; display:flex; flex-direction:column; gap:10px; animation:hpIn .35s ease-out; }
+  .hst{ position:relative; height:150px; display:flex; align-items:center; justify-content:center; }
+  .hst img{ width:140px; height:auto; animation:hpPop .6s ease-out; }
+  .hst .hb{ position:absolute; left:50%; top:50%; transform:translate(-50%,-50%) scale(.4); opacity:0; animation:hpFly 1.5s ease-out forwards; pointer-events:none; }
+  .ht{ font-family:'Gowun Batang',serif; font-weight:700; font-size:18px; color:#2b3a33; line-height:1.45; }
+  .ht .hh{ color:#e86a93; }
+  .hn{ background:#fdf0f4; color:#8a3a57; border-radius:12px; padding:10px 12px; font-size:15px; line-height:1.5; }
+  .hs{ font-size:13.5px; color:#6b746f; }
+  .hok{ border:0; border-radius:14px; background:#e86a93; color:#fff; font-size:16px; padding:13px; font-family:inherit; cursor:pointer; margin-top:4px; }
+  @keyframes hpIn{ from{ transform:scale(.9); opacity:0; } to{ transform:none; opacity:1; } }
+  @keyframes hpPop{ 0%{ transform:scale(.6); } 60%{ transform:scale(1.08); } 100%{ transform:scale(1); } }
+  @keyframes hpFly{ 0%{ opacity:0; transform:translate(-50%,-50%) scale(.4); } 20%{ opacity:1; } 100%{ opacity:0; transform:translate(calc(-50% + var(--x)), calc(-50% + var(--y))) scale(1.1); } }
+  @media (prefers-reduced-motion: reduce){ .hpc,.hst img{ animation:none; } }
   /* 휴대폰 (2026-11-17 원장님 "학생 화면도 휴대폰에서 확인") — 문제 원문이 있는 문항은 번호를 위로 올려 문제 글 폭을 넓힌다 */
   @media (max-width:520px){
     .q{ margin:8px 10px; padding:12px; align-items:flex-start; }
@@ -298,7 +313,7 @@
 </style>
 <link rel="stylesheet" href="gbank.css">
 <link rel="stylesheet" href="real.css">
-<script src="result_view.js?v=20261117c"></script>
+<script src="result_view.js?v=20261117f"></script>
 </head>
 <body>
 
@@ -780,9 +795,11 @@
   }
   function fromState(id, key, s){
     RS={ id, key, st:{ teacher:s.teacher, code:s.code, name:s.name, school:'', grade:'' }, got:s.got, total:s.total,
-         count:null, detail:s.detail||{}, review:s.review||null, answers:s.answers||{}, draft:{}, qa:[], ui:null };
+         count:null, detail:s.detail||{}, review:s.review||null, answers:s.answers||{}, draft:{}, qa:[], ui:null,
+         checked:s.checked||{}, checkDone:s.check_done||null, checkSeen:s.check_seen_at||'' };
     RS.stage=calcStage();
     rsRemember(); drawReport(); window.scrollTo(0,0); qaLoad(s.teacher, s.code);
+    setTimeout(heartMaybe, 350);
   }
   function ansOf(q, d){
     if(d.ok!==false || RS.stage==='legacy') return escapeHtml(d.ans||'');
@@ -803,6 +820,7 @@
     const ne=Object.keys(RS.detail||{}).filter(q=>(RS.detail[q]||{}).type==='essay').length;
     const ctx={ mode:'student', st:{ name:st.name, school:st.school, grade:st.grade, teacher:st.teacher, code:st.code },
       got:RS.got||0, total:RS.total||0, n, detail:RS.detail||{}, review:RS.review||{}, answers:RS.answers||{}, qa:RS.qa||[],
+      checked:RS.checked||{}, checkDone:RS.checkDone||null,
       note:(ne?'서술형 '+ne+'문항은 점수에 넣지 않았습니다. 문항을 눌러 예시 답과 비교해 보세요. ':'')+(RS.id?'궁금한 문항은 카드를 눌러 선생님께 바로 질문할 수 있어요. 답장이 오면 그 문항에 표시돼요.':''),
       ui:RS.ui||null,
       hooks:{
@@ -1062,6 +1080,33 @@
       }
       box.innerHTML=`<div class="expl"><b>정답 ${'①②③④⑤'[j.ans-1]||j.ans}</b> ${j.good||''}${(j.bad||[]).map(b=>`<div>${b}</div>`).join('')}</div>`;
     }catch(e){ box.innerHTML='<div class="lockn">인터넷 연결을 확인하고 다시 눌러 주세요.</div>'; }
+  }
+  /* 선생님 확인 하트 팝업 (2026-11-17 원장님 "선생님이 애정을 가지고 이 과제를 검사했다는 팝업", 리포트 074)
+   * 선생님이 [확인했어요]·[과제 검사 완료]를 누른 뒤 처음 들어오면 한 번 — 닫으면 hwork_check_seen 으로 본 때를 적는다. */
+  function heartMaybe(){
+    if(!RS || !RS.id) return;
+    const ts=[RS.checkDone&&RS.checkDone.at].concat(Object.values(RS.checked||{}).map(x=>x&&x.at)).filter(Boolean).sort();
+    const latest=ts[ts.length-1]; if(!latest || (RS.checkSeen && RS.checkSeen>=latest)) return;
+    const d=RS.checkDone, by=(d&&d.by)||((Object.values(RS.checked||{}).find(x=>x&&x.by)||{}).by)||'', nq=Object.keys(RS.checked||{}).length;
+    const who=by?escapeHtml(by)+' 선생님':'선생님';
+    const box=document.createElement('div'); box.className='hpop'; box.setAttribute('role','dialog');
+    box.innerHTML=`<div class="hpc"><div class="hst"><img src="https://coke4497-sys.github.io/shueguk-report/assets/sk-cheer-hearts.png" alt=""></div>
+      <div class="ht">${who}이 ${d?'이 과제를 꼼꼼히 검사했어요':nq+'개 문항을 확인했어요'} <span class="hh">♥</span></div>
+      ${d&&d.note?`<div class="hn">“${escapeHtml(d.note)}”</div>`:''}
+      <div class="hs">${d?'애정을 담아 하나하나 살펴봤어요. 다음 과제도 힘내요!':'선생님이 확인한 문항에는 ♥ 표시가 붙어 있어요.'}</div>
+      <button type="button" class="hok">고마워요 ♥</button></div>`;
+    document.body.appendChild(box);
+    heartBurst(box.querySelector('.hst'));
+    box.querySelector('.hok').onclick=async()=>{ box.remove(); RS.checkSeen=latest;
+      try{ await sbRpc('hwork_check_seen', { p:{ id:RS.id, key:RS.key } }); }catch(e){} };
+  }
+  function heartBurst(host){
+    if(matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const C=['#f28bb0','#f7b6c9','#e86a93','#ffd0dc','#c9b6f2'];
+    for(let i=0;i<18;i++){ const h=document.createElement('span'); h.className='hb'; h.textContent='♥';
+      const a=Math.PI*2*i/18+Math.random()*.3, r=90+Math.random()*70;
+      h.style.cssText=`color:${C[i%5]};--x:${Math.cos(a)*r}px;--y:${Math.sin(a)*r-30}px;font-size:${16+Math.random()*16}px;animation-delay:${Math.random()*.25}s`;
+      host.appendChild(h); setTimeout(()=>h.remove(), 1900); }
   }
   function qaReask(q){ (RS.reask=RS.reask||{})[q]=true; keepScroll(q, drawReport); const t=document.getElementById('qaIn'+q); if(t) t.focus(); }
   async function qaClear(q){   // 리포트 073 hwork_qa_clear — 틀린 문항이면 클리어(정답이 열림), 맞힌 문항은 '이해했어요'만
