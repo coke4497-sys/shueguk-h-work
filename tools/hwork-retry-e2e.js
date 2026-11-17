@@ -231,6 +231,7 @@ function rpc(fn, p) {
     return rt.fulfill({ json: { ok: true, list: [] } });
   });
   await tp.goto('http://localhost:' + PORT + '/hwork_teacher.html?t=' + encodeURIComponent('이수경')); await tp.waitForTimeout(700);
+  ok((await tp.getAttribute('a.tomenu', 'href') || '').endsWith('shueguk-hub/hwork.html'), '상위 메뉴(H WORK 메뉴)로 가는 링크');
   ok((await tp.inputValue('#fTeacher')) === '이수경', '주소 ?t= 로 열면 그 강사가 골라진 목록 (결과 화면 돌아가기)');
   ok(await tp.locator('#listBody tr.chkd:has-text("박보검")').count() === 1 && await tp.locator('#listBody tr.chkd:has-text("정해인")').count() === 0 && (await tp.textContent('#listBody tr:has-text("박보검")')).includes('♥ 검사 완료'), '과제 검사 완료한 줄만 색 · ♥ 검사 완료');
   await tp.selectOption('#fTeacher', '이수경'); await tp.waitForTimeout(200);
