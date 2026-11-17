@@ -1078,7 +1078,8 @@
       const j=await sbRpc('hwork_expl', { p:{ id:RS.id, key:RS.key, q:String(q) } });
       if(!j.ok){ box.innerHTML=`<div class="lockn">${escapeHtml(j.error||'해설을 볼 수 없어요')}</div>`; return; }
       if(j.kind==='src'){   // 068 교재 기출 — 해설은 없고 정답·예시 답만
-        box.innerHTML=`<div class="expl">${j.err?'<b>오류 문항</b> 교재에서 풀지 않고 넘어가는 문항이에요.':`<b>정답 ${escapeHtml(j.ans_text||'')}</b>`}${j.essay?`<div>예시 답: ${escapeHtml(j.essay)}</div>`:''}<div style="color:#8a9893;font-size:13px">학교 기출 문항이라 따로 해설은 없어요. 더 궁금하면 아래에 질문해 주세요.</div></div>`;
+        const wl=String(j.wrong||'').split(/(?=[①②③④⑤])/).map(x=>x.trim()).filter(Boolean);   // 075 교재 해설
+        box.innerHTML=`<div class="expl">${j.err?'<b>오류 문항</b> 교재에서 풀지 않고 넘어가는 문항이에요.':`<b>정답 ${escapeHtml(j.ans_text||'')}</b>`}${j.essay?`<div>예시 답: ${escapeHtml(j.essay)}</div>`:''}${j.expl?`<div>${escapeHtml(j.expl)}</div>`:''}${wl.map(w=>`<div>${escapeHtml(w)}</div>`).join('')}${j.expl||wl.length?'<div style="color:#8a9893;font-size:13px">더 궁금하면 아래에 질문해 주세요.</div>':'<div style="color:#8a9893;font-size:13px">학교 기출 문항이라 따로 해설은 없어요. 더 궁금하면 아래에 질문해 주세요.</div>'}</div>`;
         return;
       }
       box.innerHTML=`<div class="expl"><b>정답 ${'①②③④⑤'[j.ans-1]||j.ans}</b> ${j.good||''}${(j.bad||[]).map(b=>`<div>${b}</div>`).join('')}</div>`;

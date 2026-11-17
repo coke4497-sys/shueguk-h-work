@@ -53,7 +53,7 @@ function fake(rt, u, method, body) {
     if (rest.includes('teacher=eq')) return rt.fulfill({ json: [{ data: { bank: { '1': 101, '2': 102, '3': 103 } } }] });
     return rt.fulfill({ json: rest.includes('offset=0') ? DB.hws : [] });
   }
-  if (rest.startsWith('/hwork_src_items')) { DB.calls.push({ fn: 'src', rest }); return rt.fulfill({ json: [{ no: '2', html: RQ(2), pid: 'wb-P1', type: '5지', ans: '③', essay: '', src: '건대부고3 24 1 중간', err: false, book: '문장 1권(기본·실력)' }] }); }
+  if (rest.startsWith('/hwork_src_items')) { DB.calls.push({ fn: 'src', rest }); return rt.fulfill({ json: [{ no: '2', html: RQ(2), pid: 'wb-P1', type: '5지', ans: '③', essay: '', src: '건대부고3 24 1 중간', err: false, book: '문장 1권(기본·실력)', expl: '교사 해설 글', wrong: '① 첫 오답 ② 둘째 오답' }] }); }
   if (rest.startsWith('/hwork_src_passages')) return rt.fulfill({ json: [{ pid: 'wb-P1', html: '<div class="psg">교재 지문 글 나랏 말ᄊᆞ미</div>' }] });
   if (rest.startsWith('/students')) return rt.fulfill({ json: rest.includes('offset=0') ? [{ code: 'tok-kim', name: '김철수', school: '화정고', grade: '고1', enrolled: '재원', phone_student: '010-1234-5678' }, { school: '화정고', enrolled: '재원' }, { school: '능곡고', enrolled: '재원' }, { school: '옛학교', enrolled: '퇴원' }] : [] });
   if (rest.startsWith('/hwork_submissions') && method === 'PATCH') { const b = JSON.parse(body); DB.subPatch = (DB.subPatch || []).concat([b]); Object.assign(DB.sub, b); return rt.fulfill({ status: 204, body: '' }); }
@@ -91,7 +91,7 @@ function rpc(fn, p) {
   if (fn === 'hwork_qa_list') { const r = msgs(); S.msgs.forEach(m => { if (m.who === '선생님') m.read = true; }); return { ok: true, msgs: r }; }
   if (fn === 'hwork_qa_post') { if (!p.text) return { ok: false, error: '질문을 적어 주세요.' }; S.msgs.push({ id: S.msgs.length + 1, q: p.q, who: '학생', name: S.name, body: p.text, mine: S.detail[p.q].mine, at: '2026-11-17 15:10', read: false }); return { ok: true, msgs: msgs() }; }
   if (fn === 'hwork_flag') { (S.review[p.q] = S.review[p.q] || { tries: [] })[p.kind] = { at: '15:10', text: p.text }; return { ok: true, q: p.q, kind: p.kind, at: '15:10' }; }
-  if (fn === 'hwork_expl' && RS_MODE) { if (!S.detail[p.q].ok && !(S.review[p.q] || {}).cleared_at) return { ok: false, reason: 'locked', error: '잠김' }; return { ok: true, q: p.q, kind: 'src', type: '5지', ans_text: '②', essay: '', err: false }; }
+  if (fn === 'hwork_expl' && RS_MODE) { if (!S.detail[p.q].ok && !(S.review[p.q] || {}).cleared_at) return { ok: false, reason: 'locked', error: '잠김' }; return Object.assign({ ok: true, q: p.q, kind: 'src', type: '5지', ans_text: '②', essay: '', err: false }, globalThis.SRC_EXPL ? { expl: '교재 해설 문장', wrong: '① 오답 하나 ③ 오답 둘' } : {}); }
   if (fn === 'hwork_expl') { if (!S.detail[p.q].ok && !(S.review[p.q] || {}).cleared_at) return { ok: false, reason: 'locked', error: '잠김' }; const g = ITEMS.find(x => x.id === BANK[p.q]); return { ok: true, ans: g.ans, good: g.good, bad: g.bad }; }
   if (fn === 'hwork_qa_clear') { if (!S.msgs.some(m => m.q === p.q && m.who === '선생님')) return { ok: false, error: '선생님 답장이 온 뒤에 누를 수 있어요.' };
     const r = S.review[p.q] = Object.assign({ tries: [] }, S.review[p.q] || {}, { understood_at: '2026-11-17 16:05' }); let cl = false;
@@ -266,6 +266,11 @@ function rpc(fn, p) {
   await rs.click('#ex1 button'); await rs.waitForSelector('#ex1 .expl');
   const ex = await rs.locator('#ex1 .expl').textContent();
   ok(ex.includes('정답 ②') && ex.includes('해설은 없어요'), '교재 — 정답만, 해설 없음 안내');
+  globalThis.SRC_EXPL = true;
+  await rs.evaluate(() => qaExpl(1)); await rs.waitForFunction(() => (document.querySelector('#ex1 .expl') || {}).textContent && document.querySelector('#ex1 .expl').textContent.includes('교재 해설 문장'));
+  const ex2 = await rs.locator('#ex1 .expl').textContent();
+  ok(ex2.includes('교재 해설 문장') && await rs.locator('#ex1 .expl div').filter({ hasText: '① 오답 하나' }).count() === 1 && !ex2.includes('해설은 없어요'), '교재 해설 있음 — 해설·오답 해설 줄 나눔 (075)');
+  globalThis.SRC_EXPL = false;
   if (SHOT) await rs.screenshot({ path: path.join(SHOT, 'real-student-qa.png') });
   ok(!rerr.length, '교재 학생 화면 오류 없음 ' + rerr.join(' | '));
   DB.sub = Object.assign({}, sub, { id: 77, code: 'SHUEGUK REAL 내신 기출 문장 1권(기본·실력) 01 문장 성분 · 기본' });
@@ -276,6 +281,8 @@ function rpc(fn, p) {
   ok(await rt2.locator('#rvq2 .rq .cn.ok').count() === 1 && (await rt2.locator('#rvq2 .rq .cn.ok').textContent()) === '③', '결과 화면 — 교재 정답 ③ 표시');
   ok(DB.calls.some(c => c.fn === 'src' && c.rest.includes(encodeURIComponent('문장 1권'))), '결과 화면 — 과제 이름으로 원문 찾음');
   ok(await rt2.locator('#rvq2 .rq .psg').count() === 1, '결과 화면 — 교재 지문');
+  ok(await rt2.locator('#rvq2 details.expl').count() === 1 && (await rt2.locator('#rvq2 details.expl').textContent()).includes('교사 해설 글') && await rt2.locator('#rvq2 details.expl div').count() === 3, '결과 화면 — 교재 해설 보기(해설 + 오답 해설 두 줄, 075)');
+  ok(DB.calls.some(c => c.fn === 'src' && c.rest.includes('expl,wrong')), '결과 화면 — 해설 칸까지 읽음');
   if (SHOT) await rt2.screenshot({ path: path.join(SHOT, 'real-teacher-result.png') });
   ok(!rterr.length, '교재 결과 화면 오류 없음 ' + rterr.join(' | '));
   await b.close(); srv.close();
