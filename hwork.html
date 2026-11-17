@@ -255,6 +255,7 @@
   #report .gq .ctab table.ot{ width:100%; } #report .gq .ctab table.ot td{ text-align:center; }
 </style>
 <link rel="stylesheet" href="gbank.css">
+<link rel="stylesheet" href="real.css">
 </head>
 <body>
 
@@ -576,16 +577,17 @@
   /* 문항 은행 — 같은 지문 문항이 시작되는 자리에 지문을 한 번 띄운다 '[03~05] 다음 글을 읽고 물음에 답하시오.' */
   function pidOf(q){ const it=QS&&QS.items&&QS.items[q]; return it?it.pid||'':''; }
   function pidRange(q){ const p=pidOf(q); let a=q,b=q; while(a>1&&pidOf(a-1)===p) a--; while(QS.items[b+1]&&pidOf(b+1)===p) b++; return [a,b]; }
+  function qCls(){ return QS&&QS.style==='real'?'rq':'gq'; }   // 068 — 이미 낸 교재 과제(SHUEGUK REAL)는 교재 모양
   function pasHtml(q){
     const p=pidOf(q); if(!p) return '';
     const [a,b]=pidRange(q), r=a===b?String(a):a+'~'+b;
-    return `<div class="gq"><div class="ph"><span class="prng">[${r}]</span> 다음 글을 읽고 물음에 답하시오.</div>${(QS.passages||{})[p]||''}</div>`;
+    return `<div class="${qCls()}"><div class="ph"><span class="prng">[${r}]</span> 다음 글을 읽고 물음에 답하시오.</div>${(QS.passages||{})[p]||''}</div>`;
   }
   function passageBlock(q){
     if(!QS || !pidOf(q) || pidOf(q-1)===pidOf(q)) return null;
     const d=document.createElement('div'); d.className='gqp'; d.innerHTML=pasHtml(q); return d;
   }
-  function qHtml(q){ const it=QS&&QS.items&&QS.items[q]; return it?`<div class="gq">${it.html}</div>`:''; }
+  function qHtml(q){ const it=QS&&QS.items&&QS.items[q]; return it?`<div class="${qCls()}">${it.html}</div>`:''; }
   function makeQ(q,type){
     const div=document.createElement('div');
     div.className='q'+(qHtml(q)?' bank':''); div.id='q'+q;
@@ -949,7 +951,7 @@
       ${QS&&pidOf(q)?`<details class="pasd"><summary>지문 보기</summary><div class="gqp">${pasHtml(q)}</div></details>`:''}
       ${qHtml(q)}
       <div class="myans">처음 고른 답 <b>${mine}</b>${now} ${state}</div>
-      ${canExpl?`<div id="qvExpl"><button type="button" class="qa-btn" onclick="qaExpl(${q})">해설 보기</button></div>`:(QS&&d.ok===false?'<div class="lockn">해설은 오답하기로 클리어하면 볼 수 있어요.</div>':'')}
+      ${canExpl?`<div id="qvExpl"><button type="button" class="qa-btn" onclick="qaExpl(${q})">${qCls()==='rq'?'정답 보기':'해설 보기'}</button></div>`:(QS&&d.ok===false?`<div class="lockn">${qCls()==='rq'?'정답은':'해설은'} 오답하기로 클리어하면 볼 수 있어요.</div>`:'')}
       <div class="thr" id="qvThr">${msgs.length?msgs.map(bubble).join(''):'<div class="none">아직 나눈 이야기가 없어요. 궁금한 점을 적어 보세요.</div>'}</div>
       <textarea class="qa-in" id="qvIn" maxlength="1000" placeholder="어디가 헷갈렸는지, 왜 그 답을 골랐는지 적어 주세요."></textarea>
       <button type="button" class="qa-send" id="qvSend" onclick="qaSend(${q})">선생님께 보내기</button>
@@ -963,6 +965,10 @@
     try{
       const j=await sbRpc('hwork_expl', { p:{ id:RS.id, key:RS.key, q:String(q) } });
       if(!j.ok){ box.innerHTML=`<div class="lockn">${escapeHtml(j.error||'해설을 볼 수 없어요')}</div>`; return; }
+      if(j.kind==='src'){   // 068 교재 기출 — 해설은 없고 정답·예시 답만
+        box.innerHTML=`<div class="expl">${j.err?'<b>오류 문항</b> 교재에서 풀지 않고 넘어가는 문항이에요.':`<b>정답 ${escapeHtml(j.ans_text||'')}</b>`}${j.essay?`<div>예시 답: ${escapeHtml(j.essay)}</div>`:''}<div style="color:#8a9893;font-size:13px">학교 기출 문항이라 따로 해설은 없어요. 더 궁금하면 아래에 질문해 주세요.</div></div>`;
+        return;
+      }
       box.innerHTML=`<div class="expl"><b>정답 ${'①②③④⑤'[j.ans-1]||j.ans}</b> ${j.good||''}${(j.bad||[]).map(b=>`<div>${b}</div>`).join('')}</div>`;
     }catch(e){ box.innerHTML='<div class="lockn">인터넷 연결을 확인하고 다시 눌러 주세요.</div>'; }
   }

@@ -1,0 +1,38 @@
+/* SHUEGUK REAL 내신 기출 — 문제 원문 화면 (2026-11-17, 리포트 068)
+   교재 작업 폴더 source/tpl.html 의 문항 부분을 .rq 아래로 묶고 화면 크기(px)로 옮긴 것.
+   교재 디자인을 바꾸면 이 파일도 함께. */
+.rq{ font-family:"Gowun Dodum",sans-serif; font-size:15px; line-height:1.7; color:#1f2a26; }
+.rq .qh{ display:flex; gap:4px; align-items:flex-start; }
+.rq .stem{ font-weight:700; text-align:left; }
+.rq .stem .cp{ display:inline; }
+.rq .qb{ margin:6px 0 0; }
+.rq .qb .cp{ min-height:.6em; }
+.rq .ch{ padding-left:1.3em; text-indent:-1.3em; }
+.rq .ch .cp{ display:inline; }
+.rq .cn{ color:#6f9c90; }
+.rq .tag{ display:inline-block; font-size:12px; background:#e3f0ec; color:#24443d; border-radius:4px; padding:0 5px; margin-right:5px; font-weight:400; vertical-align:1px; }
+.rq .errq{ display:inline-block; margin:2px 0 6px; padding:2px 8px; border:1px solid #c0392b; border-radius:4px; color:#c0392b; font-size:13.5px; }
+.rq .bogi{ position:relative; background:#f4f9f7; border:1px solid #c3dcd5; border-radius:6px; padding:14px 12px 8px; margin:12px 0 10px; line-height:1.72; }
+.rq .bogi .bl{ position:absolute; top:-10px; left:50%; transform:translateX(-50%); background:#fff; border:1px solid #c3dcd5; border-radius:4px; font-size:12px; padding:0 8px; color:#24443d; line-height:1.5; }
+.rq table.ot{ border-collapse:collapse; margin:4px 0; font-size:14px; max-width:100%; }
+.rq table.ot td{ padding:3px 6px; vertical-align:middle; border:1px solid #c6d8d2; }
+.rq table.ot tr>td:first-child{ border-left:none; }
+.rq table.ot tr>td:last-child{ border-right:none; }
+.rq table.ot td .cp{ min-height:0; }
+.rq img, .rq svg{ max-width:100%; height:auto; }
+.rq .chw{ margin-top:6px; overflow-x:auto; }
+.rq table.chtab{ border-collapse:collapse; width:100%; font-size:14px; }
+.rq table.chtab td{ border:none!important; background:none!important; padding:4px 6px!important; text-align:center; word-break:keep-all; }
+.rq table.chtab td+td{ border-left:1px solid #b9cdc7!important; }
+.rq table.chtab tr+tr td{ border-top:1px solid #dbe6e2!important; }
+.rq table.chtab tr:first-child td{ color:#3d675d; border-bottom:2px solid #8db8ad!important; }
+.rq table.chtab td.cnum{ width:28px; border-left:none!important; }
+.rq table.chtab td.cnum+td{ border-left:none!important; }
+.rq u{ text-underline-offset:2px; }
+.rq .blank{ height:28px; border-bottom:1.5px solid #8db8ad; margin:0 0 10px 14px; }
+.rq .psg{ font-family:"Gowun Batang",serif; background:#f4f9f7; padding:6px 12px; text-align:justify; line-height:1.8; font-size:14.5px; }
+.rq .psg+.psg{ padding-top:0; }
+.rq .ph{ font-size:14px; color:#24443d; margin-bottom:6px; }
+.rq .ph .prng{ display:inline-block; background:#e3f0ec; border-radius:6px; padding:0 7px; }
+/* 교사 화면 — 정답 번호 */
+.teacher .rq .cn.ok{ display:inline-block; background:#8db8ad; color:#fff; border-radius:50%; width:1.35em; text-align:center; line-height:1.35em; }
