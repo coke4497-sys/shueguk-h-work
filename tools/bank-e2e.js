@@ -91,6 +91,10 @@ function rpc(fn, p) {
   if (fn === 'hwork_flag') { (S.review[p.q] = S.review[p.q] || { tries: [] })[p.kind] = { at: '15:10', text: p.text }; return { ok: true, q: p.q, kind: p.kind, at: '15:10' }; }
   if (fn === 'hwork_expl' && RS_MODE) { if (!S.detail[p.q].ok && !(S.review[p.q] || {}).cleared_at) return { ok: false, reason: 'locked', error: '잠김' }; return { ok: true, q: p.q, kind: 'src', type: '5지', ans_text: '②', essay: '', err: false }; }
   if (fn === 'hwork_expl') { if (!S.detail[p.q].ok && !(S.review[p.q] || {}).cleared_at) return { ok: false, reason: 'locked', error: '잠김' }; const g = ITEMS.find(x => x.id === BANK[p.q]); return { ok: true, ans: g.ans, good: g.good, bad: g.bad }; }
+  if (fn === 'hwork_qa_clear') { if (!S.msgs.some(m => m.q === p.q && m.who === '선생님')) return { ok: false, error: '선생님 답장이 온 뒤에 누를 수 있어요.' };
+    const r = S.review[p.q] = Object.assign({ tries: [] }, S.review[p.q] || {}, { understood_at: '2026-11-17 16:05' }); let cl = false;
+    if (S.detail[p.q].ok === false && !r.cleared_at) { r.cleared_at = '2026-11-17 16:05'; r.via = 'qa'; cl = true; }
+    return { ok: true, q: p.q, cleared: cl, at: '2026-11-17 16:05', review: r, ans: r.cleared_at ? String(KEY[p.q]) : null, done: false }; }
   if (fn === 'hwork_retry_state') return { ok: true, stage: 'fix', teacher: S.teacher, code: S.code, name: S.name, got: 1, total: 3, detail: S.detail, review: S.review, answers: {} };
   return { ok: false };
 }
@@ -132,6 +136,16 @@ function rpc(fn, p) {
   await s.goto(U + 'hwork.html?sid=55&k=tok-kim&q=2');
   await s.waitForSelector('#rvq2 .rvthr .msg.tc');
   ok((await s.locator('#rvq2 .msg.tc').textContent()).includes('ㄴ을 다시'), '주소 sid·k(접근코드)로 열면 그 문항 대화가 바로 — 선생님 답장');
+  // 답장을 받은 뒤 — 이해했어요 · 클리어 / 다시 질문하기 (2026-11-17 원장님)
+  ok((await s.textContent('#rvq2 .ack2')).includes('이해했어요 · 클리어') && await s.locator('#qaIn2').count() === 0, '답장 뒤 — 질문 칸 대신 [이해했어요 · 클리어][다시 질문하기]');
+  await s.click('#rvq2 .ack2 .no'); await s.waitForSelector('#qaIn2');
+  ok((await s.textContent('#rvq2 .cmp .lab')).includes('다시 질문하기'), '[다시 질문하기] → 질문 칸');
+  await s.reload(); await s.waitForSelector('#qaOk2');
+  await s.click('#qaOk2'); await s.waitForSelector('#rvq2 .und');
+  ok(DB.calls.some(c => c.fn === 'hwork_qa_clear' && c.p.q === '2' && c.p.key === S.key), '클리어 — 제출 열쇠로 hwork_qa_clear');
+  ok((await s.textContent('#rvq2 .qh2')).includes('클리어 · 답장 보고 이해') && (await s.textContent('#rvq2 .qh2')).includes('정답 4'), '클리어 표시 · 정답이 열림');
+  ok(await s.locator('#rvq2 .reask').count() === 1 && await s.locator('#rvq2 .ack2').count() === 0, '이해한 뒤 — [아직 궁금한 게 있어요 · 다시 질문하기]만');
+  if (SHOT) await s.locator('#rvq2').screenshot({ path: path.join(SHOT, 'qa-clear.png') });
   if (!(await s.locator('#rvq1 .cmp').count())) await s.click('#rvq1 [data-rv-tog]');
   ok(await s.locator('#rvq1 #ex1 button').count() === 1, '맞힌 문항은 해설 보기 버튼');
   await s.click('#ex1 button'); await s.waitForSelector('#ex1 .expl');

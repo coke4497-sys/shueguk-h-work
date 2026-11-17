@@ -298,7 +298,7 @@
 </style>
 <link rel="stylesheet" href="gbank.css">
 <link rel="stylesheet" href="real.css">
-<script src="result_view.js?v=20261117b"></script>
+<script src="result_view.js?v=20261117c"></script>
 </head>
 <body>
 
@@ -811,10 +811,19 @@
         expl:q=>{ const d=RS.detail[q]||{}, r=rvOf(q); if(!QS||!RS.id) return '';
           if(d.ok===true||r.cleared_at) return `<div id="ex${q}"><button type="button" class="sub" onclick="qaExpl(${q})">${qCls()==='rq'?'정답 보기':'해설 보기'}</button></div>`; return ''; },
         composer:q=>{ if(!RS.id) return ''; const d=RS.detail[q]||{}, r=rvOf(q), un=d.ok===false&&!r.cleared_at;
-          return `<div class="cmp"><span class="lab">${un?'왜 틀렸는지 모르겠어요 · 선생님께 질문하기':'선생님께 질문하기'}</span>
+          // 선생님 답장이 마지막이면 — [이해했어요 · 클리어] / [다시 질문하기] (2026-11-17 원장님)
+          const ms=(RS.qa||[]).filter(m=>String(m.q)===String(q)), last=ms[ms.length-1], lt=last?String(last.at||'').slice(0,16):'';
+          const und=r.understood_at && lt<=String(r.understood_at);
+          const ask=(lab)=>`<div class="cmp"><span class="lab">${lab}</span>
             <textarea id="qaIn${q}" maxlength="1000" placeholder="어디가 헷갈렸는지, 왜 그 답을 골랐는지 적어 주세요."></textarea>
             <button type="button" class="go" id="qaGo${q}" onclick="qaSend(${q})">선생님께 보내기</button>
-            <span class="tip">문항 번호와 내가 고른 답이 함께 갑니다. 선생님 답장은 이 문항에 바로 보여요.</span></div>`; },
+            <span class="tip">문항 번호와 내가 고른 답이 함께 갑니다. 선생님 답장은 이 문항에 바로 보여요.</span></div>`;
+          if(RS.reask&&RS.reask[q]) return ask('다시 질문하기 · 아직 헷갈리는 곳을 적어 주세요');
+          if(last && last.who==='선생님' && !und) return `<div class="ack2"><span class="q2">선생님 답장을 보고 이해가 되었나요?</span><div class="bb">
+              <button type="button" class="yes" id="qaOk${q}" onclick="qaClear(${q})">${un?'이해했어요 · 클리어':'이해했어요'}</button>
+              <button type="button" class="no" onclick="qaReask(${q})">다시 질문하기</button></div></div>`;
+          if(und) return `<button type="button" class="reask" onclick="qaReask(${q})">아직 궁금한 게 있어요 · 다시 질문하기</button>`;
+          return ask(un?'왜 틀렸는지 모르겠어요 · 선생님께 질문하기':'선생님께 질문하기'); },
         files:f=>rfHtml(f),
         opened:q=>{ (RS.seen=RS.seen||{})[q]=true; (RS.qa||[]).forEach(m=>{ if(String(m.q)===String(q)&&m.who==='선생님') m.read=true; }); },
         after:()=>rfThumbs()
@@ -1054,6 +1063,19 @@
       box.innerHTML=`<div class="expl"><b>정답 ${'①②③④⑤'[j.ans-1]||j.ans}</b> ${j.good||''}${(j.bad||[]).map(b=>`<div>${b}</div>`).join('')}</div>`;
     }catch(e){ box.innerHTML='<div class="lockn">인터넷 연결을 확인하고 다시 눌러 주세요.</div>'; }
   }
+  function qaReask(q){ (RS.reask=RS.reask||{})[q]=true; keepScroll(q, drawReport); const t=document.getElementById('qaIn'+q); if(t) t.focus(); }
+  async function qaClear(q){   // 리포트 073 hwork_qa_clear — 틀린 문항이면 클리어(정답이 열림), 맞힌 문항은 '이해했어요'만
+    const b=document.getElementById('qaOk'+q); if(b){ b.disabled=true; b.textContent='기록하는 중…'; }
+    try{
+      const j=await sbRpc('hwork_qa_clear', { p:{ id:RS.id, key:RS.key, q:String(q) } });
+      if(!j.ok){ toast(j.error||'기록하지 못했어요'); if(b){ b.disabled=false; b.textContent='이해했어요'; } return; }
+      RS.review=RS.review||{}; RS.review[q]=j.review||Object.assign({}, RS.review[q]||{}, { understood_at:j.at });
+      if(j.ans!=null){ RS.answers=RS.answers||{}; RS.answers[q]=j.ans; if(RS.detail[q]) RS.detail[q].ans=j.ans; }
+      RS.stage=calcStage();
+      toast(j.cleared?q+'번 클리어! 정답이 열렸어요':'좋아요. 이해했다고 기록했어요');
+      keepScroll(q, drawReport);
+    }catch(e){ toast('인터넷 연결을 확인하고 다시 눌러 주세요'); if(b){ b.disabled=false; b.textContent='이해했어요'; } }
+  }
   async function qaSend(q){
     const inp=document.getElementById('qaIn'+q), text=inp?inp.value.trim():'';
     if(!text){ toast('질문을 적어 주세요'); if(inp) inp.focus(); return; }
@@ -1061,7 +1083,7 @@
     try{
       const j=await sbRpc('hwork_qa_post', { p:{ id:RS.id, key:RS.key, q:String(q), text } });
       if(!j.ok){ toast(j.error||'보내지 못했어요'); btn.disabled=false; btn.textContent='선생님께 보내기'; return; }
-      RS.qa=j.msgs||RS.qa;
+      RS.qa=j.msgs||RS.qa; if(RS.reask) delete RS.reask[q];
       (j.push||[]).forEach(id=>{   // 담당 선생님 슈톡 알림(리포트 072) — 못 보내면 클로슈 순찰이 보낸다
         fetch('https://bangdbhqpphqqdwcledg.supabase.co/functions/v1/hwork-ask',{ method:'POST', headers:{ 'Content-Type':'text/plain' }, body:JSON.stringify({ task_id:id }), keepalive:true }).catch(()=>{}); });
       const d=RS.detail[q]||{}, r=rvOf(q);
