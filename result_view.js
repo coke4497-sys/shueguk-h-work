@@ -54,6 +54,7 @@
   .rv2 .mk{font-family:'Do Hyeon';font-size:17px}
   .rv2 .ok{color:#4b6157}.rv2 .ng{color:#a8434f}
   .rv2 .stt{display:flex;align-items:center;gap:8px}
+  .rv2 .an .hk{color:#d65a86;font-size:12.5px;white-space:nowrap}
   .rv2 .pill{font-size:13px;padding:5px 11px;border-radius:999px;white-space:nowrap}
   .rv2 .chev{width:16px;font-size:12px;color:#8a978f}
   .rv2 .in{margin:0 14px 14px 66px;display:flex;flex-direction:column;gap:6px}
@@ -100,6 +101,7 @@
   /* 정답 번호 — gbank.css 의 덧씌운 동그라미(:before)는 글꼴에 따라 옆으로 밀려 보여서, 이 화면에서는 번호 자체를 칠한다 (2026-11-17 원장님 "정답 선지 색칠이 어긋나 있어요") */
   .rv2 .gq .cn.ok:before,.rv2 .gq .c.ok .cn:before{content:none!important}
   .rv2 .gq .cn.ok{display:inline-block;background:#5f9488;color:#fff;border-radius:50%;width:1.3em;height:1.3em;line-height:1.3em;text-align:center;font-style:normal;vertical-align:baseline}
+  .rv2 .pill.hrt{background:#fbe4ea;color:#b0476a}
   .rv2 .und{align-self:flex-start;font-size:12.5px;color:#3d675d;background:#eaf3ee;border-radius:999px;padding:5px 12px}
   /* 답장을 받은 뒤 — 이해했어요 · 다시 질문하기 */
   .rv2 .ack2{display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:12px;background:#f6f4fa;border:1px solid #e6e2f2}
@@ -159,11 +161,13 @@
     const key=keyOf(c,q);
     const msgs=msgsOf(c,q), last=msgs[msgs.length-1];
     const newN=c.mode==='student'?msgs.filter(m=>m.who==='선생님'&&!m.read).length:msgs.filter(m=>m.who==='학생'&&!m.read).length;
+    const chk=(c.checked||{})[q]||(c.checkDone&&d.type!=='essay'?c.checkDone:null);
+    const hk=chk?`<span class="hk" title="${esc((chk.by||'선생님')+' 선생님 확인 · '+String(chk.at||'').slice(5,16))}">♥ 선생님 확인</span>`:'';
     const pills=(newN?`<span class="pill" style="background:#a8434f;color:#fff">새 ${c.mode==='student'?'답장':'질문'} ${newN}</span>`:'')+`<span class="pill" style="background:${s.bg};color:${s.fg}">${esc(s.label)}</span>`;
     const head=`<div class="qh2 tg" data-rv-tog="${q}"><span class="bd" style="background:${s.nb};color:${s.nf}">${q}</span>
       <div class="an">${d.type==='essay'?'<span>서술형 문항</span>':`<span>${c.mode==='student'?'내 답':'학생 답'} <b class="${d.ok===false?'ng':''}">${mine}</b></span>
         <span>정답 ${key!=null?`<b>${key}</b>`:'<span class="hid">클리어하면 보여요</span>'}</span>
-        ${d.ok===true||d.ok===false?`<span class="mk ${d.ok?'ok':'ng'}">${d.ok?'○':'×'}</span>`:''}`}</div>
+        ${d.ok===true||d.ok===false?`<span class="mk ${d.ok?'ok':'ng'}">${d.ok?'○':'×'}</span>`:''}`}${hk}</div>
       <div class="stt">${pills}<span class="chev">${open?'▲':'▼'}</span></div></div>`;
     // 학생 질문(마지막 대화 한 줄) — 접혀 있어도 보인다(디자인)
     const peek=(!open && last)?`<div class="in"><div class="msg ${last.who==='선생님'?'tc':'st'}"><span class="w">${last.who==='선생님'?esc(last.name||'선생님')+' 선생님 답장':'학생 질문'}${msgs.length>1?' · 대화 '+msgs.length+'개':''}</span>${esc(last.body==='(첨부 파일)'?'첨부 파일':last.body)}</div></div>`:'';
