@@ -111,16 +111,16 @@ function rpc(fn, p) {
   ok(DB.lastSubmit && DB.lastSubmit.away && DB.lastSubmit.away.n === 2 && DB.lastSubmit.away.sec >= 2 && DB.lastSubmit.away.sec <= 4, '화면 이탈 2회·약 2초 제출에 실림 ' + JSON.stringify(DB.lastSubmit && DB.lastSubmit.away));
 
   let rep = await p.textContent('#report');
-  ok(rep.includes('2 / 4'), '1차 점수 2/4');
-  ok(await p.locator('#report .hide').count() === 2, '틀린 2문항 정답 가림');
-  ok(await p.locator('#fixBox').count() === 1, '오답하기 상자');
-  ok(await p.locator('#fixBox .rv').count() === 2, '오답하기 문항 2개(1·3번)');
+  ok(/2\s*\/ 4/.test(rep), '1차 점수 2/4');
+  ok(await p.locator('#report .hid').count() === 2, '틀린 2문항 정답 가림');
+  ok(await p.locator('#report .rv2 .bx.fix').count() === 1 && await p.locator('#report .rv2 .rvbar button').count() === 5, '채점 결과 — 오답하기 상자·번호 막대(새 화면)');
+  ok(await p.locator('#report .fixf').count() === 2 && await p.locator('#rvq1 .fixf').count() === 1 && await p.locator('#rvq3 .fixf').count() === 1, '오답하기 칸 2개(1·3번 카드 안)');
   ok(await p.locator('#rv1 .choices button').count() === 5, '1번 5지 버튼');
   ok(await p.locator('#rv3 input.tans').count() === 1, '3번 단답 입력');
   ok(await p.locator('#rv1 textarea[data-f=ww]').count() === 1 && await p.locator('#rv1 textarea[data-f=wr]').count() === 1, '이유 칸 두 개');
   ok((await p.textContent('#rv1')).includes('내가 틀린 답(1)을 고른 이유'), '① 칸 이름에 틀린 답');
   ok(await p.evaluate(() => JSON.parse(localStorage.getItem('hw_retry_v1')).length) === 1, '이 기기에 이어 하기 기록');
-  ok((await p.textContent('#report .ess')).includes('내 서술'), '서술형 비교 그대로');
+  await p.click('#rvq2 .qh2'); ok((await p.textContent('#rvq2 .ess')).includes('내 서술'), '서술형 — 카드를 열면 내 답안·예시 답');
   if (SHOT) await p.screenshot({ path: SHOT + '/retry-1.png', fullPage: true });
 
   // 빈 칸이면 보내지 않음
@@ -131,16 +131,16 @@ function rpc(fn, p) {
   await p.click('#fixBtn1'); await p.waitForTimeout(500);
   const f1 = DB.calls.find(c => c.fn === 'hwork_fix');
   ok(f1 && f1.p.q === '1' && f1.p.pick === '4' && f1.p.why_wrong === '그냥 찍었다' && f1.p.why_right === '4번이 맞아 보였다' && f1.p.key.length === 32, 'hwork_fix 본문');
-  ok((await p.textContent('#rv1 .rvh')).includes('지금 틀린 답 4'), '틀리면 새 틀린 답으로 회귀');
+  ok((await p.textContent('#rvq1')).includes('틀린 답 1 · 고른 이유') && (await p.textContent('#rvq1 .lgc')).includes('4 ×'), '틀리면 1차 기록이 쌓이고 새 틀린 답으로 회귀');
   ok((await p.inputValue('#rv1 textarea[data-f=ww]')) === '', '회귀하면 ① 칸 비움');
   ok((await p.textContent('#rv1')).includes('내가 틀린 답(4)을 고른 이유'), '① 칸 이름도 새 틀린 답');
-  ok(await p.locator('#report .hide').count() === 2, '클리어 전엔 정답 가림');
+  ok(await p.locator('#report .hid').count() === 2, '클리어 전엔 정답 가림');
   // 1번: 3(맞음) → 클리어
   await p.fill('#rv1 textarea[data-f=ww]', '4번 보기를 잘못 읽었다'); await p.click('#rv1 .choices button:nth-child(3)'); await p.fill('#rv1 textarea[data-f=wr]', '3번이 지문과 맞는다');
   await p.click('#fixBtn1'); await p.waitForTimeout(500);
-  ok((await p.textContent('#rv1')).includes('클리어') && (await p.textContent('#rv1')).includes('정답 3'), '1번 클리어 · 정답 공개');
-  ok(await p.locator('#report .hide').count() === 1 && await p.locator('#report .reveal').count() === 1, '표에 1번 정답만 공개');
-  ok((await p.textContent('#fixBox h2')).includes('클리어 1 / 2'), '클리어 수');
+  ok((await p.textContent('#rvq1')).includes('클리어 · 2번째') && (await p.textContent('#rvq1 .an')).includes('정답 3'), '1번 클리어 · 정답 공개');
+  ok(await p.locator('#report .hid').count() === 1, '1번 정답만 공개');
+  ok((await p.textContent('#report .bx.fix')).includes('2문항 중 1문항 클리어'), '클리어 수');
   // 3번: 오류 신고 — 내용 없으면 안 보냄
   await p.click('#rv3 .flags button:has-text("문항 오류 신고")');
   ok(await p.isVisible('#rv3 .errbox'), '오류 신고 칸 열림');
@@ -152,32 +152,30 @@ function rpc(fn, p) {
   const hr = REP.find(b => b.action === 'hworkReport');
   ok(hr && hr.code === 'T세트' && hr.qno === '3' && hr.text === '보기 표현이 이상해요' && hr.name === '박보검' && hr.school === '무원고등학교' && hr.mine === '가', '수정 요청함으로 hworkReport 보냄');
   ok(fl && fl.p.kind === 'error' && fl.p.text === '보기 표현이 이상해요' && fl.p.q === '3', 'hwork_flag 오류 신고 본문');
-  ok((await p.textContent('#rv3')).includes('문항 오류 신고함') && (await p.textContent('#rv3')).includes('신고 내용: 보기 표현이 이상해요'), '신고 표시');
+  ok((await p.textContent('#rvq3 .err')).includes('보기 표현이 이상해요'), '신고 표시');
   if (SHOT) await p.screenshot({ path: SHOT + '/retry-2.png', fullPage: true });
 
   // 새로고침 → 이어 하기 (3번은 넘겨서 이미 끝 → 이어 하기 기록 없음)
   ok(await p.evaluate(() => JSON.parse(localStorage.getItem('hw_retry_v1') || '[]').length) === 0, '모두 클리어·넘김이면 이어 하기 기록 지움');
-  ok((await p.textContent('#fixBox')).includes('오답하기를 마쳤습니다'), '끝 안내');
+  ok(await p.locator('#rvq3').count() === 1, '끝 — 3번 카드 그대로');
   ok(await p.locator('#rv3 textarea[data-f=ww]').count() === 1, '넘긴 뒤에도 계속 오답하기 가능');
   // 도움 요청 — 2026-11-17(067)부터 [선생님께 질문하기] 대화 창에서 첫 질문을 보내면 help 표시도 함께
-  await p.click('#rv3 .flags button:has-text("선생님께 질문하기")'); await p.waitForTimeout(300);
-  ok(await p.locator('#qv.on').isVisible(), '질문 창 열림');
-  await p.fill('#qvIn', '왜 틀렸는지 모르겠어요'); await p.click('#qvSend'); await p.waitForTimeout(400);
+  ok(await p.locator('#qaIn3').isVisible(), '질문 칸이 카드 안에(따로 창 없음)');
+  await p.fill('#qaIn3', '왜 틀렸는지 모르겠어요'); await p.click('#qaGo3'); await p.waitForTimeout(400);
   ok(DB.calls.some(c => c.fn === 'hwork_qa_post' && c.p.q === '3' && c.p.text === '왜 틀렸는지 모르겠어요'), '질문 본문');
   ok(DB.calls.some(c => c.fn === 'hwork_flag' && c.p.kind === 'help' && c.p.q === '3'), '도움 요청 본문');
   ok(REP.length === 1, '도움 요청은 수정 요청함으로 안 보냄');
-  await p.click('#qv .x'); await p.waitForTimeout(200);
-  ok((await p.textContent('#rv3')).includes('선생님 도움 요청함') && (await p.textContent('#rv3 .flags')).includes('선생님과 나눈 질문 보기'), '도움 요청 표시 · 버튼은 질문 보기로');
+  ok((await p.textContent('#rvq3')).includes('선생님 도와주세요') && (await p.textContent('#rvq3 .rvthr')).includes('왜 틀렸는지 모르겠어요'), '도움 요청 표시 · 대화가 카드 안에');
   // 이어 하기 — 저장 기록 강제로 넣고 다시 열기
   await p.evaluate(() => localStorage.setItem('hw_retry_v1', JSON.stringify([{ id: 41, key: 'abcdef0123456789abcdef0123456789', code: 'T세트', name: '박보검' }])));
   await p.reload(); await p.waitForTimeout(600);
   ok(await p.locator('#resume').isVisible(), '이어 하기 상자');
   await p.click('#resume .rsrow button'); await p.waitForTimeout(600);
-  ok((await p.textContent('#rv1')).includes('클리어') && (await p.textContent('#rv3')).includes('도움 요청함'), '이어 하기 상태 복원');
+  ok((await p.textContent('#rvq1')).includes('클리어') && (await p.textContent('#rvq3')).includes('선생님 도와주세요'), '이어 하기 상태 복원');
   // 3번 계속 → 나 (맞음)
   await p.fill('#rv3 textarea[data-f=ww]', '앞 문장만 보고 골랐다.'); await p.fill('#rv3 input.tans', '나'); await p.fill('#rv3 textarea[data-f=wr]', '나가 맞다. 뒤 문장이 근거다.');
   await p.click('#fixBtn3'); await p.waitForTimeout(500);
-  ok((await p.textContent('#rv3')).includes('클리어') && await p.locator('#report .hide').count() === 0, '3번 클리어 · 모든 정답 공개');
+  ok((await p.textContent('#rvq3')).includes('클리어') && await p.locator('#report .hid').count() === 0, '3번 클리어 · 모든 정답 공개');
   if (SHOT) await p.screenshot({ path: SHOT + '/retry-3.png', fullPage: true });
 
   const FIRST = JSON.parse(JSON.stringify(DB.row));
@@ -190,7 +188,7 @@ function rpc(fn, p) {
   await p2.click('#q4 .ox button:nth-child(1)'); await p2.click('#q5 .choices button:nth-child(2)');
   await p2.selectOption('#schoolSel', '무원고등학교'); await p2.selectOption('#gradeSel', '고2'); await p2.fill('#name', '정해인');
   await p2.click('#submit'); await p2.waitForTimeout(600);
-  ok(await p2.locator('#retryBox').count() === 0 && (await p2.textContent('#report')).includes('4 / 4'), '다 맞히면 다시 풀기 없음');
+  ok(await p2.locator('#retryBox').count() === 0 && /4\s*\/ 4/.test(await p2.textContent('#report')), '다 맞히면 다시 풀기 없음');
 
   // ── 교사 화면 ──
   const tp = await b.newPage({ viewport: { width: 1100, height: 900 } });
@@ -202,7 +200,7 @@ function rpc(fn, p) {
       retry_got: null, retry_at: null, review_at: null, detail: grade({ '1': '1', '3': '가', '4': 'O' }).detail, review: null } ];
   sub[0].away_n = 3; sub[0].away_sec = 130; sub[0].ts = '2026-11-12 15:00';
   let oldDb = false, awayOld = false;
-  await tp.route('**/*', async rt => {
+  await tp.context().route('**/*', async rt => {
     const u = rt.request().url();
     if (u.startsWith('http://localhost:' + PORT)) return rt.continue();
     if (u.includes('/auth/v1/token')) return rt.fulfill({ json: { access_token: 'tok', expires_in: 3600 } });
@@ -212,8 +210,9 @@ function rpc(fn, p) {
       if ((oldDb || awayOld) && cols.some(c => c.startsWith('away'))) return rt.fulfill({ status: 400, json: { message: 'column does not exist' } });
       let rows = sub; const id = q.get('id'); if (id) rows = rows.filter(r => 'eq.' + r.id === id);
       if (q.get('offset') && q.get('offset') !== '0') rows = [];
-      return rt.fulfill({ json: rows.map(r => { const o = {}; cols.forEach(c => o[c] = r[c] === undefined ? null : r[c]); return o; }) });
+      return rt.fulfill({ json: rows.map(r => { if (cols[0] === '*') return r; const o = {}; cols.forEach(c => o[c] = r[c] === undefined ? null : r[c]); return o; }) });
     }
+    if (/\/rest\/v1\/(hwork_qa|hwork_homeworks|hwork_retests|hwork_src_items|hwork_src_passages|students)/.test(u)) return rt.fulfill({ json: [] });
     if (u.endsWith('.js')) return rt.fulfill({ body: '', contentType: 'text/javascript' });
     return rt.fulfill({ json: { ok: true, list: [] } });
   });
@@ -222,17 +221,22 @@ function rpc(fn, p) {
   ok((await tp.textContent('#listBody')).includes('오답 2/2 ✓') && (await tp.textContent('#listBody')).includes('도움 1') && (await tp.textContent('#listBody')).includes('신고 1'), '교사 목록: 오답 2/2 ✓ · 도움 · 신고');
   ok((await tp.locator('#listBody tr:has-text("정해인") .rtag').count()) === 0, '오답하기 안 한 학생은 표시 없음');
   ok((await tp.textContent('#listBody tr:has-text("박보검")')).includes('이탈 3회 · 2분 10초'), '교사 목록: 화면 이탈 3회 · 2분 10초');
-  await tp.click('#listBody tr:has-text("박보검")'); await tp.waitForTimeout(500);
-  let tr = await tp.textContent('#report');
-  ok(tr.includes('화면을 벗어난 기록: 3회 · 모두 2분 10초'), '교사 성적표: 화면 이탈 줄');
-  ok(tr.includes('틀린 2문항 중 2문항 클리어') && tr.includes('도움 요청 1') && tr.includes('오류 신고 1'), '교사 성적표: 요약 줄');
-  ok((await tp.locator('#report table.detail th').allTextContents()).includes('오답하기'), '교사 성적표: 오답하기 열');
-  ok(tr.includes('오답하기 기록') && tr.includes('그냥 찍었다') && tr.includes('4번 보기를 잘못 읽었다') && tr.includes('3번이 지문과 맞는다'), '교사 성적표: 시도 기록');
-  ok(tr.includes('보기 표현이 이상해요') && tr.includes('선생님 도와주세요'), '교사 성적표: 신고·도움 내용');
-  if (SHOT) await tp.screenshot({ path: SHOT + '/teacher-report.png', fullPage: true });
-  await tp.click('#report .back button'); await tp.click('#listBody tr:has-text("정해인")'); await tp.waitForTimeout(500);
-  ok((await tp.textContent('#report')).includes('아직 틀린 문항 3개를 오답하기 하지 않았습니다'), '교사 성적표: 아직 안 함');
-  await tp.click('#report .back button');
+  // 성적표 = 학생과 같은 채점 결과 화면(hwork_result.html) 새 탭
+  let [rp] = await Promise.all([tp.waitForEvent('popup'), tp.click('#listBody tr:has-text("박보검")')]);
+  ok(rp.url().includes('hwork_result.html?sid=41'), '교사 목록 → 채점 결과 화면(sid) 새 탭');
+  await rp.waitForSelector('.rvcard');
+  let tr = await rp.textContent('#view');
+  ok(tr.includes('3회') && tr.includes('2분 10초'), '교사 결과 화면: 화면 이탈 상자');
+  ok(tr.includes('2 / 4') || /2\s*\/\s*4/.test(tr), '교사 결과 화면: 점수');
+  ok(tr.includes('그냥 찍었다') && tr.includes('4번 보기를 잘못 읽었다') && tr.includes('3번이 지문과 맞는다'), '교사 결과 화면: 오답하기 시도 기록(열린 카드)');
+  ok(tr.includes('보기 표현이 이상해요') && tr.includes('선생님 도와주세요'), '교사 결과 화면: 신고·도움 내용');
+  ok(await rp.locator('textarea[data-rin]').count() >= 1, '교사 결과 화면: 문항 카드 안 답장 칸');
+  if (SHOT) await rp.screenshot({ path: SHOT + '/teacher-report.png', fullPage: true });
+  await rp.close();
+  [rp] = await Promise.all([tp.waitForEvent('popup'), tp.click('#listBody tr:has-text("정해인")')]);
+  await rp.waitForSelector('.rvcard');
+  ok(!(await rp.textContent('#view')).includes('클리어 2'), '교사 결과 화면: 오답하기 안 한 학생');
+  await rp.close();
   await tp.selectOption('#fCode', 'T세트'); await tp.waitForTimeout(200);
   await tp.click('#qbtn button'); await tp.waitForTimeout(600);
   const heads = await tp.locator('table.qrank th').allTextContents();
@@ -248,8 +252,8 @@ function rpc(fn, p) {
   await tp.goto('http://localhost:' + PORT + '/hwork_teacher.html'); await tp.waitForTimeout(700);
   await tp.selectOption('#fTeacher', '이수경'); await tp.waitForTimeout(200);
   ok((await tp.locator('#listBody tr').count()) === 2 && (await tp.locator('#listBody .rtag').count()) === 0, '064 전 DB: 목록 그대로');
-  await tp.click('#listBody tr:has-text("박보검")'); await tp.waitForTimeout(500);
-  ok(!(await tp.textContent('#report')).includes('오답하기'), '064 전 DB: 성적표 옛 모양');
+  [rp] = await Promise.all([tp.waitForEvent('popup'), tp.click('#listBody tr:has-text("박보검")')]);
+  ok(rp.url().includes('sid=41'), '064 전 DB: 원본 제출이면 같은 결과 화면으로');
 
   console.log('통과', pass, '실패', fail); await b.close(); srv.close(); process.exit(fail ? 1 : 0);
 })();

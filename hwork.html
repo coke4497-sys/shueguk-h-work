@@ -12,7 +12,7 @@
 <meta name="theme-color" content="#628C83">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&family=Do+Hyeon&display=swap" rel="stylesheet">
 <style>
   :root{
     --sage:#A6C1BB; --sage-d:#628C83;
@@ -196,6 +196,15 @@
   #report .errbox .sbtn{ margin-top:6px; background:#F7E2DE; color:#8A4A40; }
   #report .errdone{ margin-top:8px; font-size:12.5px; color:#8A4A40; }
   #report .rv .choices, #report .rv .ox{ max-width:320px; }
+  /* 채점 결과 새 화면(result_view.js — 2026-11-17 디자인) 안에서는 옛 #report 꾸밈을 끈다 */
+  body.rvon{ background:#e4efea; }
+  #report .rv2 section{ margin:0; }
+  #report .rv2 h2{ font-size:20px; margin:0; align-items:baseline; gap:10px; }
+  #report .rv2 h2::before{ display:none; }
+  #report .rv2 .fixf{ display:flex; flex-direction:column; gap:2px; padding:10px 12px; border-radius:12px; background:#fff; border:1px solid #ecd9dd; }
+  #report .rv2 .fixf .lab{ margin:8px 0 4px; }
+  #report .rv2 .fixf .fh{ font-size:13px; color:#a8434f; }
+  #report .rv2 .stepbtn{ margin-top:10px; }
   /* 학생 페이지에서 연 배정 과제 — 제출 정보 고정 (2026-11-11) */
   .fixed{ display:none; }
   .fixed .frow{ display:flex; gap:12px; padding:9px 0; border-top:1px solid var(--line); font-size:14px; }
@@ -266,6 +275,7 @@
 </style>
 <link rel="stylesheet" href="gbank.css">
 <link rel="stylesheet" href="real.css">
+<script src="result_view.js"></script>
 </head>
 <body>
 
@@ -739,13 +749,13 @@
   function renderReport(res){
     const r=res.result||{};
     RS={ id:res.id||null, key:res.key||null, st:res.student||{}, got:r.got, total:r.total, count:r.count,
-         detail:r.detail||{}, review:null, answers:{}, draft:{}, qa:[] };
+         detail:r.detail||{}, review:null, answers:{}, draft:{}, qa:[], ui:null };
     RS.stage=calcStage();
     rsRemember(); drawReport(); window.scrollTo(0,0); qaLoad();
   }
   function fromState(id, key, s){
     RS={ id, key, st:{ teacher:s.teacher, code:s.code, name:s.name, school:'', grade:'' }, got:s.got, total:s.total,
-         count:null, detail:s.detail||{}, review:s.review||null, answers:s.answers||{}, draft:{}, qa:[] };
+         count:null, detail:s.detail||{}, review:s.review||null, answers:s.answers||{}, draft:{}, qa:[], ui:null };
     RS.stage=calcStage();
     rsRemember(); drawReport(); window.scrollTo(0,0); qaLoad(s.teacher, s.code);
   }
@@ -762,50 +772,51 @@
     if(r.error) tags.push('<div class="m2 flag">오류 신고</div>');
     return `<td>${tags.join('')}</td>`;
   }
-  function drawReport(){
-    const st=RS.st;
+  function drawReport(){   // 채점 결과 — 선생님과 같은 화면(result_view.js, 2026-11-17 디자인)
+    const st=RS.st||{};
     const n=itemCount({ count:RS.count, total:RS.total, detail:RS.detail });
-    const pct=RS.total? Math.round(RS.got/RS.total*100):0;
-    const fixing=RS.stage!=='legacy' && wrongQs().length>0;
-    let rows='', ess='', ne=0;
-    for(let q=1;q<=n;q++){ const d=RS.detail[q]||{};
-      const mine=(d.mine&&String(d.mine).length)?escapeHtml(d.mine):'<span class="blank">무응답</span>';
-      if(d.type==='essay'){
-        ne++;
-        rows+=`<tr><td class="qn">${q}</td><td class="mine">서술형</td><td>아래에서 확인</td><td class="cmp">비교</td>${fixing?'<td></td>':''}${qaCell(q)}</tr>`;
-        ess+=`<div class="ess"><div class="eh">${q}번 서술형</div>
-          <div class="lab">내 답안</div><div class="box">${mine}</div>
-          <button type="button" class="eshow" onclick="showModel(this)">예시 답 보기</button>
-          <div class="em" style="display:none;"><div class="lab">예시 답</div><div class="box model">${escapeHtml(d.ans||'')}</div>
-          <div class="tip">본인의 답안과 비교해 보세요.</div></div></div>`;
-        continue;
-      }
-      rows+=`<tr class="${d.ok?'':'wrong'}"><td class="qn">${q}</td>
-        <td class="mine">${mine}</td><td>${ansOf(q,d)}</td>
-        <td class="${d.ok?'o':'x'}">${d.ok?'O':'X'}</td>${fixing?(d.ok===false?fixCell(q):'<td></td>'):''}${qaCell(q)}</tr>`;
-    }
-    const score = RS.total
-      ? `<div class="scoreline"><span class="big">${RS.got} / ${RS.total}</span> <span class="pct">(${pct}점)</span></div>`
-      : `<div class="scoreline"><span class="pct">채점하는 문항이 없습니다.</span></div>`;
-    const wq=fixing?wrongQs():[];
-    const nc=wq.filter(isCleared).length;
-    const s2 = fixing ? `<div class="snote">오답하기: 틀린 ${wq.length}문항 중 <b>${nc}문항</b>을 클리어했습니다.</div>` : '';
-    const snote = ne ? `<div class="snote">서술형 ${ne}문항은 점수에 넣지 않았습니다. 아래에서 예시 답과 비교해 보세요.</div>` : '';
-    const essSec = ne ? `<section><h2>서술형 · 예시 답과 비교</h2>${ess}</section>` : '';
-    document.getElementById('report').innerHTML=`
-      <div class="rbrand"><div class="name">이수경국어</div><div class="sub">Shueguk · H WORK</div></div>
-      <div class="tbar">${escapeHtml(st.code||'')}</div>
-      <section><h2>제출 정보</h2>
-        <table class="info"><tr><th>이름</th>${st.school?'<th>학교</th><th>학년</th>':''}<th>담당 강사</th></tr>
-        <tr><td>${escapeHtml(st.name||'')}</td>${st.school?`<td>${escapeHtml(st.school)}</td><td>${escapeHtml(st.grade||'')}</td>`:''}<td>${escapeHtml(st.teacher||'')}</td></tr></table></section>
-      <section><h2>채점 결과</h2>${score}${s2}${snote}</section>
-      ${fixHtml(wq, nc)}
-      <section><h2>문항별 채점</h2>
-        <table class="detail"><tr><th>문항</th><th>내 답</th><th>정답</th><th>${fixing?'1차':'정오'}</th>${fixing?'<th>오답하기</th>':''}${RS.id?'<th>질문</th>':''}</tr>${rows}</table>
-        ${RS.id?`<div class="snote">${QS?'[보기]를 누르면 문제를 다시 보고, ':''}궁금한 문항은 [질문]으로 선생님께 물어볼 수 있어요. 답장이 오면 빨간 숫자가 떠요.</div>`:''}</section>${essSec}`;
+    const ne=Object.keys(RS.detail||{}).filter(q=>(RS.detail[q]||{}).type==='essay').length;
+    const ctx={ mode:'student', st:{ name:st.name, school:st.school, grade:st.grade, teacher:st.teacher, code:st.code },
+      got:RS.got||0, total:RS.total||0, n, detail:RS.detail||{}, review:RS.review||{}, answers:RS.answers||{}, qa:RS.qa||[],
+      note:(ne?'서술형 '+ne+'문항은 점수에 넣지 않았습니다. 문항을 눌러 예시 답과 비교해 보세요. ':'')+(RS.id?'궁금한 문항은 카드를 눌러 선생님께 바로 질문할 수 있어요. 답장이 오면 그 문항에 표시돼요.':''),
+      ui:RS.ui||null,
+      hooks:{
+        qhtml:q=>QS&&qHtml(q)?{ pas:pidOf(q)?pasHtml(q):'', html:qHtml(q) }:null,
+        fixForm:q=>fixForm(q),
+        expl:q=>{ const d=RS.detail[q]||{}, r=rvOf(q); if(!QS||!RS.id) return '';
+          if(d.ok===true||r.cleared_at) return `<div id="ex${q}"><button type="button" class="sub" onclick="qaExpl(${q})">${qCls()==='rq'?'정답 보기':'해설 보기'}</button></div>`; return ''; },
+        composer:q=>{ if(!RS.id) return ''; const d=RS.detail[q]||{}, r=rvOf(q), un=d.ok===false&&!r.cleared_at;
+          return `<div class="cmp"><span class="lab">${un?'왜 틀렸는지 모르겠어요 · 선생님께 질문하기':'선생님께 질문하기'}</span>
+            <textarea id="qaIn${q}" maxlength="1000" placeholder="어디가 헷갈렸는지, 왜 그 답을 골랐는지 적어 주세요."></textarea>
+            <button type="button" class="go" id="qaGo${q}" onclick="qaSend(${q})">선생님께 보내기</button>
+            <span class="tip">문항 번호와 내가 고른 답이 함께 갑니다. 선생님 답장은 이 문항에 바로 보여요.</span></div>`; },
+        files:f=>rfHtml(f),
+        opened:q=>{ (RS.seen=RS.seen||{})[q]=true; (RS.qa||[]).forEach(m=>{ if(String(m.q)===String(q)&&m.who==='선생님') m.read=true; }); },
+        after:()=>rfThumbs()
+      } };
+    if(!ctx.ui){ ctx.ui={ filter:'전체', open:RV.openDefault(ctx) }; RS.ui=ctx.ui; }
+    RV.draw(document.getElementById('report'), ctx);
     document.getElementById('main').style.display='none';
     document.getElementById('footer').style.display='none';
     document.getElementById('report').style.display='block';
+    document.body.classList.add('rvon');
+  }
+  /* 문항 카드 안 오답하기 칸 — 클리어 전 오답만 */
+  function fixForm(q){
+    const d=RS.detail[q]||{}, r=rvOf(q), dr=RS.draft[q]||{};
+    if(RS.stage==='legacy' || d.ok!==false || d.type==='essay' || r.cleared_at) return '';
+    const w=curWrong(q);
+    const errBox = r.error ? ''
+      : `<div class="errbox" style="display:${dr.errOpen?'block':'none'};"><textarea class="fix" data-f="err" maxlength="300" placeholder="어디가 잘못된 것 같은지 적어 주세요. (예: 정답이 ③도 맞는 것 같아요)" oninput="setDraft(${q},'err',this.value)">${escapeHtml(dr.err||'')}</textarea>
+          <button type="button" class="sbtn" onclick="sendFlag(${q},'error')">오류 신고 보내기</button></div>`;
+    return `<div class="fixf" id="rv${q}"><span class="fh">오답하기 · 세 칸을 채우고 재채점을 누르세요. 맞으면 클리어, 정답이 보여요.</span>
+      <div class="lab">① 내가 틀린 답(${escapeHtml(w||'무응답')})을 고른 이유</div>
+      <textarea class="fix" data-f="ww" maxlength="300" placeholder="그 답을 왜 골랐는지 그때 생각을 적어 보세요." oninput="setDraft(${q},'ww',this.value)">${escapeHtml(dr.ww||'')}</textarea>
+      <div class="lab">② 다시 고른 답</div>${pickInput(q, d.type||'choice5', dr.pick)}
+      <div class="lab">③ 이 답이 정답인 이유</div>
+      <textarea class="fix" data-f="wr" maxlength="300" placeholder="이 답이 왜 맞는지 근거를 찾아 적어 보세요." oninput="setDraft(${q},'wr',this.value)">${escapeHtml(dr.wr||'')}</textarea>
+      <button type="button" class="stepbtn" id="fixBtn${q}" onclick="sendFix(${q})">재채점</button>
+      <div class="flags">${r.error?'':`<button type="button" class="sbtn" onclick="toggleErr(${q})">문항 오류 신고</button>`}</div>${errBox}</div>`;
   }
 
   /* 오답하기 상자 */
@@ -849,10 +860,10 @@
   }
   function setDraft(q,f,v){ (RS.draft[q]=RS.draft[q]||{})[f]=v; }
   function pickRe(q,v,btn){ setDraft(q,'pick',v); btn.parentElement.querySelectorAll('button').forEach(b=>b.classList.remove('sel')); btn.classList.add('sel'); }
-  function toggleErr(q){ const dr=RS.draft[q]=RS.draft[q]||{}; dr.errOpen=!dr.errOpen; const el=document.querySelector('#rv'+q+' .errbox'); if(el) el.style.display=dr.errOpen?'block':'none'; }
+  function toggleErr(q){ const dr=RS.draft[q]=RS.draft[q]||{}; dr.errOpen=!dr.errOpen; const el=document.querySelector('#rvq'+q+' .errbox')||document.querySelector('#rv'+q+' .errbox'); if(el) el.style.display=dr.errOpen?'block':'none'; }
   function keepScroll(q, fn){
-    const el=document.getElementById('rv'+q), top=el?el.getBoundingClientRect().top:0;
-    fn(); const el2=document.getElementById('rv'+q); if(el2) window.scrollBy(0, el2.getBoundingClientRect().top-top);
+    const el=document.getElementById('rvq'+q)||document.getElementById('rv'+q), top=el?el.getBoundingClientRect().top:0;
+    fn(); const el2=document.getElementById('rvq'+q)||document.getElementById('rv'+q); if(el2) window.scrollBy(0, el2.getBoundingClientRect().top-top);
   }
   function setReview(q, patch){ RS.review=RS.review||{}; RS.review[q]=Object.assign({ tries:[] }, RS.review[q]||{}, patch); }
   async function sendFix(q){
@@ -936,8 +947,9 @@
       try{ const qj=await sbRpc('hwork_qs', { p:{ teacher:teacher||st.teacher, code:code||st.code } }); if(qj.ok) QS=qj; }catch(e){}
     }
     try{ const j=await sbRpc('hwork_qa_list', { p:{ id:RS.id, key:RS.key } }); if(j.ok) RS.qa=j.msgs||[]; }catch(e){}
+    if(QA_OPEN_Q && RS.ui){ RS.ui.open.add(String(QA_OPEN_Q)); }
     if(document.getElementById('report').style.display==='block') drawReport();
-    if(QA_OPEN_Q){ const q=QA_OPEN_Q; QA_OPEN_Q=null; qaOpen(q); }
+    if(QA_OPEN_Q){ const q=QA_OPEN_Q; QA_OPEN_Q=null; if(!RS.ui) drawReport(); RS.ui.open.add(String(q)); drawReport(); const t=document.getElementById('rvq'+q); if(t) t.scrollIntoView({ block:'start' }); }
   }
   let QA_OPEN_Q=null, QA_Q=null;
   function qaClose(){ document.getElementById('qv').classList.remove('on'); QA_Q=null; drawReport(); }
@@ -1005,7 +1017,7 @@
     const t=document.getElementById('qvThr'); t.scrollTop=t.scrollHeight; rfThumbs();
   }
   async function qaExpl(q){
-    const box=document.getElementById('qvExpl'); if(!box) return;
+    const box=document.getElementById('ex'+q)||document.getElementById('qvExpl'); if(!box) return;
     box.innerHTML='<div class="lockn">해설을 불러오는 중…</div>';
     try{
       const j=await sbRpc('hwork_expl', { p:{ id:RS.id, key:RS.key, q:String(q) } });
@@ -1018,20 +1030,22 @@
     }catch(e){ box.innerHTML='<div class="lockn">인터넷 연결을 확인하고 다시 눌러 주세요.</div>'; }
   }
   async function qaSend(q){
-    const inp=document.getElementById('qvIn'), text=inp.value.trim();
-    if(!text){ toast('질문을 적어 주세요'); inp.focus(); return; }
-    const btn=document.getElementById('qvSend'); btn.disabled=true; btn.textContent='보내는 중…';
+    const inp=document.getElementById('qaIn'+q), text=inp?inp.value.trim():'';
+    if(!text){ toast('질문을 적어 주세요'); if(inp) inp.focus(); return; }
+    const btn=document.getElementById('qaGo'+q); btn.disabled=true; btn.textContent='보내는 중…';
     try{
       const j=await sbRpc('hwork_qa_post', { p:{ id:RS.id, key:RS.key, q:String(q), text } });
       if(!j.ok){ toast(j.error||'보내지 못했어요'); btn.disabled=false; btn.textContent='선생님께 보내기'; return; }
       RS.qa=j.msgs||RS.qa;
+      (j.push||[]).forEach(id=>{   // 담당 선생님 슈톡 알림(리포트 072) — 못 보내면 클로슈 순찰이 보낸다
+        fetch('https://bangdbhqpphqqdwcledg.supabase.co/functions/v1/hwork-ask',{ method:'POST', headers:{ 'Content-Type':'text/plain' }, body:JSON.stringify({ task_id:id }), keepalive:true }).catch(()=>{}); });
       const d=RS.detail[q]||{}, r=rvOf(q);
       if(d.ok===false && d.type!=='essay' && !r.cleared_at && !r.help){   // 오답하기를 '선생님께 넘김'으로
         try{ const f=await sbRpc('hwork_flag', { p:{ id:RS.id, key:RS.key, q:String(q), kind:'help', text:text.slice(0,300) } });
              if(f.ok){ setReview(q, { help:{ at:f.at, text } }); RS.stage=calcStage(); rsRemember(); } }catch(e){}
       }
       toast('선생님께 보냈어요');
-      qaOpen(q);
+      keepScroll(q, drawReport);
     }catch(e){ toast('인터넷 연결을 확인하고 다시 눌러 주세요'); btn.disabled=false; btn.textContent='선생님께 보내기'; }
   }
   document.addEventListener('keydown', e=>{ if(e.key==='Escape' && QA_Q!=null) qaClose(); });
