@@ -105,9 +105,10 @@
   .rv2 .cmp .tip{font-size:12px;color:#8a978f}
   /* 정답 번호 — gbank.css 의 덧씌운 동그라미(:before)는 글꼴에 따라 옆으로 밀려 보여서, 이 화면에서는 번호 자체를 칠한다 (2026-11-17 원장님 "정답 선지 색칠이 어긋나 있어요") */
   .rv2 .gq .cn.ok:before,.rv2 .gq .c.ok .cn:before{content:none!important}
-  /* 아이폰은 ①~⑤ 글자를 다른 글꼴로 넓게 그려 고정 폭 동그라미 밖으로 삐져나왔다 — 원래 글자는 투명하게 두고(자리 그대로) 그 가운데에 숫자 동그라미를 얹는다 */
-  .rv2 .gq .cn.ok{position:relative;display:inline-block;color:transparent!important;-webkit-text-stroke:0;background:none}
-  .rv2 .gq .cn.ok:after{content:attr(data-d);position:absolute;left:50%;top:50%;width:1.3em;height:1.3em;transform:translate(-50%,-50%);border-radius:50%;background:#5f9488;color:#fff;font-size:1em;line-height:1.3em;text-align:center;font-style:normal;font-family:'Gowun Dodum',sans-serif;-webkit-text-stroke:0}
+  /* 정답 번호 — 원 글자(①~⑤)는 기기마다 글꼴·폭이 달라 어떤 덧칠도 어긋났다(아이폰). 그려 넣은 뒤 ringFix 가 글자를 숫자로 바꾸고 이 동그라미로 그린다 */
+  .rv2 .cn.okn{display:inline-flex!important;align-items:center;justify-content:center;flex:none;width:1.2em;height:1.2em;margin-top:.25em;margin-top:calc((1lh - 1.2em) / 2);padding:0;border-radius:50%;background:#5f9488!important;color:#fff!important;font-style:normal;-webkit-text-stroke:0;text-indent:0;line-height:inherit;vertical-align:-.12em;box-sizing:border-box}
+  .rv2 .cn.okn b{font-family:'Gowun Dodum',sans-serif;font-size:.74em;font-weight:700;color:#fff}
+  .rv2 .cn.okn:before,.rv2 .cn.okn:after{content:none!important;display:none!important}
   .rv2 .pill.hrt{background:#fbe4ea;color:#b0476a}
   .rv2 .und{align-self:flex-start;font-size:12.5px;color:#3d675d;background:#eaf3ee;border-radius:999px;padding:5px 12px}
   /* 답장을 받은 뒤 — 이해했어요 · 다시 질문하기 */
@@ -204,6 +205,9 @@
     return `<div class="qc${s.k==='help'||s.k==='todo'?' un':''}" id="rvq${q}">${head}${peek}${body}</div>`;
   }
   function fmtAway(sec){ sec=Number(sec)||0; const m=Math.floor(sec/60), s=sec%60; return (m?m+'분 ':'')+s+'초'; }
+  function ringFix(el){
+    el.querySelectorAll('.cn.ok').forEach(n=>{ const t=(n.textContent||'').trim(); const k='①②③④⑤⑥⑦⑧⑨'.indexOf(t); const d=n.getAttribute('data-d')||(k>=0?String(k+1):t.replace(/[^0-9]/g,'')); if(!d) return; n.innerHTML='<b>'+d+'</b>'; n.classList.add('okn'); n.setAttribute('aria-label','정답 '+d+'번'); });
+  }
   function draw(el, c){
     css(); el._rv=c;
     c.ui=c.ui||{ filter:'전체', open:new Set() };
@@ -234,6 +238,7 @@
         <div class="flt">${['전체','틀린 문항','질문함'].map(f=>`<button type="button" data-rv-flt="${f}" class="${c.ui.filter===f?'on':''}">${f}</button>`).join('')}</div></div>
         <div class="qs">${list.length?list.map(q=>card(c,q)).join(''):'<div class="empty">여기에 해당하는 문항이 없습니다.</div>'}</div>
       </section></div>`;
+    ringFix(el);
     if(!el._rvBound){ el._rvBound=true;
       el.addEventListener('click', e=>{
         const cx=el._rv; if(!cx) return;

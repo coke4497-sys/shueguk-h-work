@@ -170,8 +170,8 @@ function rpc(fn, p) {
   DB.qa.push({ id: 51, sub_id: 71, q: '1', who: '선생님', name: '남주혜', body: '다른 문항 설명', mine: '', at: '2026-11-10T06:10:00Z', read_at: null, s: { code: '다른 과제', name: '박영희' } });
   const t = await ctx.newPage(); const terr = []; t.on('pageerror', e => terr.push(e.message));
   await t.goto(U + 'hwork_result.html?sid=55&q=2'); await t.waitForSelector('#rvq2 .rvthr');
-  const cs = await t.evaluate(() => { const e = document.querySelector('#rvq2 .cn.ok'); const a = getComputedStyle(e, '::after'); const r = e.getBoundingClientRect(); return { col: getComputedStyle(e).color, bg: a.backgroundColor, txt: a.content, before: getComputedStyle(e, '::before').content, w: r.width }; });
-  ok(cs.bg === 'rgb(95, 148, 136)' && cs.col === 'rgba(0, 0, 0, 0)' && /"\d"/.test(cs.txt) && (cs.before === 'none' || cs.before === 'normal'), '정답 번호 — 원래 글자는 투명, 가운데 숫자 동그라미 ' + JSON.stringify(cs));
+  const cs = await t.evaluate(() => { const e = document.querySelector('#rvq2 .cn.ok'); const st = getComputedStyle(e); const r = e.getBoundingClientRect(); return { txt: e.textContent, bg: st.backgroundColor, col: st.color, w: Math.round(r.width), h: Math.round(r.height), after: getComputedStyle(e, '::after').content, before: getComputedStyle(e, '::before').content }; });
+  ok(cs.txt === '4' && cs.bg === 'rgb(95, 148, 136)' && cs.col === 'rgb(255, 255, 255)' && cs.w === cs.h && cs.after === 'none' && cs.before === 'none', '정답 번호 — 원 글자를 숫자로 바꿔 그 칸을 동그라미로 칠함(덧칠 없음) ' + JSON.stringify(cs));
   ok((await t.textContent('#rvq2 .prev summary')).includes('같은 문제에 남긴 답장 1개'), '같은 문항 id(다른 과제 5번)의 지난 답장 1개 — 다른 문항 답장은 빠짐');
   await t.click('#rvq2 .prev summary'); await t.click('[data-pv="2|0"]');
   ok((await t.inputValue('textarea[data-rin="2"]')).includes('지난 설명'), '불러오기 → 답장 칸에 글');
@@ -278,7 +278,7 @@ function rpc(fn, p) {
   const rt2 = await ctx.newPage(); const rterr = []; rt2.on('pageerror', e => rterr.push(e.message));
   await rt2.goto(U + 'hwork_result.html?sid=77&q=2'); await rt2.waitForSelector('#rvq2 .rvthr');
   ok((await rt2.locator('#rvq2 .rq .stem').textContent()) === '교재 문항 2', '결과 화면 — 교재 문제');
-  ok(await rt2.locator('#rvq2 .rq .cn.ok').count() === 1 && (await rt2.locator('#rvq2 .rq .cn.ok').textContent()) === '③', '결과 화면 — 교재 정답 ③ 표시');
+  ok(await rt2.locator('#rvq2 .rq .cn.ok').count() === 1 && (await rt2.locator('#rvq2 .rq .cn.ok').textContent()) === '3', '결과 화면 — 교재 정답 ③ 표시');
   ok(DB.calls.some(c => c.fn === 'src' && c.rest.includes(encodeURIComponent('문장 1권'))), '결과 화면 — 과제 이름으로 원문 찾음');
   ok(await rt2.locator('#rvq2 .rq .psg').count() === 1, '결과 화면 — 교재 지문');
   ok(await rt2.locator('#rvq2 details.expl').count() === 1 && (await rt2.locator('#rvq2 details.expl').textContent()).includes('교사 해설 글') && await rt2.locator('#rvq2 details.expl div').count() === 3, '결과 화면 — 교재 해설 보기(해설 + 오답 해설 두 줄, 075)');
