@@ -227,9 +227,11 @@ function rpc(fn, p) {
   // 학생이 다시 들어오면 하트 팝업 한 번
   S.checked = { '2': { at: '2026-11-17 21:00', by: '이현지' } }; S.done = { at: '2026-11-17 21:01', by: '이현지', note: '오답 이유를 잘 적었어요' }; S.seen = null;
   const sp = await ctx.newPage(); await sp.goto(U + 'hwork.html?sid=55&k=tok-kim'); await sp.waitForSelector('.hpop');
-  ok((await sp.textContent('.hpop')).includes('이현지 선생님이 이 과제를 꼼꼼히 검사했어요') && (await sp.textContent('.hpop')).includes('오답 이유를 잘 적었어요'), '학생 — 하트 팝업(선생님 이름·한마디)');
+  ok((await sp.textContent('.hpop')).includes('이현지 선생님이 이 과제의 검사를 마쳤습니다') && (await sp.textContent('.hpop')).includes('오답 이유를 잘 적었어요'), '학생 — 하트 팝업(선생님 이름·한마디)');
+  { const t = await sp.textContent('.hpop');
+    ok(t.includes('과제 검사 완료') && t.includes('남은 오답이 1문항 있습니다') && t.includes('응원할게요') && !t.includes('고마워요') && (await sp.textContent('.hok')) === '확인했습니다', '학생 — 하트 팝업: 검사 완료·남은 오답·응원 문장·[확인했습니다] (' + t.replace(/\s+/g, ' ').slice(0, 160) + ')'); }
   ok(await sp.locator('.hpop .hb').count() >= 10, '하트가 팡팡');
-  if (SHOT) await sp.screenshot({ path: path.join(SHOT, 'heart-popup.png') });
+  if (SHOT) { await sp.waitForTimeout(700); await sp.screenshot({ path: path.join(SHOT, 'heart-popup.png') }); }
   await sp.click('.hok');
   ok(DB.calls.some(c => c.fn === 'hwork_check_seen') && await sp.locator('.hpop').count() === 0, '닫으면 본 때를 적음');
   ok((await sp.textContent('#rvq2 .qh2')).includes('♥ 선생님 확인'), '학생 카드에도 ♥ 선생님 확인');

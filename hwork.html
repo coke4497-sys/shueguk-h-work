@@ -98,7 +98,9 @@
   .ht{ font-family:'Gowun Batang',serif; font-weight:700; font-size:18px; color:#2b3a33; line-height:1.45; }
   .ht .hh{ color:#e86a93; }
   .hn{ background:#fdf0f4; color:#8a3a57; border-radius:12px; padding:10px 12px; font-size:15px; line-height:1.5; }
-  .hs{ font-size:13.5px; color:#6b746f; }
+  .hw{ font-size:14.5px; color:#3d4a43; line-height:1.55; word-break:keep-all; }
+  .hr{ background:#f6e6e9; color:#a8434f; border-radius:12px; padding:9px 12px; font-size:14px; line-height:1.5; word-break:keep-all; }
+  .hs{ font-size:15px; color:#8a3a57; font-weight:700; line-height:1.55; word-break:keep-all; }
   .hok{ border:0; border-radius:14px; background:#e86a93; color:#fff; font-size:16px; padding:13px; font-family:inherit; cursor:pointer; margin-top:4px; }
   @keyframes hpIn{ from{ transform:scale(.9); opacity:0; } to{ transform:none; opacity:1; } }
   @keyframes hpPop{ 0%{ transform:scale(.6); } 60%{ transform:scale(1.08); } 100%{ transform:scale(1); } }
@@ -313,7 +315,7 @@
 </style>
 <link rel="stylesheet" href="gbank.css">
 <link rel="stylesheet" href="real.css">
-<script src="result_view.js?v=20261117g"></script>
+<script src="result_view.js?v=20261117h"></script>
 </head>
 <body>
 
@@ -798,8 +800,9 @@
          count:null, detail:s.detail||{}, review:s.review||null, answers:s.answers||{}, draft:{}, qa:[], ui:null,
          checked:s.checked||{}, checkDone:s.check_done||null, checkSeen:s.check_seen_at||'' };
     RS.stage=calcStage();
-    rsRemember(); drawReport(); window.scrollTo(0,0); qaLoad(s.teacher, s.code);
-    setTimeout(heartMaybe, 350);
+    rsRemember(); drawReport(); window.scrollTo(0,0);
+    // 하트 팝업은 답장 목록을 받은 뒤에 — '질문에 답장이 왔습니다'를 함께 알리려고 (2026-11-17 원장님)
+    Promise.race([qaLoad(s.teacher, s.code), new Promise(r=>setTimeout(r,2500))]).then(heartMaybe, heartMaybe);
   }
   function ansOf(q, d){
     if(d.ok!==false || RS.stage==='legacy') return escapeHtml(d.ans||'');
@@ -1089,12 +1092,20 @@
     const latest=ts[ts.length-1]; if(!latest || (RS.checkSeen && RS.checkSeen>=latest)) return;
     const d=RS.checkDone, by=(d&&d.by)||((Object.values(RS.checked||{}).find(x=>x&&x.by)||{}).by)||'', nq=Object.keys(RS.checked||{}).length;
     const who=by?escapeHtml(by)+' 선생님':'선생님';
+    // 남은 일 — 답장 · 오답 (2026-11-17 원장님 "과제가 완료되었다는 메시지가 불분명 · 질문에 답장이 왔습니다 · 남은 오답이 있습니다")
+    const nRep=(RS.qa||[]).filter(m=>m.who==='선생님'&&!m.read).length;
+    const nLeft=Object.keys(RS.detail||{}).filter(q=>RS.detail[q]&&RS.detail[q].ok===false&&!((RS.review||{})[q]||{}).cleared_at).length;
+    const todo=(nRep?'<div class="hr">질문에 답장이 왔습니다. 문항을 눌러 확인해 보세요.</div>':'')+(nLeft?`<div class="hr">남은 오답이 ${nLeft}문항 있습니다.</div>`:'');
+    const cheer=nLeft?'남은 오답까지 해내면 이 단원은 확실히 내 것이 돼요. 끝까지 응원할게요!'
+                     :'끝까지 해낸 노력이 실력으로 쌓이고 있어요. 다음 과제도 응원할게요!';
     const box=document.createElement('div'); box.className='hpop'; box.setAttribute('role','dialog');
     box.innerHTML=`<div class="hpc"><div class="hst"><img src="https://coke4497-sys.github.io/shueguk-report/assets/sk-cheer-hearts.png" alt=""></div>
-      <div class="ht">${who}이 ${d?'이 과제를 꼼꼼히 검사했어요':nq+'개 문항을 확인했어요'} <span class="hh">♥</span></div>
+      <div class="ht">${d?'과제 검사 완료':nq+'개 문항 확인'} <span class="hh">♥</span></div>
+      <div class="hw">${who}이 ${d?'이 과제의 검사를 마쳤습니다.':nq+'개 문항을 확인했습니다. 확인한 문항에는 ♥ 표시가 있어요.'}</div>
       ${d&&d.note?`<div class="hn">“${escapeHtml(d.note)}”</div>`:''}
-      <div class="hs">${d?'애정을 담아 하나하나 살펴봤어요. 다음 과제도 힘내요!':'선생님이 확인한 문항에는 ♥ 표시가 붙어 있어요.'}</div>
-      <button type="button" class="hok">고마워요 ♥</button></div>`;
+      ${todo}
+      <div class="hs">${cheer}</div>
+      <button type="button" class="hok">확인했습니다</button></div>`;
     document.body.appendChild(box);
     heartBurst(box.querySelector('.hst'));
     box.querySelector('.hok').onclick=async()=>{ box.remove(); RS.checkSeen=latest;
