@@ -92,29 +92,11 @@
   .muted{color:#8B928C;font-size:13px;}
 
   /* 잠금 */
-  .lock{position:fixed;inset:0;background:var(--bg);z-index:100;display:flex;align-items:center;justify-content:center;padding:24px;}
-  .lock-card{background:#fff;border:1px solid var(--line-soft);border-radius:18px;padding:34px 28px;text-align:center;max-width:330px;width:100%;}
-  .lock-card .t{font-family:"Gowun Batang",serif;font-weight:700;font-size:20px;color:var(--accent);}
-  .lock-card .d{font-size:13px;color:var(--ink-soft);margin:10px 0 18px;}
-  .lock-card input{width:100%;padding:13px;border:1.5px solid var(--line);border-radius:10px;font:inherit;font-size:16px;text-align:center;}
-  .lock-card input:focus{outline:none;border-color:var(--accent);}
-  .lock-card button{width:100%;margin-top:11px;padding:13px;border:none;border-radius:11px;background:#C9D5EE;color:#44578A;font-family:"Gowun Batang",serif;font-weight:700;font-size:16px;cursor:pointer;}
-  .lock-err{color:var(--bad);font-size:12.5px;min-height:1.1em;margin-top:10px;}
-  body.locked{overflow:hidden;} body:not(.locked) .lock{display:none;}
   @media (prefers-reduced-motion:reduce){*{transition:none !important;}}
 </style>
 </head>
-<body class="locked">
+<body>
 
-<div class="lock" id="lockScreen">
-  <div class="lock-card">
-    <div class="t">H WORK 배정·현황</div>
-    <div class="d">선생님 전용 페이지입니다.<br>비밀번호를 입력해 주세요.</div>
-    <input type="password" id="lockInput" placeholder="비밀번호" inputmode="numeric" autocomplete="off" />
-    <button type="button" onclick="checkLock()">확인</button>
-    <div class="lock-err" id="lockErr"></div>
-  </div>
-</div>
 
 <main class="wrap">
   <a class="back" href="https://coke4497-sys.github.io/shueguk-hub/hwork.html">
@@ -315,8 +297,6 @@
   }
   var REPORT_API = "https://script.google.com/macros/s/AKfycbzhCncBwn-JlqXARC3wfrWUCuNHzlNK2df0bdhx-w78Xr8mzYUcIYZOJdRi9N4bHtsb/exec";        // 리포트 백엔드 (명단·배정)
   var SERVER_PW  = "sh";
-  var PASS_ENC   = "c2g=";   // 'sh' — 교사 페이지 공통
-  var LOCK_KEY   = "shueguk_teacher_unlocked";
   var TOOL       = "H WORK";
 
   function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -330,17 +310,6 @@
     if(!isNaN(d.getTime())) return d.getFullYear()+'년 '+(d.getMonth()+1)+'월 '+d.getDate()+'일';
     return String(s);
   }
-
-  /* ===== 잠금 ===== */
-  (function(){ try{ if(localStorage.getItem(LOCK_KEY)==='1'){ unlock(); } }catch(e){} })();
-  function unlock(){ document.body.classList.remove('locked'); init(); }
-  function checkLock(){
-    var v=document.getElementById('lockInput').value, ok=false;
-    try{ ok=(btoa(v)===PASS_ENC); }catch(e){ ok=false; }
-    if(ok){ try{ localStorage.setItem(LOCK_KEY,'1'); }catch(e){} unlock(); }
-    else { document.getElementById('lockErr').textContent='비밀번호가 올바르지 않습니다.'; document.getElementById('lockInput').value=''; }
-  }
-  document.getElementById('lockInput').addEventListener('keydown', function(e){ if(e.key==='Enter') checkLock(); });
 
   /* ===== 상태 ===== */
   var HW = [];          // 과제 목록 [{teacher, code}]
@@ -745,6 +714,8 @@
       loadHwManage();
     }).catch(function(){ alert('연결 실패 — 다시 시도해 주세요.'); loadHwManage(); });
   }
+  /* 시작 — 예전 비밀번호 잠금은 없앴다(2026-11-18 원장님 — 허브 로그인 게이트가 이미 막는다). 시작 호출은 스크립트 맨 끝(위 var 선언이 값을 덮지 않게) */
+  init();
 </script>
 </body>
 </html>
