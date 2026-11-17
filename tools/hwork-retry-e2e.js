@@ -176,13 +176,13 @@ function rpc(fn, p) {
   ok(DB.calls.some(c => c.fn === 'hwork_qa_post' && c.p.q === '3' && c.p.text === '왜 틀렸는지 모르겠어요'), '질문 본문');
   ok(DB.calls.some(c => c.fn === 'hwork_flag' && c.p.kind === 'help' && c.p.q === '3'), '도움 요청 본문');
   ok(REP.length === 1, '도움 요청은 수정 요청함으로 안 보냄');
-  ok((await p.textContent('#rvq3')).includes('선생님 도와주세요') && (await p.textContent('#rvq3 .rvthr')).includes('왜 틀렸는지 모르겠어요'), '도움 요청 표시 · 대화가 카드 안에');
+  ok(!(await p.textContent('#rvq3')).includes('선생님 도와주세요') && (await p.textContent('#rvq3')).includes('질문함') && (await p.textContent('#rvq3 .rvthr')).includes('왜 틀렸는지 모르겠어요'), '도와주세요 표시 없음 · 질문함 · 대화가 카드 안에');
   // 이어 하기 — 저장 기록 강제로 넣고 다시 열기
   await p.evaluate(() => localStorage.setItem('hw_retry_v1', JSON.stringify([{ id: 41, key: 'abcdef0123456789abcdef0123456789', code: 'T세트', name: '박보검' }])));
   await p.reload(); await p.waitForTimeout(600);
   ok(await p.locator('#resume').isVisible(), '이어 하기 상자');
   await p.click('#resume .rsrow button'); await p.waitForTimeout(600);
-  ok((await p.textContent('#rvq1')).includes('클리어') && (await p.textContent('#rvq3')).includes('선생님 도와주세요'), '이어 하기 상태 복원');
+  ok((await p.textContent('#rvq1')).includes('클리어') && (await p.textContent('#rvq3')).includes('질문함'), '이어 하기 상태 복원');
   // 3번 계속 → 나 (맞음)
   await p.fill('#rv3 textarea[data-f=ww]', '앞 문장만 보고 골랐다.'); await p.fill('#rv3 input.tans', '나'); await p.fill('#rv3 textarea[data-f=wr]', '나가 맞다. 뒤 문장이 근거다.');
   await p.click('#fixBtn3'); await p.waitForTimeout(500);
@@ -261,7 +261,7 @@ function rpc(fn, p) {
   ok(tr.includes('3회') && tr.includes('2분 10초'), '교사 결과 화면: 화면 이탈 상자');
   ok(tr.includes('2 / 4') || /2\s*\/\s*4/.test(tr), '교사 결과 화면: 점수');
   ok(tr.includes('그냥 찍었다') && tr.includes('4번 보기를 잘못 읽었다') && tr.includes('3번이 지문과 맞는다'), '교사 결과 화면: 오답하기 시도 기록(열린 카드)');
-  ok(tr.includes('보기 표현이 이상해요') && tr.includes('선생님 도와주세요'), '교사 결과 화면: 신고·도움 내용');
+  ok(tr.includes('보기 표현이 이상해요') && !tr.includes('선생님 도와주세요'), '교사 결과 화면: 신고 내용 · 도와주세요 표시 없음');
   ok(await rp.locator('textarea[data-rin]').count() >= 1, '교사 결과 화면: 문항 카드 안 답장 칸');
   if (SHOT) await rp.screenshot({ path: SHOT + '/teacher-report.png', fullPage: true });
   await rp.close();

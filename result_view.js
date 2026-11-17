@@ -138,7 +138,7 @@
     if(d.type==='essay') return { k:'essay', label:'서술형 · 예시 답과 비교', bg:'#f1f4f1', fg:'#54655c', nb:'#f1f4f1', nf:'#54655c', bd:'#e3e8e4', tip:'서술형' };
     if(d.ok===true) return { k:'ok', label:'1차 정답', bg:'#dcebe3', fg:'#4b6157', nb:'#8fb3a0', nf:'#fff', bd:'#e3e8e4', tip:'1차 정답' };
     if(r.cleared_at) return { k:'clr', label:r.via==='qa'?'클리어 · 답장 보고 이해':'클리어 · '+Math.max(1,tries.length)+'번째', bg:'#dcebe3', fg:'#4b6157', nb:'#dcebe3', nf:'#4b6157', bd:'#e3e8e4', tip:'오답하기 클리어' };
-    if(r.help||(c.qa||[]).some(m=>String(m.q)===String(q)&&m.who==='학생')) return { k:'help', label:'아직 · 도움 요청', bg:'#e6def0', fg:'#4a3f63', nb:'#f6e6e9', nf:'#a8434f', bd:'#ecd9dd', tip:'도움 요청', bar:'#e6def0', barf:'#4a3f63' };
+    if(r.help||(c.qa||[]).some(m=>String(m.q)===String(q)&&m.who==='학생')) return { k:'help', label:'아직 · 질문함', bg:'#e6def0', fg:'#4a3f63', nb:'#f6e6e9', nf:'#a8434f', bd:'#ecd9dd', tip:'질문함', bar:'#e6def0', barf:'#4a3f63' };
     return { k:'todo', label:c.mode==='student'?'오답하기':'아직 · 오답하기', bg:'#f6e6e9', fg:'#a8434f', nb:'#f6e6e9', nf:'#a8434f', bd:'#ecd9dd', tip:'오답하기 전', bar:'#f6e6e9', barf:'#a8434f' };
   }
   function keyOf(c, q){   // 정답 — 선생님은 늘, 학생은 맞았거나 클리어한 문항만
@@ -150,7 +150,7 @@
   function filterHit(c, q, f){
     const d=c.detail[q]||{}, r=(c.review||{})[q]||{};
     if(f==='틀린 문항') return d.ok===false;
-    if(f==='도움 요청') return d.ok===false && !r.cleared_at;
+    if(f==='질문함') return d.ok===false && !r.cleared_at;
     return true;
   }
   function msgsOf(c, q){ return (c.qa||[]).filter(m=>String(m.q)===String(q)); }
@@ -181,7 +181,6 @@
         <span><span class="lab">틀린 답 ${esc(show(t.wrong))} · 고른 이유</span><br>${esc(t.why_wrong||'')}</span>
         <span><span class="lab">다시 고른 답</span> <b class="${t.ok?'ok':'ng'}">${esc(t.pick)} ${t.ok?'○':'×'}</b></span>
         <span><span class="lab">이 답이 정답인 이유</span><br>${esc(t.why_right||'')}</span></div></div>`));
-      if(r.help) parts.push(`<div class="help">선생님 도와주세요<span class="at">${esc(r.help.at||'')}</span></div>`);
       if(r.error) parts.push(`<div class="err">문항 오류 신고 · ${esc(r.error.text||'')}</div>`);
       if(h.fixForm) { const f=h.fixForm(q); if(f) parts.push(f); }
       if(h.expl) { const x=h.expl(q); if(x) parts.push(x); }
@@ -208,7 +207,7 @@
     const bar=qs.map(q=>{ const s=stateOf(c,q); const bg=s.k==='ok'?'#8fb3a0':s.k==='clr'?'#dcebe3':s.k==='essay'?'#f1f4f1':(s.bar||'#e6def0'); const fg=s.k==='ok'?'#fff':s.k==='clr'?'#4b6157':s.k==='essay'?'#8a978f':(s.barf||'#4a3f63');
       return `<button type="button" data-rv-bar="${q}" title="${q}번 · ${esc(s.tip)} — 누르면 그 문항으로" style="background:${bg};color:${fg}">${q}</button>`; }).join('');
     const boxes=[];
-    if(wrong.length) boxes.push(`<div class="bx fix"><span class="a">오답하기${c.reviewAt?' · 마침 '+esc(c.reviewAt):''}</span><span class="b">틀린 ${wrong.length}문항 중 <b>${clr.length}문항</b> 클리어${help.length?' · 도움 요청 '+help.length:''}</span></div>`);
+    if(wrong.length) boxes.push(`<div class="bx fix"><span class="a">오답하기${c.reviewAt?' · 마침 '+esc(c.reviewAt):''}</span><span class="b">틀린 ${wrong.length}문항 중 <b>${clr.length}문항</b> 클리어${help.length?' · 질문함 '+help.length:''}</span></div>`);
     if(c.away && c.away.n>0) boxes.push(`<div class="bx away"><span class="a">푸는 동안 화면을 벗어난 기록</span><span class="b"><b>${c.away.n}회</b> · 모두 ${fmtAway(c.away.sec)} <span class="s">(다른 앱으로 넘어가거나 화면을 끈 경우)</span></span></div>`);
     const list=qs.filter(q=>filterHit(c,q,c.ui.filter));
     el.innerHTML=`<div class="rv2">
@@ -217,13 +216,13 @@
       <section class="rvcard"><h2><span class="no">1</span>채점 결과</h2>
         <div class="sc"><div class="num">${c.total?`<span class="g">${c.got}</span><span class="t">/ ${c.total}</span><span class="p">${pct}점</span>`:'<span class="p">채점하는 문항이 없습니다.</span>'}</div>
           <div class="strip"><div class="rvbar">${bar}</div>
-            <div class="lg"><span><i style="background:#8fb3a0"></i>1차 정답</span><span><i style="background:#dcebe3"></i>오답하기 클리어</span><span><i style="background:#e6def0"></i>도움 요청</span>${wrong.some(q=>stateOf(c,q).k==='todo')?'<span><i style="background:#f6e6e9"></i>오답하기 전</span>':''}<span style="color:#8a978f">번호를 누르면 그 문항으로 가요</span></div></div></div>
+            <div class="lg"><span><i style="background:#8fb3a0"></i>1차 정답</span><span><i style="background:#dcebe3"></i>오답하기 클리어</span><span><i style="background:#e6def0"></i>질문함</span>${wrong.some(q=>stateOf(c,q).k==='todo')?'<span><i style="background:#f6e6e9"></i>오답하기 전</span>':''}<span style="color:#8a978f">번호를 누르면 그 문항으로 가요</span></div></div></div>
         ${boxes.length?`<div class="boxes">${boxes.join('')}</div>`:''}
         ${c.note?`<div class="lock">${c.note}</div>`:''}
       </section>
       ${c.extra||''}
       <section class="rvcard" style="gap:14px"><div class="h2row"><h2><span class="no">2</span>문항별 채점</h2>
-        <div class="flt">${['전체','틀린 문항','도움 요청'].map(f=>`<button type="button" data-rv-flt="${f}" class="${c.ui.filter===f?'on':''}">${f}</button>`).join('')}</div></div>
+        <div class="flt">${['전체','틀린 문항','질문함'].map(f=>`<button type="button" data-rv-flt="${f}" class="${c.ui.filter===f?'on':''}">${f}</button>`).join('')}</div></div>
         <div class="qs">${list.length?list.map(q=>card(c,q)).join(''):'<div class="empty">여기에 해당하는 문항이 없습니다.</div>'}</div>
       </section></div>`;
     if(!el._rvBound){ el._rvBound=true;

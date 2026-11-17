@@ -313,7 +313,7 @@
 </style>
 <link rel="stylesheet" href="gbank.css">
 <link rel="stylesheet" href="real.css">
-<script src="result_view.js?v=20261117f"></script>
+<script src="result_view.js?v=20261117g"></script>
 </head>
 <body>
 
@@ -841,7 +841,7 @@
               <button type="button" class="yes" id="qaOk${q}" onclick="qaClear(${q})">${un?'이해했어요 · 클리어':'이해했어요'}</button>
               <button type="button" class="no" onclick="qaReask(${q})">다시 질문하기</button></div></div>`;
           if(und) return `<button type="button" class="reask" onclick="qaReask(${q})">아직 궁금한 게 있어요 · 다시 질문하기</button>`;
-          return ask(un?'왜 틀렸는지 모르겠어요 · 선생님께 질문하기':'선생님께 질문하기'); },
+          return ask('선생님께 질문하기'); },
         files:f=>rfHtml(f),
         opened:q=>{ (RS.seen=RS.seen||{})[q]=true; (RS.qa||[]).forEach(m=>{ if(String(m.q)===String(q)&&m.who==='선생님') m.read=true; }); },
         after:()=>rfThumbs()
