@@ -270,7 +270,7 @@ function checkHtml(){
   if(!('checked' in SUB)) return '';
   const d=SUB.check_done, seen=SUB.check_seen_at&&d&&SUB.check_seen_at>=d.at;
   return `<section class="chc"><h2>과제 검사</h2>${d?`<div class="done">♥ ${esc(d.by)} 선생님 · ${esc(String(d.at).slice(5,16))} 검사 완료${d.note?` · “${esc(d.note)}”`:''} — ${seen?'학생이 하트 팝업을 봤어요':'학생이 다음에 들어오면 하트 팝업이 떠요'}</div>`
-    :'<div class="m">답장이 필요 없는 문항은 카드 안 [확인했어요]를 누르거나, 여기서 한 번에 검사를 마치세요. 학생이 다음에 들어오면 하트가 팡팡 터지는 팝업이 떠요.</div>'}
+    :'<div class="m">답장이 필요 없는 문항은 카드 안 [잘 고쳤습니다]를 누르거나, 여기서 한 번에 검사를 마치세요. 학생이 다음에 들어오면 하트가 팡팡 터지는 팝업이 떠요.</div>'}
     <div class="row2"><input id="chkNote" maxlength="200" placeholder="학생에게 한마디 (선택) — 예: 오답 이유를 잘 적었어요!" value="${esc(d&&d.note||'')}"><button type="button" onclick="checkAll()">${d?'한마디 바꿔 다시 보내기 ♥':'과제 검사 완료 · 하트 보내기 ♥'}</button></div></section>`;
 }
 function kst(iso){ const d=new Date(new Date(iso).getTime()+9*3600e3); if(isNaN(d)) return String(iso||''); const p=n=>String(n).padStart(2,'0');
@@ -417,7 +417,7 @@ function draw(){
       away:Number(SUB.away_n)>0?{ n:Number(SUB.away_n), sec:Number(SUB.away_sec)||0 }:null, reviewAt:SUB.review_at||'', qa:QA,
       hooks:{
         qhtml:q=>{ const x=QS[q]; if(!x) return null; return { pas:x.pid&&QP[x.pid]?`<div class="${STYLE}">${QP[x.pid]}</div>`:'', html:`<div class="${STYLE}">${x.html}</div>` }; },
-        composer:q=>(('checked' in SUB)?`<div class="qchk">${(SUB.checked||{})[q]?`<span class="on">♥ ${esc(SUB.checked[q].by)} 선생님 확인 · ${esc(String(SUB.checked[q].at).slice(5,16))}</span><button type="button" class="un" onclick="checkQ('${q}',false)">확인 취소</button>`:`<button type="button" onclick="checkQ('${q}',true)">답장 없이 확인했어요 ♥</button>`}</div>`:'')+`<div class="cmp"><span class="lab">학생에게 답장</span>${prevHtml(q)}<textarea data-rin="${q}" maxlength="5000" placeholder="답장을 적어 주세요. 학생 화면 이 문항에 바로 보입니다. 사진은 Ctrl+V 로 붙여 넣어도 돼요.">${esc(keep[q]||'')}</textarea>${reuseHtml(q)}${attHtml(q)}<button type="button" class="go" data-send="${q}">답장 보내기</button></div>`,
+        composer:q=>(('checked' in SUB)?`<div class="qchk">${(SUB.checked||{})[q]?`<span class="on">♥ ${esc(SUB.checked[q].by)} 선생님 확인 · ${esc(String(SUB.checked[q].at).slice(5,16))}</span><button type="button" class="un" onclick="checkQ('${q}',false)">확인 취소</button>`:`<button type="button" onclick="checkQ('${q}',true)">잘 고쳤습니다 ♥</button>`}</div>`:'')+`<div class="cmp"><span class="lab">학생에게 답장</span>${prevHtml(q)}<textarea data-rin="${q}" maxlength="5000" placeholder="답장을 적어 주세요. 학생 화면 이 문항에 바로 보입니다. 사진은 Ctrl+V 로 붙여 넣어도 돼요.">${esc(keep[q]||'')}</textarea>${reuseHtml(q)}${attHtml(q)}<button type="button" class="go" data-send="${q}">답장 보내기</button></div>`,
         files:f=>fsHtml(f),
         opened:q=>markRead(q),
         after:()=>fThumbs()
