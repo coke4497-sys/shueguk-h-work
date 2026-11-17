@@ -1,0 +1,101 @@
+/* 모의고사 문법 문항 은행(gbank) 문항 모양 — SHUEGUK MOGO 2026 작업 폴더의 bank/qcss.css 를 .gq 아래로 묶은 것.
+ * 문항 HTML 은 수파베이스 gbank_items.html(정답 표시 없음). 교사 화면은 상위에 .teacher 를 두고
+ * 정답 번호에 .cn.ok 를 붙이면 민트 동그라미가 뜬다. 원본 CSS 를 고치면 이 파일도 다시 만든다. */
+.gq{font-family:'Gowun Dodum',sans-serif;line-height:1.62;color:#111}
+.gq .stem{font-weight:400}
+.gq .pp{font-family:'Gowun Batang',serif;text-indent:1em;text-align:justify;margin:0 0 .6em;line-height:1.72}
+.gq .pp.tw,.gq .pp.plabel{text-indent:0}
+.gq .plabel{text-align:center;color:#3d675d}
+.gq .oh{font-family:'Noto Serif CJK KR','Noto Sans CJK KR',serif;font-size:.97em}
+.gq .q{margin:0 0 7mm;position:relative}
+.gq .q.cont{margin-top:0}
+.gq .qh{display:flex;gap:2mm;align-items:flex-start;margin-bottom:1.6mm}
+.gq .qn{flex:none;min-width:7.2mm;height:5.4mm;border-radius:1.2mm;background:#8db8ad;color:#fff;font-size:9pt;text-align:center;line-height:5.4mm;margin-top:.3mm}
+.gq .stem{-webkit-text-stroke:.28px #111;line-height:1.55}
+.gq .pt{color:#3d675d;-webkit-text-stroke:0;font-size:8.6pt}
+.gq .q p{margin:0 0 .8mm}
+.gq .box{border:.3mm solid #c3dcd5;background:#f4f9f7;border-radius:1.6mm;padding:3.6mm 3mm 2.2mm;margin:3.4mm 0 2mm;position:relative}
+.gq .bl{position:absolute;top:-2.4mm;left:0;right:0;text-align:center;line-height:1}
+.gq .bl span{background:#fff;border:.3mm solid #c3dcd5;border-radius:3mm;padding:.5mm 3mm;font-size:8pt;color:#3d675d}
+.gq .box p{margin:0 0 .6mm}
+.gq table.ot{border-collapse:collapse;margin:1.2mm auto;font-size:8.6pt;line-height:1.45;max-width:100%}
+.gq table.ot td{border:.2mm solid #b9cfc9;padding:.8mm 1.4mm;vertical-align:middle}
+.gq table.ot td div{min-height:1em}
+.gq .tw{overflow:hidden;max-width:100%}
+.gq .ctab{margin:2.2mm 0 1.6mm}
+.gq .ctab table.ot{width:100%;margin:0;table-layout:auto}
+.gq .ctab table.ot td{text-align:center;padding:1mm 2mm}
+.gq .ctab table.ot td.lt{text-align:left}
+.gq .ch{display:grid;grid-template-columns:1fr;gap:.6mm 2mm;margin-top:1.6mm}
+.gq .ch.g5{grid-template-columns:repeat(5,1fr)}
+.gq .ch.g3{grid-template-columns:repeat(3,1fr)}
+.gq .ch.g2{grid-template-columns:repeat(2,1fr)}
+.gq .c{display:flex;gap:1.2mm;position:relative}
+.gq .cn{flex:none}
+.gq .c.ok .cn{position:relative}
+.gq .cn{position:relative}
+.gq .cn.ok{position:relative;display:inline-block}
+.teacher .gq .cn.ok:before,.teacher .gq .c.ok .cn:before{content:attr(data-d);position:absolute;left:50%;top:50%;width:1.12em;height:1.12em;margin:-.58em 0 0 -.56em;border-radius:50%;background:#5f9488;color:#fff;font-size:.95em;line-height:1.12em;text-align:center;font-family:'Gowun Dodum';-webkit-text-stroke:.3px #fff}
+.gq .src{font-size:7.3pt;color:#8a9a97;margin-top:1.4mm;text-align:right}
+.gq img.fig{max-width:100%;max-height:105mm;object-fit:contain;display:block;margin:1mm auto}
+.gq .imgp{text-align:center}
+.gq .flow{font-size:8.2pt;line-height:1.35;padding:1mm 0}
+.gq .fr{display:grid;grid-template-columns:2fr 1fr;gap:1.6mm;margin:.6mm 0;text-align:center}
+.gq .fr.q4{grid-template-columns:repeat(4,1fr)}
+.gq .fr.h2{grid-template-columns:1fr 1fr}
+.gq .fb{border:.3mm solid #8db8ad;background:#fff;border-radius:1.2mm;padding:1.2mm .8mm}
+.gq .fb.sm{min-height:6.5mm}
+.gq .fa{color:#3d675d;font-size:7.8pt}
+.gq .hwal{display:inline-block;border:.25mm solid #777;border-radius:1mm;padding:0 1mm;font-size:.85em;line-height:1.2}
+.gq .fig2 p{margin:.6mm 0}
+.gq table.ot td.dg{position:relative;min-width:20mm;height:9mm;background:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'><line x1='0' y1='0' x2='100' y2='100' stroke='%23b9cfc9' stroke-width='1' vector-effect='non-scaling-stroke'/></svg>") no-repeat;background-size:100% 100%}
+.gq .dg .d1{position:absolute;right:1mm;top:.4mm;font-size:.9em}
+.gq .dg .d2{position:absolute;left:1mm;bottom:.4mm;font-size:.9em}
+.gq td.x{background:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'><line x1='0' y1='0' x2='100' y2='100' stroke='%23b9cfc9' stroke-width='1' vector-effect='non-scaling-stroke'/><line x1='0' y1='100' x2='100' y2='0' stroke='%23b9cfc9' stroke-width='1' vector-effect='non-scaling-stroke'/></svg>") no-repeat;background-size:100% 100%}
+.gq .clsf{display:flex;gap:2mm;align-items:center}
+.gq .cl-l{flex:1}
+.gq .cl-h{text-align:center;color:#3d675d;margin-bottom:1mm}
+.gq .cl-w{border:.25mm solid #b9cfc9;background:#fff;padding:1.5mm;font-size:8.4pt;line-height:1.5}
+.gq .cl-t{margin:0!important}
+.gq .cl-t td{text-align:center;padding:.6mm 1.3mm}
+.gq .cl-t td.nb{border:0}
+.gq .cl-n{font-size:8pt;color:#555;margin-top:1mm!important}
+.gq .tree{text-align:center;font-size:8pt;line-height:1.35}
+.gq .tree .tn{display:inline-block;border:.3mm solid #8db8ad;background:#fff;border-radius:1mm;padding:.8mm 1.6mm;margin:.4mm 0}
+.gq .tree .tr2{display:grid;grid-template-columns:1fr 1fr;gap:1mm}
+.gq .tree .ta{color:#3d675d;font-size:7.6pt}
+.gq .note{border:.3mm solid #b9cfc9;border-radius:2mm;background:#fff;padding:2mm 3mm;font-size:8.6pt}
+.gq .note p{margin:.6mm 0!important}
+.gq .ex1{border:.25mm solid #555;padding:0 .8mm;font-size:.85em}
+.gq .hmj{font-size:8.6pt}
+.gq .hrow{display:flex;flex-wrap:wrap;gap:1.2mm 2.4mm;margin:1mm 0}
+.gq .hrow span{display:inline-flex;flex-direction:column;align-items:center}
+.gq .hrow i{font-style:normal;font-size:7.6pt;color:#444}
+.gq ruby.cc{border:.25mm solid #333;border-radius:50%;padding:0 .3mm}
+.gq ruby.cc rt{font-size:6.6pt}
+.gq .abox{border:.35mm dashed #8db8ad;border-radius:1.4mm;padding:2.6mm 2mm 1mm;margin:3mm 0 1.6mm;position:relative}
+.gq .alab{position:absolute;top:-2.3mm;right:3mm;background:#fff;padding:0 1.2mm;color:#3d675d;font-family:'Gowun Dodum';font-size:8.4pt;line-height:1;text-indent:0}
+.gq .c{align-items:flex-start}
+.gq .cn{line-height:inherit}
+.gq .tex{margin-top:1.6mm;background:#eef6f3;border-left:.8mm solid #8db8ad;border-radius:1mm;padding:1.6mm 2.2mm;font-size:8.3pt;line-height:1.55;color:#24443d}
+.gq .texa{display:inline-block;background:#8db8ad;color:#fff;border-radius:1mm;padding:0 1.6mm;margin-right:1.6mm;font-size:7.8pt}
+.student .gq .tex{visibility:hidden}
+.gq .texm{color:#6f8c86;font-size:7.6pt}
+.gq .ph{font-size:9pt;color:#24443d;-webkit-text-stroke:.25px #24443d;margin:0 0 2mm}
+.gq .prng{display:inline-block;background:#e3f0ec;border-radius:1.2mm;padding:0 1.6mm;color:#24443d}
+.gq .pp{font-family:'Gowun Batang','Noto Serif CJK KR',serif;font-size:9.2pt;line-height:1.72;text-align:justify;text-indent:1em;margin:0 0 .6mm}
+.gq .ph + .pp,.gq .pblk:first-child .pp{}
+.gq .pblk{padding:0 1.5mm}
+.gq .pblk.last{margin-bottom:5mm;border-bottom:.25mm dashed #c3dcd5;padding-bottom:3mm}
+.gq .pp.tw{text-indent:0}
+.gq .plabel{text-indent:0;text-align:center;color:#3d675d;font-family:'Gowun Dodum'}
+.gq .quick{border:.3mm solid #c3dcd5;border-radius:2mm;padding:2.6mm 3mm;margin:0 0 5mm;display:grid;grid-template-columns:repeat(5,1fr);gap:1mm 2mm;font-size:8.8pt;background:#f4f9f7}
+.gq .qtt{grid-column:1/-1;color:#3d675d;font-size:8.6pt;margin-bottom:.6mm}
+.gq .qk b{color:#3d675d;font-weight:normal;margin-right:1mm}
+.gq .ex{margin:0 0 4.2mm;font-size:8.6pt;line-height:1.58}
+.gq .exh{display:flex;gap:2mm;align-items:center;margin-bottom:1mm}
+.gq .exa{color:#3d675d;-webkit-text-stroke:.25px #3d675d}
+.gq .tag{display:inline-block;font-size:7.4pt;background:#e3f0ec;color:#24443d;border-radius:1mm;padding:0 1.4mm;margin-right:1.4mm}
+.gq .tag.t2{background:#f1f1f1;color:#555}
+.gq .exb{margin-top:.6mm;color:#333}
+.gq .exbh{margin-top:1.2mm}
