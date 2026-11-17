@@ -105,7 +105,9 @@
   .rv2 .cmp .tip{font-size:12px;color:#8a978f}
   /* 정답 번호 — gbank.css 의 덧씌운 동그라미(:before)는 글꼴에 따라 옆으로 밀려 보여서, 이 화면에서는 번호 자체를 칠한다 (2026-11-17 원장님 "정답 선지 색칠이 어긋나 있어요") */
   .rv2 .gq .cn.ok:before,.rv2 .gq .c.ok .cn:before{content:none!important}
-  .rv2 .gq .cn.ok{display:inline-block;background:#5f9488;color:#fff;border-radius:50%;width:1.3em;height:1.3em;line-height:1.3em;text-align:center;font-style:normal;vertical-align:baseline}
+  /* 아이폰은 ①~⑤ 글자를 다른 글꼴로 넓게 그려 고정 폭 동그라미 밖으로 삐져나왔다 — 원래 글자는 투명하게 두고(자리 그대로) 그 가운데에 숫자 동그라미를 얹는다 */
+  .rv2 .gq .cn.ok{position:relative;display:inline-block;color:transparent!important;-webkit-text-stroke:0;background:none}
+  .rv2 .gq .cn.ok:after{content:attr(data-d);position:absolute;left:50%;top:50%;width:1.3em;height:1.3em;transform:translate(-50%,-50%);border-radius:50%;background:#5f9488;color:#fff;font-size:1em;line-height:1.3em;text-align:center;font-style:normal;font-family:'Gowun Dodum',sans-serif;-webkit-text-stroke:0}
   .rv2 .pill.hrt{background:#fbe4ea;color:#b0476a}
   .rv2 .und{align-self:flex-start;font-size:12.5px;color:#3d675d;background:#eaf3ee;border-radius:999px;padding:5px 12px}
   /* 답장을 받은 뒤 — 이해했어요 · 다시 질문하기 */

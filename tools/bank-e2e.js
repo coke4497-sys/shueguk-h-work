@@ -170,8 +170,8 @@ function rpc(fn, p) {
   DB.qa.push({ id: 51, sub_id: 71, q: '1', who: '선생님', name: '남주혜', body: '다른 문항 설명', mine: '', at: '2026-11-10T06:10:00Z', read_at: null, s: { code: '다른 과제', name: '박영희' } });
   const t = await ctx.newPage(); const terr = []; t.on('pageerror', e => terr.push(e.message));
   await t.goto(U + 'hwork_result.html?sid=55&q=2'); await t.waitForSelector('#rvq2 .rvthr');
-  const cs = await t.evaluate(() => { const e = document.querySelector('#rvq2 .cn.ok'); return { bg: getComputedStyle(e).backgroundColor, before: getComputedStyle(e, '::before').content }; });
-  ok(cs.bg === 'rgb(95, 148, 136)' && (cs.before === 'none' || cs.before === 'normal'), '정답 번호를 칠함(덧씌운 동그라미 없음) ' + JSON.stringify(cs));
+  const cs = await t.evaluate(() => { const e = document.querySelector('#rvq2 .cn.ok'); const a = getComputedStyle(e, '::after'); const r = e.getBoundingClientRect(); return { col: getComputedStyle(e).color, bg: a.backgroundColor, txt: a.content, before: getComputedStyle(e, '::before').content, w: r.width }; });
+  ok(cs.bg === 'rgb(95, 148, 136)' && cs.col === 'rgba(0, 0, 0, 0)' && /"\d"/.test(cs.txt) && (cs.before === 'none' || cs.before === 'normal'), '정답 번호 — 원래 글자는 투명, 가운데 숫자 동그라미 ' + JSON.stringify(cs));
   ok((await t.textContent('#rvq2 .prev summary')).includes('같은 문제에 남긴 답장 1개'), '같은 문항 id(다른 과제 5번)의 지난 답장 1개 — 다른 문항 답장은 빠짐');
   await t.click('#rvq2 .prev summary'); await t.click('[data-pv="2|0"]');
   ok((await t.inputValue('textarea[data-rin="2"]')).includes('지난 설명'), '불러오기 → 답장 칸에 글');
