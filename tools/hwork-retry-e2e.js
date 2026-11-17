@@ -106,6 +106,15 @@ function rpc(fn, p) {
   // 1:1(틀림) 2:서술 3:가(틀림) 4:O(맞음) 5:2(맞음)
   await p.click('#q1 .choices button:nth-child(1)'); await p.fill('#q2 textarea', '내 서술'); await p.fill('#q3 input', '가');
   await p.click('#q4 .ox button:nth-child(1)'); await p.click('#q5 .choices button:nth-child(2)');
+  // 답 고르기 칸 — ①~⑤ 큰 칸 · 안내 줄 · 다시 누르면 지움 · 위 답안표
+  ok((await p.locator('#q5 .choices button').allTextContents()).join('') === '①②③④⑤', '답 칸에 ①~⑤');
+  ok((await p.textContent('#ph5')).includes('② 골랐어요'), '고르면 안내 줄에 고른 답');
+  ok((await p.locator('#omr button').count()) === 5 && (await p.textContent('#om5')).includes('②') && (await p.textContent('#om4')).includes('O'), '답안표에 고른 답');
+  ok((await p.locator('#q5 .choices button').first().boundingBox()).height >= 46, '답 칸 높이 46px 이상');
+  if (SHOT) await p.screenshot({ path: SHOT + '/omr-mobile.png' });
+  await p.click('#q5 .choices button:nth-child(2)');
+  ok(!(await p.locator('#q5 .choices button.sel').count()) && !(await p.textContent('#om5')).includes('②') && (await p.textContent('#cnt')) === '4', '같은 칸을 다시 누르면 지움');
+  await p.click('#q5 .choices button:nth-child(2)');
   await p.selectOption('#schoolSel', '무원고등학교'); await p.selectOption('#gradeSel', '고2'); await p.fill('#name', '박보검');
   await p.click('#submit'); await p.waitForTimeout(700);
   ok(DB.lastSubmit && DB.lastSubmit.away && DB.lastSubmit.away.n === 2 && DB.lastSubmit.away.sec >= 2 && DB.lastSubmit.away.sec <= 4, '화면 이탈 2회·약 2초 제출에 실림 ' + JSON.stringify(DB.lastSubmit && DB.lastSubmit.away));

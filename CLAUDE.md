@@ -86,3 +86,8 @@
 - **선생님** = `hwork_result.html?sid=제출번호(&q=문항)` — 제출 확인(hwork_teacher.html)의 원본 제출 줄을 누르면 새 탭, 슈톡 업무 카드의 'H WORK 질문' 링크도 이 주소. 카드 안 답장(사진·영상·파일 첨부, Ctrl+V 캡처 — 버킷 hwork-reply-files, hwork_reply_files.qa_id), 위에 개인 리테스트(ctx.extra). 답장하면 072 트리거가 그 슈톡 할 일을 완료로 바꾼다. 열어 둔 카드의 학생 글은 읽음. 정답은 과제 data.items·문항 은행·교재 원문에서. 주소 없이 열면 답장 기다리는 질문 목록.
 - **질문함(hwork_qa.html)은 없앴다** — 옛 주소는 hwork_result.html 로 넘기고, 허브 H WORK 메뉴 카드도 뺐다. 새 질문은 담당 선생님(과제 강사 = 활성 교사 이름, 없으면 원장님) 슈톡 업무 카드 + 휴대폰 알림(엣지 함수 hwork-ask → pushHand, 제목 'H WORK 학생 질문').
 - 검증: `tools/bank-e2e.js`(67)·`tools/qa-files-retest-e2e.js`(29)·`tools/hwork-retry-e2e.js`(56)·`tools/retest-make-e2e.js`(23).
+
+## 문제 풀 때 답 고르는 칸 — 모바일 OMR (2026-11-17 원장님 "모바일 오엠알이 어떻게 작동하는지 직관적이지가 않아요")
+- hwork.html 문항 카드: 작은 숫자 동그라미 대신 **①~⑤ 큰 칸**(높이 48px, 오답하기의 다시 고르는 칸도 같은 모양), OX 는 'O 맞다 / X 틀리다'. 칸 위 안내 줄 `#ph{q}`('답을 하나 누르세요' → '② 골랐어요 · 다시 누르면 지워요'), **같은 칸을 다시 누르면 지운다**(`pickMark`).
+- 위에 고정된 진행 줄 아래 **답안표 `#omr`**(번호 칸 — 고른 답이 채워져 보이고, 누르면 그 문항으로 `omrGo`, 서술형은 점선 칸).
+- 검증: `tools/hwork-retry-e2e.js`(61).
