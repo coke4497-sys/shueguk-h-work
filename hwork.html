@@ -70,19 +70,33 @@
   .q.answered{ box-shadow:0 0 0 1.5px var(--sage) inset, var(--shadow); }
   .q .num{ width:30px; flex-shrink:0; text-align:center; font-family:'Gowun Batang',serif; font-weight:700; font-size:16px; }
   .qbody{ flex:1; min-width:0; }
-  .choices{ display:flex; gap:7px; }
+  /* 답 고르기 칸 (2026-11-17 원장님 "모바일 OMR 이 어떻게 작동하는지 직관적이지 않아요") — 동그라미 숫자 대신 ①~⑤ 큰 칸, 위에 안내 한 줄, 다시 누르면 지움 */
+  .pickh{ font-size:12.5px; color:var(--muted); margin:8px 0 6px; }
+  .pickh b{ color:var(--sage-d); }
+  .choices{ display:flex; gap:6px; }
   .choices button{
-    flex:1; aspect-ratio:1; min-width:0; border:1.5px solid var(--line); background:#fff; border-radius:50%;
-    font-size:15px; color:var(--muted); font-family:'Gowun Batang',serif; cursor:pointer; transition:all .12s;
+    flex:1; min-width:0; height:48px; border:1.5px solid var(--line); background:#fff; border-radius:12px;
+    font-size:21px; line-height:1; color:#6b746f; font-family:'Gowun Batang',serif; cursor:pointer; transition:background .12s, border-color .12s;
+    -webkit-tap-highlight-color:transparent; touch-action:manipulation;
   }
-  .choices button:active{ transform:scale(.9); }
+  .choices button:active{ transform:scale(.94); }
   .choices button.sel{ background:var(--sage-d); border-color:var(--sage-d); color:#fff; font-weight:700; box-shadow:0 2px 6px rgba(127,160,143,.4); }
   .ox{ display:flex; gap:8px; }
   .ox button{
-    flex:1; padding:11px 0; border:1.5px solid var(--line); background:#fff; border-radius:10px;
-    font-size:17px; color:var(--muted); font-family:'Gowun Batang',serif; cursor:pointer;
+    flex:1; height:48px; border:1.5px solid var(--line); background:#fff; border-radius:12px;
+    font-size:19px; color:#6b746f; font-family:'Gowun Batang',serif; cursor:pointer; -webkit-tap-highlight-color:transparent; touch-action:manipulation;
   }
+  .ox button small{ font-family:'Gowun Dodum',sans-serif; font-size:12px; margin-left:4px; }
   .ox button.sel{ background:var(--sage-d); border-color:var(--sage-d); color:#fff; font-weight:700; }
+  .q{ scroll-margin-top:118px; }
+  /* 위 고정 줄의 답안표 — 번호 칸이 답을 고르면 채워지고, 누르면 그 문항으로 */
+  .omr{ display:flex; gap:5px; overflow-x:auto; padding:8px 0 2px; scrollbar-width:none; }
+  .omr::-webkit-scrollbar{ display:none; }
+  .omr button{ flex:0 0 auto; min-width:34px; height:34px; padding:0 4px; border:1.5px solid var(--line); background:#fff; border-radius:9px;
+    font-size:12px; color:#8a938e; font-family:inherit; cursor:pointer; line-height:1.05; -webkit-tap-highlight-color:transparent; }
+  .omr button b{ display:block; font-size:13px; color:#fff; font-family:'Gowun Batang',serif; }
+  .omr button.on{ background:var(--sage-d); border-color:var(--sage-d); color:#e8f1ec; }
+  .omr button.essay{ border-style:dashed; }
   .tans{ width:100%; padding:11px 13px; border:1.5px solid var(--line); border-radius:10px;
     font-size:16px; font-family:inherit; background:#fafafb; }
   .tans:focus{ outline:none; border-color:var(--lav); background:#fff; }
@@ -314,6 +328,7 @@
   <div class="progress-wrap">
     <div class="progress-info"><span>답안 작성 현황</span><span><b id="cnt">0</b> / <span id="tot">0</span></span></div>
     <div class="bar"><i id="barFill"></i></div>
+    <div class="omr" id="omr" aria-label="답안표 — 번호를 누르면 그 문항으로 가요"></div>
   </div>
 
   <div id="quiz"></div>
@@ -378,6 +393,7 @@
   })();
   let meta=null;     // 선택된 H WORK 메타(정답 없음)
   let QS=null;       // 문항 은행 과제의 문제 화면 {items:{q:{html,pid,src}}, passages:{pid:html}} (067 hwork_qs)
+  const CIRC='①②③④⑤';
   const picks={};    // q -> 답
   /* 화면 이탈 기록 (2026-11-12 원장님) — 문항을 펼친 뒤 제출하기 전까지 다른 앱으로 넘어가거나 화면을 끄면
    * (visibilitychange hidden) 횟수와 시간을 세어 제출에 싣는다. 막지는 않고 기록만 남긴다(교사 화면에 보임). */
@@ -570,6 +586,8 @@
       wrap.appendChild(makeQ(q,type));
     }
     quiz.appendChild(wrap);
+    document.getElementById('omr').innerHTML=Array.from({length:meta.count},(_,i)=>{ const q=i+1, t=(meta.items[q]&&meta.items[q].type)||'choice5';
+      return `<button type="button" id="om${q}" class="${t==='essay'?'essay':''}" onclick="omrGo(${q})">${q}</button>`; }).join('');
     document.getElementById('tot').textContent=meta.count;
     updateProgress();
   }
@@ -614,13 +632,13 @@
     let body='';
     const tlabel = type==='ox'?'OX':(type==='essay'?'서술형 · 채점 없이 예시 답과 비교':(type==='text'?'단답형':'5지선다'));
     if(type==='choice5'){
-      body='<div class="qtype">'+tlabel+'</div><div class="choices">';
-      for(let j=1;j<=5;j++) body+=`<button onclick="pickChoice(${q},${j},this)">${j}</button>`;
+      body='<div class="qtype">'+tlabel+'</div><div class="pickh" id="ph'+q+'">답을 하나 누르세요</div><div class="choices">';
+      for(let j=1;j<=5;j++) body+=`<button type="button" aria-label="${j}번" onclick="pickChoice(${q},${j},this)">${CIRC[j-1]}</button>`;
       body+='</div>';
     }else if(type==='ox'){
-      body=`<div class="qtype">${tlabel}</div><div class="ox">
-        <button onclick="pickOX(${q},'O',this)">O</button>
-        <button onclick="pickOX(${q},'X',this)">X</button></div>`;
+      body=`<div class="qtype">${tlabel}</div><div class="pickh" id="ph${q}">맞으면 O, 틀리면 X 를 누르세요</div><div class="ox">
+        <button type="button" onclick="pickOX(${q},'O',this)">O<small>맞다</small></button>
+        <button type="button" onclick="pickOX(${q},'X',this)">X<small>틀리다</small></button></div>`;
     }else if(type==='essay'){
       body=`<div class="qtype">${tlabel}</div><textarea class="eans" placeholder="답안을 적어 주세요. 제출하면 예시 답과 비교할 수 있어요." oninput="pickText(${q},this.value)"></textarea>`;
     }else{
@@ -632,22 +650,18 @@
     return div;
   }
 
-  function pickChoice(q,j,btn){
-    picks[q]=j;
-    const wrap=btn.parentElement;
+  function pickMark(q, v, btn, label){   // 같은 칸을 다시 누르면 지운다
+    const wrap=btn.parentElement, again=btn.classList.contains('sel');
     wrap.querySelectorAll('button').forEach(b=>b.classList.remove('sel'));
-    btn.classList.add('sel');
-    document.getElementById('q'+q).classList.add('answered');
+    if(again) delete picks[q]; else { picks[q]=v; btn.classList.add('sel'); }
+    document.getElementById('q'+q).classList.toggle('answered', !again);
+    const h=document.getElementById('ph'+q);
+    if(h) h.innerHTML = again ? (label==null?'맞으면 O, 틀리면 X 를 누르세요':'답을 하나 누르세요') : '<b>'+(label||v)+' 골랐어요</b> · 다시 누르면 지워요';
     updateProgress();
   }
-  function pickOX(q,v,btn){
-    picks[q]=v;
-    const wrap=btn.parentElement;
-    wrap.querySelectorAll('button').forEach(b=>b.classList.remove('sel'));
-    btn.classList.add('sel');
-    document.getElementById('q'+q).classList.add('answered');
-    updateProgress();
-  }
+  function pickChoice(q,j,btn){ pickMark(q, j, btn, CIRC[j-1]); }
+  function pickOX(q,v,btn){ pickMark(q, v, btn, null); }
+  function omrGo(q){ const el=document.getElementById('q'+q); if(el) el.scrollIntoView({ behavior:'smooth', block:'start' }); }
   function pickText(q,v){
     const val=v.trim();
     if(val) picks[q]=val; else delete picks[q];
@@ -672,6 +686,8 @@
     const n=Object.keys(picks).length;
     document.getElementById('cnt').textContent=n;
     document.getElementById('barFill').style.width=(total? n/total*100:0)+'%';
+    for(let q=1;q<=total;q++){ const b=document.getElementById('om'+q); if(!b) continue; const v=picks[q], on=v!=null&&v!=='';
+      b.classList.toggle('on', on); b.innerHTML = on && (typeof v==='number' || v==='O' || v==='X') ? q+'<b>'+(typeof v==='number'?CIRC[v-1]:v)+'</b>' : (on?q+'<b>✓</b>':String(q)); }
   }
 
   async function submit(){
@@ -855,7 +871,7 @@
     if(t==='ox') return `<div class="ox">${['O','X'].map(x=>`<button class="${v===x?'sel':''}" onclick="pickRe(${q},'${x}',this)">${x}</button>`).join('')}</div>`;
     if(t==='text') return `<input type="text" class="tans" placeholder="답 입력" value="${escapeHtml(v||'')}" oninput="setDraft(${q},'pick',this.value.trim())">`;
     let h='<div class="choices">';
-    for(let j=1;j<=5;j++) h+=`<button class="${v===String(j)?'sel':''}" onclick="pickRe(${q},'${j}',this)">${j}</button>`;
+    for(let j=1;j<=5;j++) h+=`<button type="button" aria-label="${j}번" class="${v===String(j)?'sel':''}" onclick="pickRe(${q},'${j}',this)">${'①②③④⑤'[j-1]}</button>`;
     return h+'</div>';
   }
   function setDraft(q,f,v){ (RS.draft[q]=RS.draft[q]||{})[f]=v; }
