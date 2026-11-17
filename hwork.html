@@ -1070,7 +1070,14 @@
     if(!d || !d.ok){ rtShell('<section><div class="guide">'+escapeHtml((d&&d.error)||'리테스트를 찾을 수 없습니다.')+'</div></section>'); return; }
     RTM.data=d;
     if(d.submitted) return rtResult(d.got, d.total, d.detail||{}, d.submitted_at);
-    try{ const qj=await sbRpc('hwork_qs', { p:{ teacher:d.teacher, code:d.code } }); if(qj&&qj.ok) QS=qj; }catch(e){}
+    if(Array.isArray(d.parts)){   // 여러 과제를 모은 오답 리테스트(071) — 과제마다 문제 원문을 받아 리테스트 번호로 다시 잇는다
+      RTM.qs={};
+      const codes=[...new Set(d.parts.map(p=>p.teacher+'\u0001'+p.code))];
+      await Promise.all(codes.map(async k=>{ const [t,c]=k.split('\u0001');
+        try{ const qj=await sbRpc('hwork_qs', { p:{ teacher:t, code:c } }); if(qj&&qj.ok) RTM.qs[k]=qj; }catch(e){} }));
+    }else{
+      try{ const qj=await sbRpc('hwork_qs', { p:{ teacher:d.teacher, code:d.code } }); if(qj&&qj.ok) QS=qj; }catch(e){}
+    }
     rtDraw();
   }
   function rtInput(q,t){
@@ -1083,16 +1090,26 @@
   }
   function rtPick(q,v,btn){ RTM.pick[q]=v; btn.parentElement.querySelectorAll('button').forEach(b=>b.classList.remove('sel')); btn.classList.add('sel'); }
   function rtText(q,v){ v=v.trim(); if(v) RTM.pick[q]=v; else delete RTM.pick[q]; }
+  function rtQ(q){   // 리테스트 q번의 문제·지문 HTML(여러 과제면 그 과제의 문제 화면으로)
+    const d=RTM.data;
+    if(!Array.isArray(d.parts)){ const p=QS?pidOf(q):''; return { pid:p, pas:p?pasHtml(q):'', q:QS?qHtml(q):'', src:'' }; }
+    const pt=d.parts[Number(q)-1]||{}, k=pt.teacher+'\u0001'+pt.code, Q=RTM.qs&&RTM.qs[k];
+    const src=String(pt.code||'').replace(/^SHUEGUK REAL 내신 기출\s*/,'').replace(/^\[[^\]]+\]\s*/,'')+' · '+pt.q+'번';
+    if(!Q||!Q.items||!Q.items[pt.q]) return { pid:'', pas:'', q:'', src };
+    const it=Q.items[pt.q], cls=Q.style==='real'?'rq':'gq', pid=it.pid?k+'|'+it.pid:'';
+    return { pid, pas:it.pid?`<div class="${cls}">${(Q.passages||{})[it.pid]||''}</div>`:'', q:`<div class="${cls}">${it.html}</div>`, src };
+  }
   function rtDraw(){
     const d=RTM.data, qs=d.qs||[];
     const tl=t=>t==='ox'?'OX':(t==='text'?'단답형':'5지선다');
     let lastPid='';
     rtShell(`<div class="tbar">${escapeHtml(d.code||'')}</div>
       <section><h2>리테스트 · ${qs.length}문항</h2>
-        <div class="guide">${escapeHtml(d.name||'')} 학생이 이 과제에서 <b>틀린 문항</b>만 모았습니다. 다시 풀고 답을 넣으십시오. 한 번만 제출할 수 있어요.</div>
-        ${qs.map(q=>{ const t=((d.items||{})[q]||{}).type||'choice5';
-          const p=QS?pidOf(q):''; const pas=(p&&p!==lastPid)?`<details class="pasd" open><summary>지문 보기</summary><div class="gqp">${pasHtml(q)}</div></details>`:''; lastPid=p||lastPid;
-          return `<div class="rtq"><div class="qt">${escapeHtml(q)}번 · ${tl(t)}</div>${pas}${QS?qHtml(q):''}${rtInput(q,t)}</div>`; }).join('')}
+        <div class="guide">${escapeHtml(d.name||'')} 학생이 ${Array.isArray(d.parts)?'과제에서':'이 과제에서'} <b>틀린 문항</b>만 모았습니다. 다시 풀고 답을 넣으십시오. 한 번만 제출할 수 있어요.</div>
+        ${qs.map(q=>{ const t=((d.items||{})[q]||{}).type||'choice5', x=rtQ(q);
+          const pas=(x.pid&&x.pid!==lastPid&&x.pas)?`<details class="pasd" open><summary>지문 보기</summary><div class="gqp">${x.pas}</div></details>`:''; lastPid=x.pid||lastPid;
+          const noq=!x.q&&x.src?`<div class="guide" style="margin:4px 0 0">교재 「${escapeHtml(x.src)}」 문항을 보고 풀어 주세요.</div>`:'';
+          return `<div class="rtq"><div class="qt">${escapeHtml(q)}번 · ${tl(t)}${x.src?' · '+escapeHtml(x.src):''}</div>${pas}${x.q}${noq}${rtInput(q,t)}</div>`; }).join('')}
         <button type="button" class="rtgo" id="rtGo" onclick="rtSubmit()">리테스트 제출하기</button>
       </section>`);
   }

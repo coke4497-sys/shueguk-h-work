@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<script src="https://coke4497-sys.github.io/shueguk-hub/assets/teacher-gate.js"></script><!-- 교사 로그인 게이트 (허브 로그인 필요) -->
+<script src="https://coke4497-sys.github.io/shueguk-report/teacher-name.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>오답 리테스트 만들기</title>
+<link rel="icon" type="image/png" href="icon-check.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&family=Do+Hyeon&family=Sacramento&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="gbank.css">
+<link rel="stylesheet" href="real.css">
+<style>
+  :root{ --ink:#2C2F2D; --muted:#6B746E; --line:#DCE4DF; --paper:#E4EFEA; --lav-bg:#EDE4F4; --lav-d:#5A4A6A; }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);font-family:'Gowun Dodum',sans-serif;color:var(--ink);font-size:15px;line-height:1.55}
+  button,textarea,select,input{font-family:inherit}
+  .wrap{max-width:1200px;margin:0 auto;padding:16px}
+  .back{display:inline-flex;gap:6px;color:var(--muted);text-decoration:none;font-size:14px;background:#fff;border-radius:999px;padding:6px 14px}
+  h1{font-family:'Gowun Batang',serif;font-size:26px;margin:14px 0 4px}
+  .lead{color:var(--muted);font-size:14px;margin:0 0 12px}
+  .cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 340px;gap:14px;align-items:start}
+  @media (max-width:1000px){ .cols{grid-template-columns:1fr} }
+  .card{background:#fff;border-radius:18px;padding:14px 16px}
+  .card h2{font-family:'Do Hyeon',sans-serif;font-weight:400;font-size:20px;margin:0 0 8px;color:#24443d}
+  .card h2 small{font-family:'Gowun Dodum';font-size:13px;color:var(--muted);margin-left:6px}
+  .row{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:6px 0}
+  select,input[type=text]{border:1px solid var(--line);border-radius:10px;padding:7px 10px;font-size:14px;background:#fafbf9}
+  input[type=text]{flex:1;min-width:120px}
+  .lk{border:0;background:#F2F5F3;border-radius:999px;padding:5px 11px;font-size:13px;cursor:pointer;color:#3F4A44}
+  .list{max-height:56vh;overflow:auto;margin-top:6px;border-top:1px solid #EEF2EF}
+  .it{display:flex;gap:8px;align-items:flex-start;padding:8px 4px;border-bottom:1px solid #EEF2EF;cursor:pointer;font-size:14px}
+  .it:hover{background:#F6F7F4}
+  .it input{margin-top:4px}
+  .it .t{flex:1;min-width:0}
+  .it .t small{display:block;color:var(--muted);font-size:12.5px}
+  .it .n{flex:none;font-family:'Do Hyeon';color:#4F5E86;font-size:15px}
+  .it .n.z{color:#B8C0BB}
+  .grp{font-family:'Do Hyeon';font-size:15px;color:#3d675d;padding:8px 4px 2px}
+  .empty{color:var(--muted);text-align:center;padding:24px 8px;font-size:14px}
+  .opt{display:flex;gap:6px;align-items:center;font-size:13.5px;margin:8px 0;color:#3F4A44}
+  .sum{font-size:14px;background:#F6F7F4;border-radius:12px;padding:10px 12px;margin:8px 0}
+  .sum b{font-family:'Do Hyeon';font-weight:400;font-size:18px;color:#24443d}
+  .big{display:block;width:100%;border:0;border-radius:12px;padding:12px;margin-top:8px;font-size:15px;cursor:pointer;background:var(--lav-bg);color:var(--lav-d)}
+  .big.go{background:#4A4266;color:#fff}
+  .big:disabled{opacity:.5;cursor:default}
+  .f{display:flex;flex-direction:column;gap:3px;margin:6px 0}
+  .f label{font-size:12.5px;color:var(--muted)}
+  .msg{font-size:13px;margin-top:8px;white-space:pre-line}
+  .msg.ok{color:#2F7A57}.msg.bad{color:#B0525D}
+  .pv{font-size:13px;margin-top:6px;max-height:30vh;overflow:auto}
+  .pv div{padding:4px 0;border-bottom:1px dashed #E3E9E5}
+  .pv b{font-family:'Do Hyeon';font-weight:400;font-size:14.5px}
+  .made{font-size:13px}
+  .made .m1{display:flex;gap:6px;align-items:center;padding:6px 0;border-bottom:1px solid #EEF2EF}
+  .made .m1 .t{flex:1;min-width:0}
+  .made .m1 small{display:block;color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .st{border-radius:999px;padding:1px 8px;font-size:12px;background:#F9EFD0;color:#7a6326;white-space:nowrap}
+  .st.ok{background:#E4F1EA;color:#24443d}
+  .made button{border:0;background:#fff;color:#B0525D;font-size:12px;cursor:pointer}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#2C2F2D;color:#fff;padding:9px 18px;border-radius:999px;font-size:14px;opacity:0;transition:.2s;pointer-events:none;z-index:50}
+  .toast.show{opacity:1}
+  /* ── 인쇄 ── 학생마다 한 장(이어지면 여러 쪽), 2단 */
+  #print{display:none}
+  @page{size:A4;margin:14mm 13mm 14mm 13mm}
+  @media print{ body{background:#fff} .wrap,.toast{display:none!important} #print{display:block!important} }
+  #print .sheet{break-before:page}
+  #print .sheet:first-child{break-before:auto}
+  #print .ph1{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:.3mm solid #c3dcd5;padding-bottom:2mm;margin-bottom:4mm}
+  #print .ph1 .logo{font-family:Sacramento;font-size:20pt;color:#5f9488;line-height:1}
+  #print .ph1 .tt{font-family:'Gowun Batang',serif;font-size:13pt;font-weight:700;color:#24443d}
+  #print .ph1 .nm{font-size:10pt;color:#24443d;text-align:right}
+  #print .ph1 .nm small{display:block;font-size:8.5pt;color:#6b8a83}
+  #print .pcols{column-count:2;column-gap:8mm;column-rule:.25mm solid #e1ece9;font-size:9.3pt}
+  #print .gq,#print .rq{font-size:9.3pt;line-height:1.6}
+  #print .blk{break-inside:avoid;margin:0 0 6mm}
+  #print .pblk{break-inside:auto;margin:0 0 4mm}
+  #print .qn{display:inline-block;min-width:7.2mm;border-radius:1.2mm;background:#8db8ad;color:#fff;font-size:9pt;text-align:center;line-height:5.4mm;margin-right:1.6mm}
+  #print .psrc{font-size:7.3pt;color:#8a9a97;text-align:right;margin-top:1mm}
+  #print .noq{border:.3mm dashed #c3dcd5;border-radius:2mm;padding:2.4mm 3mm;color:#3d675d}
+  #print .aline{margin-top:2mm;font-size:8.5pt;color:#6b8a83}
+  #print .quick{border:.3mm solid #c3dcd5;border-radius:2mm;padding:2.6mm 3mm;margin:0 0 5mm;display:grid;grid-template-columns:repeat(6,1fr);gap:1mm 2mm;font-size:9pt;background:#f4f9f7}
+  #print .quick .qt{grid-column:1/-1;color:#3d675d;margin-bottom:.6mm}
+  #print .quick b{color:#3d675d;font-weight:normal;margin-right:1mm}
+  #print .xans{margin-top:1.4mm;font-size:8.3pt;background:#eef6f3;border-radius:1mm;padding:1.2mm 2mm;color:#24443d}
+</style>
+</head>
+<body class="teacher">
+<div class="wrap">
+  <a class="back" href="https://coke4497-sys.github.io/shueguk-hub/hwork.html">← H WORK 메뉴</a>
+  <h1>오답 리테스트 만들기</h1>
+  <p class="lead">과제와 학생을 고르면 학생마다 틀린 문항을 한 장으로 모읍니다. 학생 페이지에 온라인 리테스트로 내거나, 학생용·교사용으로 인쇄할 수 있어요.</p>
+  <div class="cols">
+    <div class="card">
+      <h2>1. 과제 고르기 <small id="hwN"></small></h2>
+      <div class="row"><select id="tSel"><option value="">강사를 고르세요</option></select></div>
+      <div class="row"><input type="text" id="hq" placeholder="과제 이름 찾기"><button type="button" class="lk" id="hAll">보이는 것 모두</button><button type="button" class="lk" id="hNone">비우기</button></div>
+      <div class="list" id="hList"><div class="empty">강사를 고르면 학생이 제출한 과제가 보여요.</div></div>
+    </div>
+    <div class="card">
+      <h2>2. 학생 고르기 <small id="stN"></small></h2>
+      <div class="row"><select id="fSch"><option value="">모든 학교</option></select><select id="fGr"><option value="">모든 학년</option></select></div>
+      <div class="row"><input type="text" id="sq" placeholder="이름 찾기"><button type="button" class="lk" id="sAll">보이는 것 모두</button><button type="button" class="lk" id="sNone">비우기</button></div>
+      <label class="opt"><input type="checkbox" id="incClr"> 오답하기로 클리어한 문항도 넣기</label>
+      <div class="list" id="sList"><div class="empty">과제를 고르면 그 과제를 낸 학생과 오답 수가 보여요.</div></div>
+    </div>
+    <div class="card">
+      <h2>3. 만들기</h2>
+      <div class="f"><label for="title">제목</label><input type="text" id="title" placeholder="오답 모음"></div>
+      <div class="sum" id="sum">학생과 과제를 고르세요.</div>
+      <div class="pv" id="pv"></div>
+      <button type="button" class="big" id="prS" disabled>학생용 인쇄</button>
+      <button type="button" class="big" id="prT" disabled>교사용 인쇄 (정답 표시)</button>
+      <button type="button" class="big go" id="goOn" disabled>온라인 리테스트 내기</button>
+      <div class="msg" id="msg"></div>
+      <h2 style="margin-top:18px;font-size:17px">최근에 낸 오답 리테스트</h2>
+      <div class="made" id="made"><div class="empty">불러오는 중…</div></div>
+    </div>
+  </div>
+</div>
+<div id="print"></div>
+<div class="toast" id="toast"></div>
+<script>
+/* ══ 교사 페이지 조용한 인증 (2026-08-25, 3단계) ═══════════════════════
+ * 이 아래 연결부들이 수파베이스에 보내는 요청에 '교사 신분'을 붙인다.
+ * 화면에 로그인 창은 없다 — 페이지가 열릴 때 알아서 받아 온다.
+ *
+ * 왜 필요한가:
+ *   공개 키(sb_publishable_…)는 학생이 여는 페이지에도 들어 있어서, 그 키로 표를
+ *   직접 읽을 수 있으면 전교생 명단(학생ID=비밀번호·접근코드)이 새어 나간다.
+ *   그래서 공개 키에서는 표 접근을 없애고(anon), 표는 이 신분(authenticated)만
+ *   읽고 쓰도록 나눴다. 학생 화면은 표 대신 함수(student_bundle 등)를 쓴다.
+ *
+ * 주의:
+ *   · 이 조각은 **교사용 페이지에만** 넣는다. 학생이 여는 페이지(s·r·클리닉 신청·
+ *     모의고사 신청·H WORK 제출)에는 절대 넣지 말 것 — 넣는 순간 위 보호가 무의미해진다.
+ *   · 아래 연결부들이 시작할 때 window.fetch 를 붙잡아 두므로, 이 조각은 **그것들보다
+ *     먼저** 실행돼야 한다. 페이지의 첫 스크립트 자리를 지킬 것.
+ *   · 인증이 실패하면 예전처럼 공개 키로 보낸다(권한을 회수하기 전까지는 그래도 동작). */
+(function(){
+  var SB_URL = 'https://bangdbhqpphqqdwcledg.supabase.co';
+  var SB_KEY = 'sb_publishable_dE9d1KIbpgYaQkaS2MSrlg_-7SiRJuT';
+  var T_ID = 'teachers@shueguk.internal';
+  var T_PW = 'shg_FCePWvnawH44SV8kYB9BHRKi6aag';
+  var tok = null, until = 0, pending = null;
+  var raw = window.fetch.bind(window);
+  var TOK_LS = 'sb_teacher_tok_v1';   // 받아 둔 신분증은 브라우저에 남겨 다음 페이지에서 다시 받지 않는다(1시간짜리)
+
+  function cachedTok(){
+    try {
+      var c = JSON.parse(localStorage.getItem(TOK_LS) || 'null');
+      if (c && c.t && c.u > Date.now()){ tok = c.t; until = c.u; return true; }
+    } catch(e){}
+    return false;
+  }
+  function auth(){
+    if (tok && Date.now() < until) return Promise.resolve(tok);
+    if (cachedTok()) return Promise.resolve(tok);
+    if (pending) return pending;
+    var req = raw(SB_URL + '/auth/v1/token?grant_type=password', {
+      method: 'POST',
+      headers: { 'apikey': SB_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: T_ID, password: T_PW })
+    }).then(function(r){ return r.json(); }).then(function(d){
+      if (!d || !d.access_token) throw new Error('teacher auth');
+      tok = d.access_token;
+      until = Date.now() + Math.max(60, (d.expires_in || 3600) - 300) * 1000;   // 만료 5분 전에 다시 받는다
+      try { localStorage.setItem(TOK_LS, JSON.stringify({ t: tok, u: until })); } catch(e){}
+      return tok;
+    });
+    /* 로그인이 멈춰 있으면 이 아래 모든 조회가 함께 멈춘다 — 10초를 넘기면 실패로 보고
+     * 그 조회는 예전 방식(공개 키)으로 내보낸다. 다음 호출 때 다시 받는다. */
+    var late = new Promise(function(_, rej){ setTimeout(function(){ rej(new Error('teacher auth timeout')); }, 10000); });
+    pending = Promise.race([req, late]).then(function(t){ pending = null; return t; },
+                                            function(e){ pending = null; throw e; });
+    return pending;
+  }
+  function withAuth(url, opts, t){
+    var src = (opts && opts.headers) || {}, h = {};
+    if (src.forEach && !src.hasOwnProperty) src.forEach(function(v, k){ h[k] = v; });
+    else for (var k in src) h[k] = src[k];
+    h['apikey'] = SB_KEY;
+    h['Authorization'] = 'Bearer ' + t;
+    var o = {}; for (var k2 in (opts || {})) o[k2] = opts[k2];
+    o.headers = h;
+    return o;
+  }
+  window.fetch = function(url, opts){
+    var u = (typeof url === 'string') ? url : ((url && url.url) || '');
+    if (u.indexOf(SB_URL + '/rest/v1') !== 0 && u.indexOf(SB_URL + '/storage/v1') !== 0) return raw(url, opts);   // 저장소(답장 첨부)도 교사 신분
+    return auth().then(function(t){
+      return raw(url, withAuth(url, opts, t)).then(function(r){
+        if (r.status !== 401) return r;
+        tok = null; until = 0;                       // 만료가 겹쳤으면 한 번만 다시 받아 재시도
+        try { localStorage.removeItem(TOK_LS); } catch(e){}
+        return auth().then(function(t2){ return raw(url, withAuth(url, opts, t2)); });
+      });
+    }, function(){ return raw(url, opts); });
+  };
+})();
+</script>
+<script>
+/* ══ 오답 리테스트 만들기 (2026-11-17 원장님 "오답 문항을 모아서 리테스트를 만들어주고 싶은데요" · "리테스트를 인쇄할 수도", 리포트 071) ══
+ * 강사 → 과제 여러 개 → 학생 여러 명. 학생마다 고른 과제의 가장 최근 제출에서 틀린 문항(서술형 빼고, 기본은 오답하기로 클리어한 것도 뺌)을 모은다.
+ * 온라인 = hwork_retests 에 학생마다 한 줄(parts = [{teacher, code, q}] · qs = 1..N) — 학생 페이지 H WORK '개인 리테스트'로 보이고 hwork.html?rt= 로 푼다.
+ * 인쇄 = 학생마다 한 장(2단). 문제 원문이 있는 과제(문항 은행 data.bank · 교재 hwork_src_items)는 문제를, 없으면 '과제 n번' 칸만. 교사용은 정답 동그라미 + 맨 위 빠른 정답. */
+const SB_REST="https://bangdbhqpphqqdwcledg.supabase.co/rest/v1", SB_KEY="sb_publishable_dE9d1KIbpgYaQkaS2MSrlg_-7SiRJuT";
+const CHS='①②③④⑤', $=id=>document.getElementById(id);
+function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function toast(m){ const t=$('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),2400); }
+async function sb(path, opts){
+  const o=Object.assign({}, opts||{}); o.headers=Object.assign({ apikey:SB_KEY, Authorization:'Bearer '+SB_KEY, 'Content-Type':'application/json' }, (opts||{}).headers||{});
+  const r=await fetch(SB_REST+path, o);
+  if(!r.ok) throw new Error(path.split('?')[0]+' '+r.status);
+  const t=await r.text(); return t?JSON.parse(t):null;
+}
+async function sbAll(path){ const out=[]; for(let off=0;;off+=1000){ const r=await sb(path+(path.includes('?')?'&':'?')+'limit=1000&offset='+off); out.push(...r); if(r.length<1000) break; } return out; }
+const enc=encodeURIComponent;
+let ME='', HWS=[], SUBS=[], HWSEL=new Set(), STSEL=new Set(), STU=null, DATA={};
+async function myName(){ if(ME) return ME; try{ if(window.shuegukTeacherName) ME=await shuegukTeacherName(); }catch(e){} return ME; }
+
+/* 과제 정렬 — 교재 순서(학생 페이지 hwBookKey 와 같은 생각: 숫자는 숫자로) */
+function natKey(s){ return String(s||'').replace(/\d+/g, d=>d.padStart(6,'0')); }
+function shortCode(c){ return String(c||'').replace(/^SHUEGUK REAL 내신 기출\s*/,'').replace(/^\[[^\]]+\]\s*/,''); }
+function stuKey(s){ return [s.name,s.school,s.grade].join('|'); }
+
+async function boot(){
+  await myName();
+  try{ HWS=await sbAll('/hwork_homeworks?select=teacher,code&order=teacher'); }catch(e){ $('hList').innerHTML='<div class="empty">과제를 불러오지 못했습니다.</div>'; return; }
+  const ts=[...new Set(HWS.map(h=>h.teacher).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ko'));
+  $('tSel').innerHTML='<option value="">강사를 고르세요</option>'+ts.map(t=>`<option>${esc(t)}</option>`).join('');
+  if(ME && ts.includes(ME)){ $('tSel').value=ME; loadTeacher(); }
+  loadMade();
+}
+async function loadTeacher(){
+  const t=$('tSel').value; HWSEL.clear(); STSEL.clear(); SUBS=[];
+  if(!t){ drawHw(); drawSt(); drawSum(); return; }
+  $('hList').innerHTML='<div class="empty">불러오는 중…</div>';
+  try{ SUBS=await sbAll('/hwork_submissions?select=id,code,name,school,grade,ts,detail,review&teacher=eq.'+enc(t)+'&order=id'); }
+  catch(e){ $('hList').innerHTML='<div class="empty">제출 기록을 불러오지 못했습니다.</div>'; return; }
+  drawHw(); drawSt(); drawSum();
+}
+function latest(){   // 학생 × 과제마다 가장 최근 제출
+  const m={}; SUBS.forEach(s=>{ const k=stuKey(s)+'||'+s.code; if(!m[k]||m[k].id<s.id) m[k]=s; }); return Object.values(m);
+}
+function wrongOf(s){
+  const d=s.detail||{}, rv=s.review||{}, inc=$('incClr').checked;
+  return Object.keys(d).filter(q=>d[q]&&d[q].ok===false&&d[q].type!=='essay'&&(inc||!(rv[q]&&rv[q].cleared_at))).sort((a,b)=>a-b);
+}
+function drawHw(){
+  const t=$('tSel').value, q=$('hq').value.trim();
+  const cnt={}; latest().forEach(s=>{ cnt[s.code]=(cnt[s.code]||0)+1; });
+  const L=HWS.filter(h=>h.teacher===t && cnt[h.code] && (!q||h.code.includes(q))).sort((a,b)=>natKey(a.code).localeCompare(natKey(b.code),'ko'));
+  $('hwN').textContent=HWSEL.size?HWSEL.size+'개 고름':'';
+  if(!t){ $('hList').innerHTML='<div class="empty">강사를 고르면 학생이 제출한 과제가 보여요.</div>'; return; }
+  if(!L.length){ $('hList').innerHTML='<div class="empty">제출이 있는 과제가 없습니다.</div>'; return; }
+  $('hList').innerHTML=L.map(h=>`<label class="it"><input type="checkbox" data-hw="${esc(h.code)}" ${HWSEL.has(h.code)?'checked':''}><span class="t">${esc(shortCode(h.code))}<small>${esc(h.code)}</small></span><span class="n">${cnt[h.code]}명</span></label>`).join('');
+}
+function stRows(){
+  const by={};
+  latest().filter(s=>HWSEL.has(s.code)).forEach(s=>{ const k=stuKey(s); (by[k]=by[k]||{ k, name:s.name, school:s.school, grade:s.grade, subs:[] }).subs.push(s); });
+  return Object.values(by).map(x=>{ x.subs.sort((a,b)=>natKey(a.code).localeCompare(natKey(b.code),'ko')); x.parts=[];
+    x.subs.forEach(s=>wrongOf(s).forEach(q=>x.parts.push({ code:s.code, q, sid:s.id }))); return x; })
+    .sort((a,b)=>(a.school||'').localeCompare(b.school||'','ko')||(a.grade||'').localeCompare(b.grade||'','ko')||a.name.localeCompare(b.name,'ko'));
+}
+function drawSt(){
+  const rows=stRows(), fs=$('fSch').value, fg=$('fGr').value, q=$('sq').value.trim();
+  const sch=[...new Set(rows.map(r=>r.school).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ko')), gr=[...new Set(rows.map(r=>r.grade).filter(Boolean))].sort();
+  $('fSch').innerHTML='<option value="">모든 학교</option>'+sch.map(x=>`<option${x===fs?' selected':''}>${esc(x)}</option>`).join('');
+  $('fGr').innerHTML='<option value="">모든 학년</option>'+gr.map(x=>`<option${x===fg?' selected':''}>${esc(x)}</option>`).join('');
+  [...STSEL].forEach(k=>{ if(!rows.some(r=>r.k===k)) STSEL.delete(k); });
+  const L=rows.filter(r=>(!fs||r.school===fs)&&(!fg||r.grade===fg)&&(!q||r.name.includes(q)));
+  $('stN').textContent=STSEL.size?STSEL.size+'명 고름':'';
+  DATA.rows=rows; DATA.vis=L;
+  if(!HWSEL.size){ $('sList').innerHTML='<div class="empty">과제를 고르면 그 과제를 낸 학생과 오답 수가 보여요.</div>'; return; }
+  if(!L.length){ $('sList').innerHTML='<div class="empty">조건에 맞는 학생이 없습니다.</div>'; return; }
+  $('sList').innerHTML=L.map(r=>`<label class="it"><input type="checkbox" data-st="${esc(r.k)}" ${STSEL.has(r.k)?'checked':''}><span class="t">${esc(r.name)}<small>${esc(r.school||'')} ${esc(r.grade||'')} · 과제 ${r.subs.length}개 제출</small></span><span class="n${r.parts.length?'':' z'}">오답 ${r.parts.length}</span></label>`).join('');
+}
+function picked(){ return (DATA.rows||[]).filter(r=>STSEL.has(r.k)); }
+function autoTitle(){
+  const codes=[...HWSEL].sort((a,b)=>natKey(a).localeCompare(natKey(b),'ko'));
+  if(!codes.length) return '오답 모음';
+  return '오답 모음 · '+shortCode(codes[0])+(codes.length>1?' 외 '+(codes.length-1)+'개':'');
+}
+function drawSum(){
+  const P=picked(), n=P.reduce((a,r)=>a+r.parts.length,0), zero=P.filter(r=>!r.parts.length).length;
+  if(!$('title').dataset.edited) $('title').value=autoTitle();
+  $('sum').innerHTML=P.length?`<b>${P.length}명</b> · 문항 ${n}개${zero?` · 오답이 없는 ${zero}명은 빠집니다`:''}`:'학생과 과제를 고르세요.';
+  $('pv').innerHTML=P.filter(r=>r.parts.length).slice(0,60).map(r=>{ const g={}; r.parts.forEach(p=>{ (g[p.code]=g[p.code]||[]).push(p.q); });
+    return `<div><b>${esc(r.name)}</b> ${r.parts.length}문항 — ${Object.keys(g).map(c=>esc(shortCode(c))+' '+g[c].join(', ')+'번').join(' / ')}</div>`; }).join('');
+  const ok=P.some(r=>r.parts.length);
+  $('prS').disabled=$('prT').disabled=$('goOn').disabled=!ok;
+  $('goOn').textContent=ok?`온라인 리테스트 내기 (${P.filter(r=>r.parts.length).length}명)`:'온라인 리테스트 내기';
+}
+$('tSel').onchange=loadTeacher;
+$('hq').oninput=drawHw;
+$('hList').addEventListener('change', e=>{ const c=e.target.dataset.hw; if(c==null) return; e.target.checked?HWSEL.add(c):HWSEL.delete(c); $('hwN').textContent=HWSEL.size?HWSEL.size+'개 고름':''; drawSt(); drawSum(); });
+$('hAll').onclick=()=>{ $('hList').querySelectorAll('[data-hw]').forEach(x=>HWSEL.add(x.dataset.hw)); drawHw(); drawSt(); drawSum(); };
+$('hNone').onclick=()=>{ HWSEL.clear(); drawHw(); drawSt(); drawSum(); };
+$('fSch').onchange=$('fGr').onchange=()=>{ drawSt(); };
+$('sq').oninput=drawSt;
+$('sList').addEventListener('change', e=>{ const k=e.target.dataset.st; if(k==null) return; e.target.checked?STSEL.add(k):STSEL.delete(k); $('stN').textContent=STSEL.size?STSEL.size+'명 고름':''; drawSum(); });
+$('sAll').onclick=()=>{ (DATA.vis||[]).forEach(r=>STSEL.add(r.k)); drawSt(); drawSum(); };
+$('sNone').onclick=()=>{ STSEL.clear(); drawSt(); drawSum(); };
+$('incClr').onchange=()=>{ drawSt(); drawSum(); };
+$('title').oninput=()=>{ $('title').dataset.edited='1'; };
+
+/* ── 문제 원문 · 정답 — 과제마다 한 번 받아 둔다 ── */
+const HWD={};   // code -> {items, bank, q:{n:{html,pid,style}}, pas:{pid:html}}
+async function hwData(code){
+  if(HWD[code]) return HWD[code];
+  const t=$('tSel').value, o={ items:{}, q:{}, pas:{} };
+  try{ const r=await sb('/hwork_homeworks?select=data&teacher=eq.'+enc(t)+'&code=eq.'+enc(code)+'&limit=1'); const d=(r[0]&&r[0].data)||{}; o.items=d.items||{};
+    if(d.bank && typeof d.bank==='object'){
+      const ids=[...new Set(Object.values(d.bank))];
+      const g=ids.length?await sb('/gbank_items?select=id,html,pid,ans,src&id=in.('+ids.join(',')+')'):[];
+      const by={}; g.forEach(x=>by[x.id]=x);
+      Object.keys(d.bank).forEach(n=>{ const x=by[d.bank[n]]; if(x) o.q[n]={ html:x.html, pid:x.pid?'g:'+x.pid:'', style:'gq', gans:x.ans }; });
+      const pids=[...new Set(g.map(x=>x.pid).filter(Boolean))];
+      if(pids.length){ const ps=await sb('/gbank_passages?select=pid,html&pid=in.('+pids.map(p=>'"'+p+'"').join(',')+')'); ps.forEach(p=>o.pas['g:'+p.pid]=p.html); }
+    }else{
+      const s=await sb('/hwork_src_items?select=no,html,pid&active=is.true&code=eq.'+enc(code));
+      s.forEach(x=>{ o.q[x.no]={ html:x.html, pid:x.pid?'s:'+x.pid:'', style:'rq' }; });
+      const pids=[...new Set(s.map(x=>x.pid).filter(Boolean))];
+      if(pids.length){ const ps=await sb('/hwork_src_passages?select=pid,html&pid=in.('+pids.map(p=>'"'+p+'"').join(',')+')'); ps.forEach(p=>o.pas['s:'+p.pid]=p.html); }
+    }
+  }catch(e){}
+  return HWD[code]=o;
+}
+function ansText(it){ const a=String(it&&it.ans!=null?it.ans:''); if(a==='*') return '모두 정답'; if(it&&it.type==='choice5') return a.split(',').map(x=>CHS[Number(x)-1]||x).join(', '); return a; }
+function markAns(html, style, it){
+  const a=String(it&&it.ans!=null?it.ans:''); if(!it||it.type!=='choice5'||a==='*') return html;
+  const nums=a.split(',').map(x=>Number(x.trim())).filter(n=>n>=1&&n<=5);
+  if(style==='gq') return nums.reduce((h,n)=>h.replace(new RegExp('<span class="cn" data-d="'+n+'">'),'<span class="cn ok" data-d="'+n+'">'),html);
+  const want=nums.map(n=>CHS[n-1]);
+  return html.replace(/<span class="cn">([①②③④⑤])<\/span>/g,(m,c)=>want.includes(c)?'<span class="cn ok">'+c+'</span>':m);
+}
+async function printDoc(teacher){
+  const P=picked().filter(r=>r.parts.length); if(!P.length) return;
+  const btn=teacher?$('prT'):$('prS'); btn.disabled=true; const old=btn.textContent; btn.textContent='준비 중…';
+  try{
+    const codes=[...new Set(P.flatMap(r=>r.parts.map(p=>p.code)))];
+    for(const c of codes) await hwData(c);
+    const title=$('title').value.trim()||autoTitle(), day=new Date(Date.now()+9*3600e3).toISOString().slice(0,10);
+    const sheets=P.map(r=>{
+      const blocks=[]; let n=0, lastPid='';
+      r.parts.forEach(p=>{ n++; const D=HWD[p.code], qd=D.q[p.q], it=D.items[p.q]||{};
+        const no=String(n).padStart(2,'0'), src=esc(shortCode(p.code))+' · '+p.q+'번';
+        if(qd&&qd.pid&&qd.pid!==lastPid&&D.pas[qd.pid]) blocks.push(`<div class="pblk ${qd.style}"><div class="ph">다음 글을 읽고 물음에 답하시오.</div>${D.pas[qd.pid]}</div>`);
+        lastPid=qd&&qd.pid?qd.pid:'';
+        let body;
+        if(qd){ body=`<div class="${qd.style}"><span class="qn">${no}</span>${teacher?markAns(qd.html,qd.style,it):qd.html}</div>`; }
+        else body=`<div class="noq"><span class="qn">${no}</span>교재 「${esc(shortCode(p.code))}」 ${esc(p.q)}번 문항을 다시 풀어 보세요.<div class="aline">답: ____________________</div></div>`;
+        blocks.push(`<div class="blk">${body}<div class="psrc">${src}</div>${teacher?`<div class="xans">정답 ${esc(ansText(it))}</div>`:''}</div>`);
+      });
+      const quick=teacher?`<div class="quick"><div class="qt">빠른 정답</div>${r.parts.map((p,i)=>`<span><b>${i+1}</b>${esc(ansText(HWD[p.code].items[p.q]||{}))}</span>`).join('')}</div>`:'';
+      return `<div class="sheet"><div class="ph1"><div><div class="logo">Shueguk</div><div class="tt">${esc(title)}${teacher?' · 교사용':''}</div></div>
+        <div class="nm">${esc(r.name)} <small>${esc(r.school||'')} ${esc(r.grade||'')} · ${r.parts.length}문항 · ${day}</small></div></div>${quick}<div class="pcols">${blocks.join('')}</div></div>`;
+    });
+    $('print').className=teacher?'teacher':'student';
+    $('print').innerHTML=sheets.join('');
+    const imgs=[...$('print').querySelectorAll('img')].filter(i=>!i.complete);
+    await Promise.all(imgs.map(i=>new Promise(r=>{ i.onload=i.onerror=r; })));
+    setTimeout(()=>window.print(),60);
+  }finally{ btn.disabled=false; btn.textContent=old; }
+}
+$('prS').onclick=()=>printDoc(false);
+$('prT').onclick=()=>printDoc(true);
+
+/* ── 온라인 리테스트 — 학생마다 hwork_retests 한 줄(parts) ── */
+const LEFT_RE=/퇴원|아웃|휴원/;
+function gdOf(g){ const s=String(g||'').replace(/\s+/g,''); const m=s.match(/([1-3])학년/)||s.match(/고([1-3])/); if(m) return m[1]; const a=s.match(/[1-3]/g); return a?a[a.length-1]:''; }
+function stuIsSub(st, sub){   // 학생 페이지·DB hwork_is_me_ 와 같은 규칙
+  const nm=String(st.name||'').trim(), base=nm.replace(/[A-Za-z]$/,''), rn=String(sub.name||'').trim();
+  if(!nm || (rn!==nm && rn!==base)) return false;
+  const mg=gdOf(st.grade), rg=gdOf(sub.grade); if(mg && rg && mg!==rg) return false;
+  const ms=String(st.school||'').replace(/\s+/g,''), rs=String(sub.school||'').replace(/\s+/g,'');
+  if(ms && rs && ms.indexOf(rs)<0 && rs.indexOf(ms)<0) return false;
+  return true;
+}
+async function findStu(r){
+  if(!STU) STU=(await sbAll('/students?select=code,name,school,grade,enrolled&order=id.asc')).filter(x=>!LEFT_RE.test(String(x.enrolled||'')));
+  const hit=STU.filter(x=>stuIsSub(x, r)); return hit.length===1?hit[0]:(hit.length?'dup':null);
+}
+$('goOn').onclick=async()=>{
+  const P=picked().filter(r=>r.parts.length); if(!P.length) return;
+  const t=$('tSel').value, title=$('title').value.trim()||autoTitle();
+  const n=P.reduce((a,r)=>a+r.parts.length,0);
+  if(!confirm(`「${title}」\n\n학생 ${P.length}명에게 각자 틀린 문항(모두 ${n}문항)으로 리테스트를 냅니다.\n학생 페이지 H WORK 목록에 바로 보이고, 한 번만 풀 수 있어요. 별은 주지 않습니다.\n낼까요?`)) return;
+  const btn=$('goOn'); btn.disabled=true; btn.textContent='내는 중…'; $('msg').className='msg'; $('msg').textContent='';
+  try{
+    const who=await myName(), rows=[], skip=[];
+    for(const r of P){ const st=await findStu(r);
+      if(!st||st==='dup'||!st.code){ skip.push(r.name+(st==='dup'?'(같은 이름 여럿)':'(명단·접근코드 없음)')); continue; }
+      rows.push({ teacher:t, code:title.slice(0,200), src_id:null, stu_code:st.code, name:r.name, school:r.school||'', grade:r.grade||'',
+        qs:r.parts.map((_,i)=>String(i+1)), parts:r.parts.map(p=>({ teacher:t, code:p.code, q:String(p.q) })), created_by:who||'' }); }
+    if(rows.length) await sb('/hwork_retests',{ method:'POST', headers:{ Prefer:'return=minimal' }, body:JSON.stringify(rows) });
+    $('msg').className='msg '+(skip.length?'bad':'ok');
+    $('msg').textContent=`${rows.length}명에게 리테스트를 냈습니다.`+(skip.length?`\n내지 못한 학생: ${skip.join(', ')}`:'');
+    if(window.shuegukActivity && rows.length) shuegukActivity('H WORK', '오답 리테스트', title, rows.length+'명 · '+n+'문항', false);
+    loadMade();
+  }catch(e){ $('msg').className='msg bad'; $('msg').textContent='내지 못했습니다. ('+e.message+')\n데이터베이스 071 적용 전이면 쓸 수 없어요.'; }
+  finally{ drawSum(); }
+};
+async function loadMade(){
+  try{ const r=await sb('/hwork_retests?select=id,name,school,grade,code,teacher,qs,submitted_at,got,total,created_at,created_by&parts=not.is.null&order=id.desc&limit=60');
+    $('made').innerHTML=r.length?r.map(x=>`<div class="m1"><span class="t">${esc(x.name)} · ${esc(x.code)}<small>${esc(x.school||'')} ${esc(x.grade||'')} · ${(x.qs||[]).length}문항 · ${esc(String(x.created_at||'').slice(5,16).replace('T',' '))}${x.created_by?' · '+esc(x.created_by):''}</small></span>${x.submitted_at?`<span class="st ok">${x.got} / ${x.total}</span>`:`<span class="st">안 풂</span><button type="button" data-del="${x.id}">지우기</button>`}</div>`).join(''):'<div class="empty">아직 낸 리테스트가 없습니다.</div>';
+  }catch(e){ $('made').innerHTML='<div class="empty">불러오지 못했습니다.</div>'; }
+}
+$('made').addEventListener('click', async e=>{ const b=e.target.closest('[data-del]'); if(!b) return;
+  if(!confirm('이 리테스트를 지울까요? 학생 화면에서도 사라집니다.')) return;
+  try{ await sb('/hwork_retests?id=eq.'+b.dataset.del+'&submitted_at=is.null',{ method:'DELETE', headers:{ Prefer:'return=minimal' } }); toast('지웠어요'); }catch(err){ toast('지우지 못했어요'); }
+  loadMade(); });
+boot();
+</script>
+<script src="https://coke4497-sys.github.io/shueguk-report/activity.js"></script>
+<script src="oh.js"></script>
+</body>
+</html>
