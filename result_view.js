@@ -57,7 +57,21 @@
   .rv2 .pill{font-size:13px;padding:5px 11px;border-radius:999px;white-space:nowrap}
   .rv2 .chev{width:16px;font-size:12px;color:#8a978f}
   .rv2 .in{margin:0 14px 14px 66px;display:flex;flex-direction:column;gap:6px}
-  @media (max-width:520px){ .rv2 .in{margin-left:14px} .rv2 .qh2{gap:10px} }
+  .rv2 .an>span{white-space:nowrap}
+  @media (max-width:520px){   /* 휴대폰 (2026-11-17 원장님 "선생님 화면도 휴대폰에서 보기 좋게") — 여백을 줄이고 문항 머리는 두 줄로 */
+    .rv2{padding:16px 10px 56px;gap:12px}
+    .rv2 .hd{padding:4px 6px 0}.rv2 .hd .ey{letter-spacing:1.5px;font-size:11px}.rv2 .hd h1{font-size:21px}
+    .rv2 .rvcard{padding:18px 14px;border-radius:20px;gap:14px}
+    .rv2 .rvcard.info{padding:14px 16px;grid-template-columns:1fr 1fr;gap:10px 14px}
+    .rv2 .sc{gap:12px;flex-direction:column;align-items:stretch}.rv2 .sc .g{font-size:46px}.rv2 .strip{min-width:0;width:100%}
+    .rv2 .h2row{gap:8px}.rv2 .flt{width:100%}.rv2 .flt button{flex:1;padding:8px 6px}
+    .rv2 .qh2{grid-template-columns:34px minmax(0,1fr);gap:6px 10px;padding:11px 12px}
+    .rv2 .qh2 .stt{grid-column:2;flex-wrap:wrap;gap:6px}
+    .rv2 .qh2 .chev{margin-left:auto}
+    .rv2 .an{gap:4px 12px}
+    .rv2 .in{margin:0 10px 12px 10px}
+    .rv2 .pill{font-size:12.5px;padding:4px 10px}
+  }
   .rv2 .lgc{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 12px;padding:10px 12px;border-radius:12px;background:#fafbf9;border:1px solid #e3e8e4;font-size:14px;line-height:1.5}
   .rv2 .lgc .r{font-family:'Do Hyeon';font-size:14px;color:#7f9e8e}
   .rv2 .lgc .c{display:flex;flex-direction:column;gap:4px;color:#2b3a33;min-width:0;word-break:break-word}
