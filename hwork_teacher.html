@@ -453,7 +453,7 @@
     return `<span class="bk">${escapeHtml(m[1])}</span><span class="ls">${escapeHtml(m[2])}</span>`;
   }
 
-  /* 오답하기 표시 (064·065) — 1차 점수 옆에 '오답 클리어 n/m · 도움 k · 신고 j' */
+  /* 오답하기 표시 (064·065) — 1차 점수 옆에 '오답 클리어 n/m · 신고 j' (도움 꼬리표는 2026-11-17 원장님 요청으로 뺌 — 질문 수와 겹침) */
   let RETRY_COL = false;
   function fixSum(rv, nwrong){
     const o={ n:nwrong, clr:0, help:0, err:0, any:false };
@@ -467,7 +467,7 @@
   function awayTag(r){ return r.awayN? ` <span class="rtag aw" title="푸는 동안 다른 앱으로 넘어가거나 화면을 끈 횟수와 시간">이탈 ${r.awayN}회 · ${awayDur(r.awaySec)}</span>` : ''; }
   function retryTag(r){
     const f=r.fix; if(!f || !f.any) return awayTag(r);
-    return ` <span class="rtag">오답 ${f.clr}/${f.n}${r.reviewed?' ✓':''}</span>`+(f.help?` <span class="rtag hp">도움 ${f.help}</span>`:'')+(f.err?` <span class="rtag hp">신고 ${f.err}</span>`:'')+awayTag(r);
+    return ` <span class="rtag">오답 ${f.clr}/${f.n}${r.reviewed?' ✓':''}</span>`+(f.err?` <span class="rtag hp">신고 ${f.err}</span>`:'')+awayTag(r);
   }
 
   function listDate(s){   // 목록용 짧은 날짜 '11/12 15:00'
