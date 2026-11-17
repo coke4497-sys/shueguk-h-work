@@ -36,7 +36,8 @@ function fake(rt, u, method, body) {
   if (u.includes('teacher-name.js')) return rt.fulfill({ body: 'window.shuegukTeacherName=()=>Promise.resolve("이현지");', contentType: 'text/javascript' });
   if (u.includes('/auth/v1/token')) return rt.fulfill({ json: { access_token: 'T', expires_in: 3600 } });
   if (u.includes('fonts.g')) return rt.fulfill({ body: '' });
-  if (u.includes('script.google.com')) { DB.posts.push(JSON.parse(body || '{}')); return rt.fulfill({ json: { ok: true, msg: '저장되었습니다' } }); }
+  if (u.includes('script.google.com') && u.includes('alimConfig')) return rt.fulfill({ json: { result: 'success', ready: true, templates: { hwork_reply: { ready: true }, hwork_todo: { ready: true } } } });
+  if (u.includes('script.google.com')) { const b = JSON.parse(body || '{}'); DB.posts.push(b); if (b.action === 'alimSend') return rt.fulfill({ json: { result: 'success', sent: [{ ok: true }] } }); return rt.fulfill({ json: { ok: true, msg: '저장되었습니다' } }); }
   const rest = u.split('/rest/v1')[1] || '';
   if (rest.startsWith('/gbank_items')) {
     const m = rest.match(/id=eq\.(\d+)/), mi = rest.match(/id=in\.\(([\d,]+)\)/);
@@ -54,7 +55,7 @@ function fake(rt, u, method, body) {
   }
   if (rest.startsWith('/hwork_src_items')) { DB.calls.push({ fn: 'src', rest }); return rt.fulfill({ json: [{ no: '2', html: RQ(2), pid: 'wb-P1', type: '5지', ans: '③', essay: '', src: '건대부고3 24 1 중간', err: false, book: '문장 1권(기본·실력)' }] }); }
   if (rest.startsWith('/hwork_src_passages')) return rt.fulfill({ json: [{ pid: 'wb-P1', html: '<div class="psg">교재 지문 글 나랏 말ᄊᆞ미</div>' }] });
-  if (rest.startsWith('/students')) return rt.fulfill({ json: rest.includes('offset=0') ? [{ school: '화정고', enrolled: '재원' }, { school: '능곡고', enrolled: '재원' }, { school: '옛학교', enrolled: '퇴원' }] : [] });
+  if (rest.startsWith('/students')) return rt.fulfill({ json: rest.includes('offset=0') ? [{ code: 'tok-kim', name: '김철수', school: '화정고', grade: '고1', enrolled: '재원', phone_student: '010-1234-5678' }, { school: '화정고', enrolled: '재원' }, { school: '능곡고', enrolled: '재원' }, { school: '옛학교', enrolled: '퇴원' }] : [] });
   if (rest.startsWith('/hwork_submissions') && method === 'PATCH') { const b = JSON.parse(body); DB.subPatch = (DB.subPatch || []).concat([b]); Object.assign(DB.sub, b); return rt.fulfill({ status: 204, body: '' }); }
   if (rest.startsWith('/hwork_submissions')) { const m = rest.match(/id=eq\.(\d+)/); return rt.fulfill({ json: m && DB.sub && DB.sub.id == m[1] ? [DB.sub] : [] }); }
   if (rest.startsWith('/hwork_retests')) return rt.fulfill({ json: [] });
@@ -159,7 +160,8 @@ function rpc(fn, p) {
   // ── 3. 선생님 채점 결과 화면(같은 화면 · 문항 카드 안 답장) ──
   const sub = { id: 55, teacher: '이현지', code: '[모의고사 문법] 음운 1회', name: '김철수', school: '화정고', grade: '고1', ts: '2026-11-17 15:00', got: 1, total: 3,
     detail: { '1': { type: 'choice5', mine: '2', ok: true }, '2': { type: 'choice5', mine: '1', ok: false }, '3': { type: 'choice5', mine: '3', ok: false } },
-    review: { '2': { tries: [{ wrong: '1', why_wrong: '느낌으로', pick: '3', why_right: '비교', ok: false }], help: { at: '15:10' } } } };
+    review: { '2': { tries: [{ wrong: '1', why_wrong: '느낌으로', pick: '3', why_right: '비교', ok: false }], help: { at: '15:10' } },
+      '3': { tries: [{ wrong: '3', why_wrong: '헷갈림', pick: '1', why_right: '지문', ok: true }], cleared_at: '2026-11-17 15:20' } } };
   sub.checked = {}; sub.check_done = null; sub.check_seen_at = null;
   DB.sub = sub;
   DB.qa = [{ id: 1, sub_id: 55, q: '2', who: '학생', name: '김철수', body: 'ㄴ이 왜 틀렸는지 모르겠어요', mine: '3', at: '2026-11-17T06:10:00Z', read_at: null, s: sub }];
@@ -186,10 +188,22 @@ function rpc(fn, p) {
   const r = DB.calls.find(c => c.fn === 'qa-post');
   ok(r && r.r.who === '선생님' && r.r.name === '이현지' && r.r.sub_id === 55 && r.r.q === '2', '답장 POST — 선생님·이름·제출·문항');
   await t.waitForSelector('#rvq2 .msg.tc');
+  // 답장 알림톡 — 과제마다 한 번
+  await t.waitForSelector('#alimBtn:not([disabled])');
+  await t.click('#alimBtn'); await t.waitForFunction(() => document.getElementById('toast').textContent.includes('알림톡을 보냈어요'));
+  const al = DB.posts.find(x => x.action === 'alimSend' && x.kind === 'hwork_reply');
+  ok(al && al.items[0].to === '01012345678' && al.items[0].who === '학생' && /^H:55\|\d+$/.test(al.items[0].date) && al.items[0].vars.과제 === '음운 1회' && al.items[0].vars.접근코드 === 'tok-kim' && al.items[0].vars.학생명 === '김철수', '답장 알림톡 — 학생 번호·과제·접근코드·중복 키 H:제출|마지막 답장 ' + JSON.stringify(al && al.items[0]));
+  // 클리어한 문항 모두 잘 고쳤습니다
+  ok((await t.textContent('.chc .soft')).includes('클리어한 3번 모두 잘 고쳤습니다'), '[클리어한 n번 모두 잘 고쳤습니다] 버튼');
+  await t.click('.chc .soft'); await t.waitForFunction(() => !document.querySelector('.chc .soft'));
+  ok(DB.subPatch && DB.subPatch[0].checked['3'] && !DB.subPatch[0].checked['2'], '한꺼번에 — 클리어한 3번만 확인');
+  DB.subPatch = [];
   // 선생님 확인 · 과제 검사 완료 (리포트 074)
   ok(await t.evaluate(() => getComputedStyle(document.querySelector('textarea[data-rin="2"]')).minHeight) === '150px' && (await t.getAttribute('textarea[data-rin="2"]', 'maxlength')) === '5000', '답장 칸 — 높이 150px · 5000자');
   await t.click('#rvq2 .qchk button'); await t.waitForSelector('#rvq2 .qchk .on');
   ok(DB.subPatch && DB.subPatch[0].checked['2'] && DB.subPatch[0].checked['2'].by === '이현지', '문항 [확인했어요] — checked[2] 이현지');
+  // 과제 미완료 알림톡 — 오답하기 안 한 문항이 있을 때
+  ok(await t.locator('#todoBtn').count() === 0, '남은 오답하기가 없으면(클리어·도움 요청) 미완료 알림톡 버튼 없음');
   ok((await t.textContent('#rvq2 .qh2')).includes('♥ 선생님 확인'), '카드 머리에 ♥ 선생님 확인');
   await t.fill('#chkNote', '오답 이유를 잘 적었어요'); await t.click('.chc button'); await t.waitForSelector('.chc .done');
   const last = DB.subPatch[DB.subPatch.length - 1];
@@ -202,6 +216,14 @@ function rpc(fn, p) {
   ok(await tm.evaluate(() => document.documentElement.scrollWidth <= 391), '휴대폰 — 가로로 밀리지 않음 (' + await tm.evaluate(() => document.documentElement.scrollWidth) + ')');
   if (SHOT) { await tm.screenshot({ path: path.join(SHOT, 'teacher-mobile-top.png') }); await tm.screenshot({ path: path.join(SHOT, 'teacher-mobile-full.png'), fullPage: true }); }
   await tm.close();
+  // 미완료 알림톡 — 3번을 오답하기 전으로 되돌린 제출
+  delete DB.sub.review['3']; DB.sub.review_at = null;
+  const tt = await ctx.newPage(); await tt.goto(U + 'hwork_result.html?sid=55'); await tt.waitForSelector('#todoBtn:not([disabled])');
+  ok((await tt.textContent('.chc')).includes('아직 오답하기 안 한 문항 3번'), '미완료 알림톡 — 남은 문항 안내');
+  await tt.click('#todoBtn'); await tt.waitForFunction(() => document.getElementById('toast').textContent.includes('알림톡을 보냈어요'));
+  const td = DB.posts.find(x => x.action === 'alimSend' && x.kind === 'hwork_todo');
+  ok(td && /^T:55\|\d{4}-\d{2}-\d{2}$/.test(td.items[0].date) && td.items[0].to === '01012345678', '미완료 알림톡 — 하루 한 번 키 T:제출|날짜');
+  await tt.close();
   // 학생이 다시 들어오면 하트 팝업 한 번
   S.checked = { '2': { at: '2026-11-17 21:00', by: '이현지' } }; S.done = { at: '2026-11-17 21:01', by: '이현지', note: '오답 이유를 잘 적었어요' }; S.seen = null;
   const sp = await ctx.newPage(); await sp.goto(U + 'hwork.html?sid=55&k=tok-kim'); await sp.waitForSelector('.hpop');
