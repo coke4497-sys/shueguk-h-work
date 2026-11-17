@@ -244,6 +244,19 @@
   .bub.me{ align-self:flex-end; background:#E9EDF8; color:#2C2F2D; border-bottom-right-radius:4px; }
   .bub.tc{ align-self:flex-start; background:#E4F1EA; color:#24443d; border-bottom-left-radius:4px; }
   .bub .bm{ display:block; font-size:11.5px; color:#8B928C; margin-top:3px; }
+  /* 선생님 답장 첨부 · 개인 리테스트 (리포트 070) */
+  .rfs{ display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; white-space:normal; }
+  .rfs .rfimg{ border:0; padding:0; background:#fff; border-radius:10px; overflow:hidden; cursor:zoom-in; max-width:100%; min-height:36px; }
+  .rfs .rfimg img{ display:block; max-width:100%; max-height:300px; }
+  .rfs .rfimg .ld, .rfs .rfb{ display:block; padding:7px 12px; border:0; border-radius:999px; background:#fff; color:#2F6B52; font-family:inherit; font-size:13px; cursor:pointer; text-align:left; word-break:break-all; }
+  .rfs .sz{ color:#7A8780; font-size:11.5px; }
+  .rfs video{ width:100%; max-height:340px; border-radius:10px; background:#000; }
+  #report .rtq{ border-top:1px solid var(--line); padding:12px 0; }
+  #report .rtq .qt{ font-size:12.5px; color:var(--muted); margin-bottom:6px; }
+  #report .rtq .choices, #report .rtq .ox{ max-width:320px; margin-top:8px; }
+  #report .rtgo{ width:100%; margin-top:14px; padding:14px; border:none; border-radius:12px; background:#EDE4F4; color:#5A4A6A; font-family:inherit; font-size:16px; font-weight:700; cursor:pointer; }
+  #report .rtgo:disabled{ opacity:.6; cursor:default; }
+  #report .hide{ color:var(--muted); font-size:12px; }
   .bub.tc .bm b{ color:#3d675d; }
   .thr .none{ font-size:13px; color:#8B928C; text-align:center; padding:8px 0; }
   .qa-in{ width:100%; min-height:72px; border:1.5px solid #D4D8D3; border-radius:12px; padding:10px 12px; font-family:inherit; font-size:15px; resize:vertical; }
@@ -935,8 +948,43 @@
     const who=m.who==='선생님'?'tc':'me';
     const meta=m.who==='선생님'?`<b>${escapeHtml(m.name||'선생님')}</b> · ${escapeHtml(String(m.at||'').slice(5))}`
       :`${escapeHtml(String(m.at||'').slice(5))}${m.mine?` · 내 답 ${escapeHtml(m.mine)}`:''}`;
-    return `<div class="bub ${who}">${escapeHtml(m.body)}<span class="bm">${meta}</span></div>`;
+    const fo=m.body==='(첨부 파일)'&&(m.files||[]).length;
+    return `<div class="bub ${who}">${fo?'':escapeHtml(m.body)}${rfHtml(m.files)}<span class="bm">${meta}</span></div>`;
   }
+  /* 선생님 답장 첨부 — 사진·영상·파일 (2026-11-17, 리포트 070). 비공개 버킷이라 hwork_reply_file_url(이 제출의 열쇠)로
+   * 10분 창을 열고 공개 키로 받는다. 사진은 바로 작게, 누르면 크게 · 영상은 그 자리에서 재생 · 그 밖은 내려받기. */
+  const SB_STORE="https://bangdbhqpphqqdwcledg.supabase.co/storage/v1", RF_BLOB={};
+  function rfKind(f){ const m=String(f.mime||''), n=String(f.name||'');
+    if(m.indexOf('image/')===0||/\.(png|jpe?g|gif|webp)$/i.test(n)) return 'img';
+    if(m.indexOf('video/')===0||/\.(mp4|mov|m4v|webm)$/i.test(n)) return 'vid'; return 'file'; }
+  function rfSize(n){ n=Number(n)||0; return n>=1048576?(n/1048576).toFixed(1)+'MB':Math.max(1,Math.round(n/1024))+'KB'; }
+  function rfHtml(files){
+    if(!files||!files.length) return '';
+    return '<div class="rfs">'+files.map(f=>{ const k=rfKind(f);
+      if(k==='img') return `<button type="button" class="rfimg" data-rf="${f.id}" data-rk="img"><span class="ld">사진 불러오는 중</span></button>`;
+      return `<span id="rfv${f.id}"><button type="button" class="rfb" data-rf="${f.id}" data-rk="${k}" data-nm="${escapeHtml(f.name)}">${k==='vid'?'영상 보기':'내려받기'} · ${escapeHtml(f.name)} <span class="sz">${rfSize(f.size)}</span></button></span>`;
+    }).join('')+'</div>';
+  }
+  async function rfBlob(fid){
+    if(RF_BLOB[fid]) return RF_BLOB[fid];
+    const j=await sbRpc('hwork_reply_file_url', { p:{ via:'retry', id:RS.id, key:RS.key, file:fid } });
+    if(!j||!j.ok) throw new Error((j&&j.error)||'no');
+    const r=await fetch(SB_STORE+'/object/authenticated/'+j.bucket+'/'+j.path.split('/').map(encodeURIComponent).join('/'), { headers:{ apikey:SB_KEY, Authorization:'Bearer '+SB_KEY } });
+    if(!r.ok) throw new Error('file '+r.status);
+    return RF_BLOB[fid]={ url:URL.createObjectURL(await r.blob()), name:j.name };
+  }
+  function rfThumbs(){ document.querySelectorAll('.rfimg[data-rf]:not([data-ldd])').forEach(b=>{ b.setAttribute('data-ldd','1');
+    rfBlob(b.dataset.rf).then(x=>{ b.innerHTML=`<img src="${x.url}" alt="">`; }).catch(()=>{ b.innerHTML='<span class="ld">사진을 불러오지 못했어요 · 눌러서 다시</span>'; b.removeAttribute('data-ldd'); }); }); }
+  document.addEventListener('click', async e=>{
+    const b=e.target.closest&&e.target.closest('[data-rf]'); if(!b) return;
+    const fid=b.dataset.rf, k=b.dataset.rk;
+    if(k==='img' && !RF_BLOB[fid]){ b.removeAttribute('data-ldd'); rfThumbs(); return; }
+    try{ const x=await rfBlob(fid);
+      if(k==='img'){ window.open(x.url,'_blank'); return; }
+      if(k==='vid'){ const box=document.getElementById('rfv'+fid); if(box) box.innerHTML=`<video src="${x.url}" controls playsinline></video>`; return; }
+      const a=document.createElement('a'); a.href=x.url; a.download=b.dataset.nm||x.name||'파일'; document.body.appendChild(a); a.click(); a.remove();
+    }catch(err){ toast('파일을 열지 못했어요. 잠시 뒤 다시 눌러 주세요'); }
+  });
   function qaOpen(q){
     if(!RS||!RS.id){ toast('제출한 뒤에 질문할 수 있어요'); return; }
     QA_Q=q; (RS.seen=RS.seen||{})[q]=true;
@@ -957,7 +1005,7 @@
       <button type="button" class="qa-send" id="qvSend" onclick="qaSend(${q})">선생님께 보내기</button>
       <div class="qa-tip">문항 번호와 내가 고른 답이 함께 전달됩니다. 선생님 답장이 오면 이 화면과 학생 페이지에 표시돼요.</div>`;
     document.getElementById('qv').classList.add('on');
-    const t=document.getElementById('qvThr'); t.scrollTop=t.scrollHeight;
+    const t=document.getElementById('qvThr'); t.scrollTop=t.scrollHeight; rfThumbs();
   }
   async function qaExpl(q){
     const box=document.getElementById('qvExpl'); if(!box) return;
@@ -1004,8 +1052,79 @@
     }catch(e){ toast('불러오지 못했어요. 잠시 뒤 다시 열어 주세요'); }
   })();
 
-  drawResume();
-  init();
+  /* ── 개인 리테스트 (2026-11-17 원장님 "개인 리테스트도 질문함에 합쳐줘", 리포트 070 · 다른 세션의 hwork_retests) ──
+   * 선생님이 질문함에서 낸 리테스트를 학생 페이지 H WORK 목록의 [리테스트 풀기]로 연다: hwork.html?rt=번호&k=접근코드.
+   * 그 제출에서 틀린 문항만 다시 푼다. 문제 원문이 있는 과제면 문제를 함께 띄운다. 한 번만 제출, 틀린 문항 정답은 감춘다. 별은 없다. */
+  const RTM=(function(){ const q=new URLSearchParams(location.search), id=(q.get('rt')||'').trim();
+    return /^\d+$/.test(id) ? { id:Number(id), key:(q.get('k')||'').trim(), st:(q.get('st')||'').trim(), pick:{}, data:null } : null; })();
+  function rtShell(inner){
+    document.getElementById('main').style.display='none';
+    document.getElementById('footer').style.display='none';
+    const r=document.getElementById('report'); r.style.display='block';
+    r.innerHTML=`<div class="rbrand"><div class="name">이수경국어</div><div class="sub">Shueguk · H WORK 리테스트</div></div>`+inner;
+    window.scrollTo(0,0);
+  }
+  async function initRetest(){
+    if(!RTM.key && !RTM.st){ rtShell('<section><div class="guide">학생 페이지의 H WORK 메뉴에서 [리테스트 풀기]를 눌러 열어 주세요.</div></section>'); return; }
+    rtShell('<section><div class="guide">불러오는 중…</div></section>');
+    let d;
+    try{ d=await sbRpc('hwork_retest_open', { p:{ key:RTM.key, student:RTM.st, id:RTM.id } }); }
+    catch(e){ rtShell('<section><div class="guide">불러오지 못했습니다. 인터넷 연결을 확인하고 다시 열어 주세요.</div></section>'); return; }
+    if(!d || !d.ok){ rtShell('<section><div class="guide">'+escapeHtml((d&&d.error)||'리테스트를 찾을 수 없습니다.')+'</div></section>'); return; }
+    RTM.data=d;
+    if(d.submitted) return rtResult(d.got, d.total, d.detail||{}, d.submitted_at);
+    try{ const qj=await sbRpc('hwork_qs', { p:{ teacher:d.teacher, code:d.code } }); if(qj&&qj.ok) QS=qj; }catch(e){}
+    rtDraw();
+  }
+  function rtInput(q,t){
+    const v=RTM.pick[q];
+    if(t==='ox') return `<div class="ox">${['O','X'].map(x=>`<button class="${v===x?'sel':''}" onclick="rtPick('${q}','${x}',this)">${x}</button>`).join('')}</div>`;
+    if(t==='text') return `<input type="text" class="tans" placeholder="답 입력" value="${escapeHtml(v||'')}" oninput="rtText('${q}',this.value)">`;
+    let h='<div class="choices">';
+    for(let j=1;j<=5;j++) h+=`<button class="${v===String(j)?'sel':''}" onclick="rtPick('${q}','${j}',this)">${j}</button>`;
+    return h+'</div>';
+  }
+  function rtPick(q,v,btn){ RTM.pick[q]=v; btn.parentElement.querySelectorAll('button').forEach(b=>b.classList.remove('sel')); btn.classList.add('sel'); }
+  function rtText(q,v){ v=v.trim(); if(v) RTM.pick[q]=v; else delete RTM.pick[q]; }
+  function rtDraw(){
+    const d=RTM.data, qs=d.qs||[];
+    const tl=t=>t==='ox'?'OX':(t==='text'?'단답형':'5지선다');
+    let lastPid='';
+    rtShell(`<div class="tbar">${escapeHtml(d.code||'')}</div>
+      <section><h2>리테스트 · ${qs.length}문항</h2>
+        <div class="guide">${escapeHtml(d.name||'')} 학생이 이 과제에서 <b>틀린 문항</b>만 모았습니다. 다시 풀고 답을 넣으십시오. 한 번만 제출할 수 있어요.</div>
+        ${qs.map(q=>{ const t=((d.items||{})[q]||{}).type||'choice5';
+          const p=QS?pidOf(q):''; const pas=(p&&p!==lastPid)?`<details class="pasd" open><summary>지문 보기</summary><div class="gqp">${pasHtml(q)}</div></details>`:''; lastPid=p||lastPid;
+          return `<div class="rtq"><div class="qt">${escapeHtml(q)}번 · ${tl(t)}</div>${pas}${QS?qHtml(q):''}${rtInput(q,t)}</div>`; }).join('')}
+        <button type="button" class="rtgo" id="rtGo" onclick="rtSubmit()">리테스트 제출하기</button>
+      </section>`);
+  }
+  async function rtSubmit(){
+    const qs=RTM.data.qs||[], miss=qs.filter(q=>RTM.pick[q]==null);
+    if(miss.length && !confirm('아직 답을 넣지 않은 문항이 '+miss.length+'개 있습니다 ('+miss.join(', ')+'번).\n그대로 제출할까요?')) return;
+    const btn=document.getElementById('rtGo'); btn.disabled=true; btn.textContent='채점 중…';
+    try{
+      const j=await sbRpc('hwork_retest_submit', { p:{ key:RTM.key, student:RTM.st, id:RTM.id, answers:RTM.pick } });
+      if(j && (j.ok || j.reason==='done')) return rtResult(j.got, j.total, j.detail||{}, j.submitted_at||'');
+      btn.disabled=false; btn.textContent='리테스트 제출하기'; toast((j&&j.error)||'제출하지 못했어요');
+    }catch(e){ btn.disabled=false; btn.textContent='리테스트 제출하기'; toast('인터넷 연결을 확인하고 다시 눌러 주세요'); }
+  }
+  function rtResult(got, total, detail, at){
+    const d=RTM.data||{}, qs=(d.qs||Object.keys(detail)).filter(q=>detail[q]);
+    const wrong=qs.filter(q=>detail[q].ok===false);
+    const rows=qs.map(q=>{ const x=detail[q], mine=(x.mine&&String(x.mine).length)?escapeHtml(x.mine):'<span class="blank">무응답</span>';
+      return `<tr class="${x.ok?'':'wrong'}"><td class="qn">${escapeHtml(q)}</td><td class="mine">${mine}</td>
+        <td>${x.ok?escapeHtml(x.ans||''):'<span class="hide">수업 시간에 확인해요</span>'}</td><td class="${x.ok?'o':'x'}">${x.ok?'O':'X'}</td></tr>`; }).join('');
+    rtShell(`<div class="tbar">${escapeHtml(d.code||'')}</div>
+      <section><h2>리테스트 결과</h2>
+        <div class="scoreline"><span class="big">${got} / ${total}</span></div>
+        <div class="snote">${wrong.length?'또 틀린 '+wrong.length+'문항('+wrong.join(', ')+'번)은 선생님이 결과를 보고 수업 시간에 함께 확인합니다.':'틀렸던 문항을 모두 맞혔습니다. 잘했어요!'}${at?' · 제출 '+escapeHtml(at):''}</div></section>
+      <section><h2>문항별 채점</h2>
+        <table class="detail"><tr><th>문항</th><th>내 답</th><th>정답</th><th>정오</th></tr>${rows}</table></section>`);
+  }
+
+  if(RTM) initRetest();
+  else { drawResume(); init(); }
 </script>
 <script src="https://coke4497-sys.github.io/shueguk-report/me-back.js"></script>
 <script src="oh.js"></script>

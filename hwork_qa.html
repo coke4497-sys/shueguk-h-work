@@ -68,6 +68,26 @@
   .who{font-size:13px;color:var(--muted);margin-top:6px}
   .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#2C2F2D;color:#fff;padding:9px 18px;border-radius:999px;font-size:14px;opacity:0;transition:.2s;pointer-events:none;z-index:50}
   .toast.show{opacity:1}
+  /* 답장 첨부 · 개인 리테스트 (070) */
+  .fs{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;white-space:normal}
+  .fs .fimg{border:0;padding:0;background:#fff;border-radius:10px;overflow:hidden;cursor:zoom-in;max-width:220px;min-height:36px}
+  .fs .fimg img{display:block;max-width:220px;max-height:200px}
+  .fs .fimg .ld,.fs .fb{display:block;padding:7px 11px;font-size:12.5px;color:#3d675d;background:#fff;border:0;border-radius:999px;cursor:pointer;font-family:inherit;text-align:left;word-break:break-all}
+  .fs .sz{color:#8B928C;font-size:11px}
+  .att{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:6px}
+  .att .ab{border:0;border-radius:999px;background:#EDE4F4;color:#5A4A6A;padding:7px 13px;font-size:13px;cursor:pointer;font-family:inherit}
+  .att .pf{display:inline-flex;align-items:center;gap:5px;background:#F6F7F4;border-radius:999px;padding:4px 6px 4px 10px;font-size:12.5px}
+  .att .pf img{width:28px;height:28px;object-fit:cover;border-radius:6px}
+  .att .pf button{border:0;background:#fff;border-radius:50%;width:22px;height:22px;cursor:pointer;color:#B0525D}
+  .att .hint{font-size:12px;color:#8B928C}
+  #rIn.drop{outline:2px dashed #B9A5CC}
+  .rtbox{margin-top:16px;background:#F6F7F4;border-radius:14px;padding:12px 14px;font-size:14px}
+  .rtbox h4{margin:0 0 6px;font-family:"Do Hyeon",sans-serif;font-weight:400;font-size:17px;color:#24443d}
+  .rtbox .m{color:#5C6A64;font-size:13px}
+  .rtbox button{border:0;border-radius:999px;background:#EDE4F4;color:#5A4A6A;padding:8px 14px;font-size:13.5px;cursor:pointer;font-family:inherit;margin-top:8px}
+  .rtbox button.del{background:#fff;color:#B0525D;margin-left:6px}
+  .rtbox .st{display:inline-block;border-radius:999px;padding:2px 9px;font-size:12.5px;background:#fff}
+  .rtbox .st.ok{background:#E4F1EA;color:#24443d}.rtbox .st.wait{background:#F9EFD0;color:#7a6326}
 </style>
 </head>
 <body class="teacher">
@@ -154,7 +174,7 @@
   }
   window.fetch = function(url, opts){
     var u = (typeof url === 'string') ? url : ((url && url.url) || '');
-    if (u.indexOf(SB_URL + '/rest/v1') !== 0) return raw(url, opts);
+    if (u.indexOf(SB_URL + '/rest/v1') !== 0 && u.indexOf(SB_URL + '/storage/v1') !== 0) return raw(url, opts);   // 저장소(답장 첨부)도 교사 신분
     return auth().then(function(t){
       return raw(url, withAuth(url, opts, t)).then(function(r){
         if (r.status !== 401) return r;
@@ -186,7 +206,7 @@ async function sb(path, opts){
 function kst(iso){ const d=new Date(new Date(iso).getTime()+9*3600000); const p=n=>String(n).padStart(2,'0');
   return `${d.getUTCMonth()+1}/${d.getUTCDate()} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`; }
 
-let ROWS=[], THREADS=[], MODE='wait', CUR=null, ME='', HW={}, GB={}, GP={};
+let ROWS=[], THREADS=[], MODE='wait', CUR=null, ME='', HW={}, GB={}, GP={}, FILES_OK=false;
 const WHO_LS='hw_qa_who';
 async function myName(ask){
   if(ME) return ME;
@@ -199,7 +219,9 @@ async function myName(ask){
 async function load(){
   const since=new Date(Date.now()-90*86400000).toISOString();
   try{
-    ROWS=await sb('/hwork_qa?select=id,sub_id,q,who,name,body,mine,at,read_at,s:hwork_submissions(id,teacher,code,name,school,grade,ts,detail,review)&at=gte.'+since+'&order=id&limit=5000');
+    try{ ROWS=await sb('/hwork_qa?select=id,sub_id,q,who,name,body,mine,at,read_at,files:hwork_reply_files(id,name,size,mime,path),s:hwork_submissions(id,teacher,code,name,school,grade,ts,detail,review)&at=gte.'+since+'&order=id&limit=5000'); FILES_OK=true; }
+    catch(e1){ FILES_OK=false;   // 070 전(첨부 표 연결 없음) — 첨부 없이
+      ROWS=await sb('/hwork_qa?select=id,sub_id,q,who,name,body,mine,at,read_at,s:hwork_submissions(id,teacher,code,name,school,grade,ts,detail,review)&at=gte.'+since+'&order=id&limit=5000'); }
   }catch(e){ $('lst').innerHTML='<div class="empty">질문을 불러오지 못했습니다. ('+esc(e.message)+')<br>데이터베이스 067 적용 전이면 이 화면을 쓸 수 없어요.</div>'; return; }
   const m={};
   ROWS.forEach(r=>{ if(!r.s) return; const k=r.sub_id+'|'+r.q; (m[k]=m[k]||{ k, sub:r.s, q:r.q, msgs:[] }).msgs.push(r); });
@@ -259,6 +281,7 @@ async function srcItem(code, no){
   return SRC[k];
 }
 async function drawDet(t, keep){
+  if(!keep && CUR!==t.k){ PEND.forEach(x=>x._u&&URL.revokeObjectURL(x._u)); PEND.length=0; }   // 다른 질문을 열면 붙이던 파일은 비운다
   CUR=t.k; drawList(); $('cols').classList.add('open');
   const s=t.sub, d=(s.detail||{})[t.q]||{}, rv=((s.review||{})[t.q])||{}, tries=rv.tries||[];
   const draft=keep&&$('rIn')?$('rIn').value:'';
@@ -287,10 +310,15 @@ async function drawDet(t, keep){
     <div class="who">${esc(s.code)} · ${esc(s.teacher)} · 제출 ${esc(s.ts)}</div>
     ${qb}
     <div class="ans">처음 고른 답 <b>${esc(d.mine||'무응답')}</b> ${st}</div>${tr}
-    <div class="thr">${t.msgs.map(m=>`<div class="bub ${m.who==='선생님'?'tc':'st'}">${esc(m.body)}<span class="bm">${m.who==='선생님'?esc(m.name||'선생님')+' · ':''}${kst(m.at)}${m.who==='학생'&&m.mine?' · 그때 답 '+esc(m.mine):''}${m.who==='선생님'?` <button type="button" class="del" data-del="${m.id}">지우기</button>`:''}</span></div>`).join('')}</div>
-    <textarea id="rIn" maxlength="1000" placeholder="답장을 적어 주세요. 학생이 결과 화면에서 바로 봅니다.">${esc(draft)}</textarea>
-    <button type="button" class="send" id="rSend">답장 보내기</button>`;
+    <div class="thr">${t.msgs.map(m=>`<div class="bub ${m.who==='선생님'?'tc':'st'}">${m.body===FILE_ONLY&&(m.files||[]).length?'':esc(m.body)}${fsHtml(m.files)}<span class="bm">${m.who==='선생님'?esc(m.name||'선생님')+' · ':''}${kst(m.at)}${m.who==='학생'&&m.mine?' · 그때 답 '+esc(m.mine):''}${m.who==='선생님'?` <button type="button" class="del" data-del="${m.id}">지우기</button>`:''}</span></div>`).join('')}</div>
+    <textarea id="rIn" maxlength="1000" placeholder="답장을 적어 주세요. 학생이 결과 화면에서 바로 봅니다.${FILES_OK?' 사진은 Ctrl+V 로 붙여 넣어도 돼요.':''}">${esc(draft)}</textarea>
+    ${FILES_OK?`<div class="att" id="att"></div>`:''}
+    <button type="button" class="send" id="rSend">답장 보내기</button>
+    <div class="rtbox" id="rtbox"><h4>개인 리테스트</h4><div class="m">불러오는 중…</div></div>`;
+  if(FILES_OK) attDraw();
+  rtLoad(t);
   $('rSend').onclick=()=>reply(t);
+  fThumbs();
   const unread=t.msgs.filter(m=>m.who==='학생'&&!m.read_at).map(m=>m.id);
   if(unread.length){ try{ await sb('/hwork_qa?id=in.('+unread.join(',')+')',{ method:'PATCH', headers:{ Prefer:'return=minimal' }, body:JSON.stringify({ read_at:new Date().toISOString() }) });
     t.msgs.forEach(m=>{ if(unread.includes(m.id)) m.read_at='now'; }); }catch(e){} }
@@ -301,20 +329,163 @@ $('det').addEventListener('click', async e=>{
   try{ await sb('/hwork_qa?id=eq.'+b.dataset.del+'&who=eq.'+encodeURIComponent('선생님'),{ method:'DELETE', headers:{ Prefer:'return=minimal' } }); toast('지웠어요'); load(); }
   catch(err){ toast('지우지 못했어요'); }
 });
+/* ── 답장 첨부 — 사진·영상·파일 (2026-11-17 원장님 "답장 첨부 … 질문함에 합쳐줘", 리포트 070) ──
+ * 다른 세션이 만든 비공개 버킷 hwork-reply-files · 표 hwork_reply_files 를 그대로 쓰고, 질문함 답장 한 줄(hwork_qa.id)에
+ * qa_id 로 잇는다. 파일당 50MB · 한 번에 6개. 학생은 hwork_reply_file_url(10분 창)으로 받는다. */
+const SB_STORE="https://bangdbhqpphqqdwcledg.supabase.co/storage/v1", BUCKET='hwork-reply-files', FILE_ONLY='(첨부 파일)';
+const PEND=[], FBLOB={};
+function fKind(f){ const m=String(f.mime||f.type||''), n=String(f.name||'');
+  if(m.indexOf('image/')===0||/\.(png|jpe?g|gif|webp)$/i.test(n)) return 'img';
+  if(m.indexOf('video/')===0||/\.(mp4|mov|m4v|webm)$/i.test(n)) return 'vid'; return 'file'; }
+function fSize(n){ n=Number(n)||0; return n>=1048576?(n/1048576).toFixed(1)+'MB':Math.max(1,Math.round(n/1024))+'KB'; }
+function fsHtml(files){
+  if(!files||!files.length) return '';
+  return '<div class="fs">'+files.map(f=>fKind(f)==='img'
+    ? `<button type="button" class="fimg" data-fp="${esc(f.path)}" data-fk="img"><span class="ld">사진 · ${esc(f.name)}</span></button>`
+    : `<button type="button" class="fb" data-fp="${esc(f.path)}" data-fk="${fKind(f)}" data-nm="${esc(f.name)}">${fKind(f)==='vid'?'영상':'내려받기'} · ${esc(f.name)} <span class="sz">${fSize(f.size)}</span></button>`).join('')+'</div>';
+}
+async function fBlob(path){
+  if(FBLOB[path]) return FBLOB[path];
+  const r=await fetch(SB_STORE+'/object/authenticated/'+BUCKET+'/'+path.split('/').map(encodeURIComponent).join('/'),{ headers:{ apikey:SB_KEY } });
+  if(!r.ok) throw new Error('file '+r.status);
+  return FBLOB[path]=URL.createObjectURL(await r.blob());
+}
+function fThumbs(){ document.querySelectorAll('#det .fimg[data-fp]:not([data-ld])').forEach(b=>{ b.setAttribute('data-ld','1');
+  fBlob(b.dataset.fp).then(u=>{ b.innerHTML=`<img src="${u}" alt="">`; }).catch(()=>{}); }); }
+$('det').addEventListener('click', async e=>{
+  const b=e.target.closest('[data-fp]'); if(!b) return;
+  try{ const u=await fBlob(b.dataset.fp);
+    if(b.dataset.fk==='file'){ const a=document.createElement('a'); a.href=u; a.download=b.dataset.nm||'파일'; document.body.appendChild(a); a.click(); a.remove(); }
+    else window.open(u,'_blank'); }catch(err){ toast('파일을 열지 못했어요'); }
+});
+function attDraw(){
+  const el=$('att'); if(!el) return;
+  PEND.forEach(f=>{ if(!f._u && fKind(f)==='img') f._u=URL.createObjectURL(f); });
+  el.innerHTML=`<button type="button" class="ab" id="attB">사진·영상·파일 첨부</button><input type="file" id="attF" multiple hidden>`+
+    PEND.map((f,i)=>`<span class="pf">${f._u?`<img src="${f._u}" alt="">`:''}${esc(f.name)} <span class="sz">${fSize(f.size)}</span><button type="button" data-rm="${i}" aria-label="빼기">×</button></span>`).join('')+
+    (PEND.length?'':'<span class="hint">파일당 50MB · 6개까지</span>');
+  $('attB').onclick=()=>$('attF').click();
+  $('attF').onchange=e=>{ attAdd(e.target.files); };
+  el.querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{ const f=PEND.splice(Number(b.dataset.rm),1)[0]; if(f&&f._u) URL.revokeObjectURL(f._u); attDraw(); });
+}
+function attAdd(list){
+  [...(list||[])].forEach(f=>{
+    if(PEND.length>=6){ toast('한 번에 6개까지 붙일 수 있어요'); return; }
+    if(f.size>52428800){ toast(f.name+' — 50MB가 넘어요'); return; }
+    if(!f.size){ return; }
+    if(f.name==='image.png'||!f.name){ const d=new Date(Date.now()+9*3600e3), p=n=>String(n).padStart(2,'0');
+      f=new File([f], '캡처_'+p(d.getUTCMonth()+1)+p(d.getUTCDate())+'_'+p(d.getUTCHours())+p(d.getUTCMinutes())+p(d.getUTCSeconds())+'.png', { type:f.type||'image/png' }); }
+    PEND.push(f);
+  });
+  attDraw();
+}
+document.addEventListener('paste', e=>{
+  if(!FILES_OK || !$('rIn')) return;
+  const fs=[...((e.clipboardData&&e.clipboardData.files)||[])]; if(!fs.length) return;
+  e.preventDefault(); attAdd(fs);
+});
+['dragover','dragleave','drop'].forEach(k=>document.addEventListener(k, e=>{
+  const box=e.target.closest&&e.target.closest('#rIn'); if(!box||!FILES_OK) return;
+  e.preventDefault(); box.classList.toggle('drop', k==='dragover'); if(k==='drop') attAdd(e.dataTransfer.files);
+}));
+async function upFile(sid, f){
+  const ext=((f.name.match(/\.([A-Za-z0-9]{1,8})$/)||[])[1]||'bin').toLowerCase();
+  const rnd=[...crypto.getRandomValues(new Uint8Array(12))].map(b=>b.toString(16).padStart(2,'0')).join('');
+  const path='r/'+sid+'/'+rnd+'.'+ext;
+  const r=await fetch(SB_STORE+'/object/'+BUCKET+'/'+path,{ method:'POST', headers:{ apikey:SB_KEY, 'Content-Type':f.type||'application/octet-stream', 'x-upsert':'false' }, body:f });
+  if(!r.ok) throw new Error('upload '+r.status);
+  return { path, name:f.name.slice(0,200), size:f.size, mime:f.type||'' };
+}
+
+/* ── 개인 리테스트 (2026-11-17 원장님, 다른 세션의 hwork_retests 를 질문함에) ──
+ * 이 제출에서 틀린 문항(서술형 제외)만 모아 그 학생에게만 리테스트를 낸다. 원 제출 하나에 하나, 별은 없다.
+ * 학생은 학생 페이지 H WORK 목록의 [리테스트 풀기] → hwork.html?rt=번호&k=접근코드 에서 한 번 푼다. */
+const LEFT_RE=/퇴원|아웃|휴원/;
+let STU=null;
+function gdOf(g){ const s=String(g||'').replace(/\s+/g,''); const m=s.match(/([1-3])학년/)||s.match(/고([1-3])/); if(m) return m[1]; const a=s.match(/[1-3]/g); return a?a[a.length-1]:''; }
+function stuIsSub(st, sub){   // 학생 페이지·DB hwork_is_me_ 와 같은 규칙
+  const nm=String(st.name||'').trim(), base=nm.replace(/[A-Za-z]$/,''), rn=String(sub.name||'').trim();
+  if(!nm || (rn!==nm && rn!==base)) return false;
+  const mg=gdOf(st.grade), rg=gdOf(sub.grade); if(mg && rg && mg!==rg) return false;
+  const ms=String(st.school||'').replace(/\s+/g,''), rs=String(sub.school||'').replace(/\s+/g,'');
+  if(ms && rs && ms.indexOf(rs)<0 && rs.indexOf(ms)<0) return false;
+  return true;
+}
+async function findStu(sub){
+  if(!STU){ const out=[]; for(let off=0;;off+=1000){ const r=await sb('/students?select=code,name,school,grade,enrolled&order=id.asc&limit=1000&offset='+off); out.push(...r); if(r.length<1000) break; }
+    STU=out.filter(x=>!LEFT_RE.test(String(x.enrolled||''))); }
+  const hit=STU.filter(x=>stuIsSub(x, sub)); return hit.length===1?hit[0]:(hit.length?'dup':null);
+}
+function rtWrong(sub){ const d=sub.detail||{}; return Object.keys(d).filter(q=>d[q]&&d[q].ok===false&&d[q].type!=='essay').sort((a,b)=>a-b); }
+async function rtLoad(t){
+  const box=$('rtbox'); if(!box) return;
+  let ex;
+  try{ ex=(await sb('/hwork_retests?select=id,qs,submitted_at,got,total,detail,created_by,created_at&src_id=eq.'+t.sub.id))[0]||null; }
+  catch(e){ if(CUR===t.k) box.style.display='none'; return; }   // 표가 없으면 감춤
+  if(CUR!==t.k) return;
+  const wq=rtWrong(t.sub);
+  let h='<h4>개인 리테스트</h4>';
+  if(ex){
+    const qs=ex.qs||[];
+    if(ex.submitted_at){
+      const still=Object.keys(ex.detail||{}).filter(q=>ex.detail[q]&&ex.detail[q].ok===false).sort((a,b)=>a-b);
+      h+=`<span class="st ok">리테스트 ${ex.got} / ${ex.total}</span> <span class="m">${esc(ex.submitted_at)} 제출 · ${still.length?'또 틀림 '+still.join(', ')+'번':'모두 맞힘'}</span>`;
+    }else{
+      h+=`<span class="st wait">아직 안 풂</span> <span class="m">${qs.length}문항 · ${qs.join(', ')}번${ex.created_by?' · '+esc(ex.created_by)+' 선생님이 냄':''}</span><br><button type="button" class="del" id="rtDel">리테스트 지우기</button>`;
+    }
+  }else if(!wq.length){
+    h+='<div class="m">이 제출에서 틀린 문항이 없어 리테스트를 낼 수 없습니다.</div>';
+  }else{
+    h+=`<div class="m">이 제출에서 틀린 ${wq.length}문항(${wq.join(', ')}번)만 모아 ${esc(t.sub.name)} 학생에게만 다시 풀게 합니다. 학생 페이지 H WORK 목록에 바로 보이고, 한 번만 풀 수 있어요. 별은 주지 않습니다.</div>
+      <button type="button" id="rtMake">리테스트 내기</button>`;
+  }
+  box.innerHTML=h;
+  if($('rtMake')) $('rtMake').onclick=()=>rtMake(t, wq);
+  if($('rtDel')) $('rtDel').onclick=()=>rtDel(t, ex);
+}
+async function rtMake(t, wq){
+  const btn=$('rtMake'); btn.disabled=true;
+  try{
+    const st=await findStu(t.sub);
+    if(st==='dup'){ toast('같은 이름의 학생이 여럿이라 누구에게 낼지 정하지 못했습니다'); btn.disabled=false; return; }
+    if(!st||!st.code){ toast('재원 명단에서 이 학생(접근코드)을 찾지 못했습니다'); btn.disabled=false; return; }
+    if(!confirm(t.sub.name+' 학생에게 틀린 '+wq.length+'문항('+wq.join(', ')+'번)으로 리테스트를 낼까요?\n학생 페이지 H WORK 목록에 바로 보여요.')){ btn.disabled=false; return; }
+    const name=await myName(true);
+    await sb('/hwork_retests?on_conflict=src_id',{ method:'POST', headers:{ Prefer:'resolution=ignore-duplicates,return=minimal' },
+      body:JSON.stringify([{ teacher:t.sub.teacher, code:t.sub.code, src_id:t.sub.id, stu_code:st.code, name:t.sub.name, school:t.sub.school||'', grade:t.sub.grade||'', qs:wq.map(String), created_by:name||'' }]) });
+    toast('리테스트를 냈어요');
+    if(window.shuegukActivity) shuegukActivity('H WORK', '개인 리테스트', t.sub.name, t.sub.code+' · '+wq.length+'문항', false);
+  }catch(e){ toast('리테스트를 내지 못했어요. 다시 눌러 주세요'); }
+  rtLoad(t);
+}
+async function rtDel(t, ex){
+  if(!confirm(t.sub.name+' 학생의 리테스트를 지울까요? 학생 화면에서도 사라집니다.')) return;
+  try{ await sb('/hwork_retests?id=eq.'+ex.id+'&submitted_at=is.null',{ method:'DELETE', headers:{ Prefer:'return=minimal' } }); toast('지웠어요'); }catch(e){ toast('지우지 못했어요'); }
+  rtLoad(t);
+}
+
 async function reply(t){
-  const body=$('rIn').value.trim(); if(!body){ toast('답장을 적어 주세요'); return; }
+  let body=$('rIn').value.trim(); const files=PEND.slice();
+  if(!body && !files.length){ toast('답장을 적거나 파일을 붙여 주세요'); return; }
+  if(!body) body=FILE_ONLY;
   const name=await myName(true); if(!name){ toast('이름이 있어야 보낼 수 있어요'); return; }
   const btn=$('rSend'); btn.disabled=true; btn.textContent='보내는 중…';
   try{
-    await sb('/hwork_qa',{ method:'POST', headers:{ Prefer:'return=minimal' }, body:JSON.stringify({ sub_id:t.sub.id, q:String(t.q), who:'선생님', name, body }) });
-    $('rIn').value=''; toast('답장을 보냈어요');
+    const up=[];
+    for(const f of files){ btn.textContent='파일 올리는 중… ('+(up.length+1)+'/'+files.length+')'; up.push(await upFile(t.sub.id, f)); }   // 파일 먼저 — 실패하면 답장을 남기지 않는다
+    const r=await sb('/hwork_qa',{ method:'POST', headers:{ Prefer:'return=representation' }, body:JSON.stringify({ sub_id:t.sub.id, q:String(t.q), who:'선생님', name, body }) });
+    if(up.length){
+      try{ await sb('/hwork_reply_files',{ method:'POST', headers:{ Prefer:'return=minimal' }, body:JSON.stringify(up.map(x=>Object.assign({ sub_id:t.sub.id, q:String(t.q), qa_id:r[0].id, created_by:name }, x))) }); }
+      catch(e){ toast('답장은 보냈지만 파일을 잇지 못했어요. 다시 붙여 보내 주세요'); await load(); return; }
+    }
+    $('rIn').value=''; PEND.length=0; attDraw(); toast('답장을 보냈어요');
     if(window.shuegukActivity) shuegukActivity('H WORK', '질문 답장', t.sub.name+' '+t.q+'번', t.sub.code, false);
     await load();
   }catch(e){ toast('보내지 못했어요. 다시 눌러 주세요'); }
   finally{ const b=$('rSend'); if(b){ b.disabled=false; b.textContent='답장 보내기'; } }
 }
 myName().then(load);
-setInterval(()=>{ if(!document.hidden && !($('rIn')&&$('rIn').value.trim())) load(); }, 30000);
+setInterval(()=>{ if(!document.hidden && !PEND.length && !($('rIn')&&$('rIn').value.trim())) load(); }, 30000);
 </script>
 <script src="https://coke4497-sys.github.io/shueguk-report/activity.js"></script>
 <script src="oh.js"></script>
