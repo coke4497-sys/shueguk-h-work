@@ -115,3 +115,6 @@
 ## 지필 워크북 두 권 — 문제 원문 연결 (2026-11-17 원장님)
 - 「로봇, 마음 그리고 우리」·「워드투벡, 언어를 숫자로 바꾸다」 지필 워크북으로 낸 23과제(357문항)에 문제·지문을 이었다(리포트 `tools/wb_workbook/build2.py` → `real_load.py put`, 자세한 것은 리포트 CLAUDE.md 068 절). 학생 문제 화면·결과 화면·선생님 답장 화면이 SHUEGUK REAL 과 같은 글 버전(`style:'real'`)으로 보인다.
 - `real.css` 끝에 지필 워크북용 몇 줄 — 지문 그림(`.fig`)·문단 번호(`.pn`)·어휘 풀이(`.voc`)·출처(`.src`)·키워드 빈칸 틀(`.frame`·`u.bk`)·빈칸 번호(`b.bn`). **해설도 넣었다(리포트 075 — hwork_src_items.expl·wrong)**: 학생은 맞혔거나 클리어한 문항의 [정답 보기]에 정답 + 해설 + 오답 해설(①②… 줄마다), 해설 없는 SHUEGUK REAL 문항은 종전 문구 그대로. 선생님 결과 화면(hwork_result.html)은 문항 카드마다 접이식 '교재 해설 보기'(`explHtml`, 075 전 DB면 해설 없이 읽음). 서술형 조건형은 해설 자리에 채점 기준. 검증 bank-e2e(70).
+
+## H WORK 배정하기 — 옛 비밀번호 잠금 없앰 (2026-11-18 원장님 "이게 뭐죠?" → "네, 없애주세요")
+- hwork_assign.html 에만 남아 있던 비밀번호 창('sh', localStorage `shueguk_teacher_unlocked`)을 지웠다. 허브 로그인 게이트(teacher-gate.js)가 이미 막는다. 시작 호출 `init()`은 스크립트 맨 끝(위 `var picker=null` 선언이 값을 덮지 않게). 되살리지 말 것.
