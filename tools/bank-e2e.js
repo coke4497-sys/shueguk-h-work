@@ -221,6 +221,12 @@ function rpc(fn, p) {
   await t.waitForSelector('#rvq2 .msg.tc');
   if (SHOT) await t.screenshot({ path: path.join(SHOT, 'bank-teacher-result.png'), fullPage: true });
   ok(!terr.length, '선생님 결과 화면 오류 없음 ' + terr.join(' | '));
+  // 휴대폰(390px) — 선생님 결과 화면
+  const tm = await ctx.newPage(); await tm.setViewportSize({ width: 390, height: 844 });
+  await tm.goto(U + 'hwork_result.html?sid=55&q=2'); await tm.waitForSelector('#rvq2 .rvthr');
+  ok(await tm.evaluate(() => document.documentElement.scrollWidth <= 391), '휴대폰 — 가로로 밀리지 않음 (' + await tm.evaluate(() => document.documentElement.scrollWidth) + ')');
+  if (SHOT) { await tm.screenshot({ path: path.join(SHOT, 'teacher-mobile-top.png') }); await tm.screenshot({ path: path.join(SHOT, 'teacher-mobile-full.png'), fullPage: true }); }
+  await tm.close();
   // 주소 없이 — 답장 기다리는 질문 목록
   DB.qa.push({ id: 2, sub_id: 56, q: '1', who: '학생', name: '이영희', body: '대기 질문', mine: '2', at: '2026-11-17T05:00:00Z', read_at: null, s: Object.assign({}, sub, { id: 56, name: '이영희' }) });
   const tl = await ctx.newPage(); await tl.goto(U + 'hwork_result.html'); await tl.waitForSelector('.wl');
