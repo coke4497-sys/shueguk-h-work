@@ -253,7 +253,7 @@ async function srcItem(code, no){
   const k=code+'|'+no;
   if(!(k in SRC)){
     SRC[k]=null;
-    try{ const r=await sb('/hwork_src_items?select=html,pid,type,ans,essay,src,err,book&active=is.true&no=eq.'+no+'&code=eq.'+encodeURIComponent(code)); SRC[k]=r[0]||null;
+    try{ const r=await sb('/hwork_src_items?select=html,pid,type,ans,essay,src,err,book,active&no=eq.'+no+'&code=eq.'+encodeURIComponent(code)); SRC[k]=r[0]||null;
       if(SRC[k]&&SRC[k].pid&&!(SRC[k].pid in SP)){ const p=await sb('/hwork_src_passages?select=html&pid=eq.'+encodeURIComponent(SRC[k].pid)); SP[SRC[k].pid]=(p[0]||{}).html||''; } }catch(e){}
   }
   return SRC[k];
@@ -276,7 +276,7 @@ async function drawDet(t, keep){
     const okc=(rs.ans||'').split('(')[0];   // '③, ④ (둘 다 정답)' 처럼 복수 정답이면 모두 동그라미
     const html=rs.type==='5지'&&/[①②③④⑤]/.test(okc)?rs.html.replace(/<span class="cn">([①②③④⑤])<\/span>/g,(m,c)=>okc.includes(c)?'<span class="cn ok">'+c+'</span>':m):rs.html;
     qb=`<div class="qbox">${rs.pid?`<details class="pasd"><summary>지문 보기</summary><div class="pb rq">${SP[rs.pid]||''}</div></details>`:''}
-      <div class="rq">${html}</div><div class="tag" style="display:inline-block;margin-top:6px">${esc(rs.book)} · ${esc(rs.src)}</div>
+      <div class="rq">${html}</div><div class="tag" style="display:inline-block;margin-top:6px">${esc(rs.book)} · ${esc(rs.src)}</div>${rs.active===false?'<div class="tag" style="display:inline-block;margin:6px 0 0 6px;background:#F9EFD0;color:#7a6326">검수 전 · 학생 화면에는 안 보임</div>':''}
       <details style="margin-top:6px"><summary style="cursor:pointer;color:#3d675d;font-size:14px">정답</summary><div class="ex">${rs.err?'<b>오류 문항</b> (교재에서 풀지 않고 넘어감)':`<b>정답 ${esc(rs.ans||'—')}</b>`}${rs.essay?`<div>예시 답: ${esc(rs.essay)}</div>`:''}</div></details></div>`;
   }
   const st = d.ok===true?'<b class="ok">맞힘</b>':(d.ok===false?(rv.cleared_at?'<b class="ok">오답하기 클리어</b>':'<b class="ng">틀림</b>'):'');
