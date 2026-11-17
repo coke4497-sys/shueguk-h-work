@@ -43,6 +43,11 @@
   .chc .row2{display:flex;gap:8px;flex-wrap:wrap}
   .chc input{flex:1;min-width:200px;border:1px solid #dfe5e1;border-radius:12px;padding:11px 12px;font-family:inherit;font-size:14.5px;background:#fafbf9}
   .chc button{border:0;border-radius:12px;background:#e86a93;color:#fff;padding:11px 16px;font-size:14.5px;font-family:inherit;cursor:pointer}
+  .chc button.soft{background:#fdf0f4;color:#b0476a}
+  .chc button.alim{background:#f7e3a0;color:#5f4a12}
+  .chc button.alim.todo{background:#f6e6e9;color:#a8434f}
+  .chc button:disabled{opacity:.5;cursor:default}
+  .chc .row2.al{align-items:center}
   .chc .done{background:#fdf0f4;color:#8a3a57;border-radius:12px;padding:10px 12px;font-size:14px}
   .qchk{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
   .qchk button{border:0;border-radius:999px;background:#fdf0f4;color:#b0476a;padding:8px 14px;font-size:13.5px;font-family:inherit;cursor:pointer}
@@ -266,12 +271,66 @@ async function checkAll(){
   const c=Object.assign({}, SUB.checked||{}); Object.keys(SUB.detail||{}).forEach(q=>{ if(!c[q]) c[q]={ at, by }; });
   saveCheck({ checked:c, check_done:{ at, by, note:note.trim().slice(0,200) } }, '과제 검사 완료 · 학생에게 하트를 보냈어요 ♥');
 }
+/* 잘 고쳤습니다 한꺼번에 — 틀렸다가 클리어한 문항 중 아직 확인 안 한 것 (2026-11-17 원장님 "잘 고쳤습니다. 한꺼번에 누르기 버튼") */
+function fixedQs(){ const rv=SUB.review||{}, c=SUB.checked||{};
+  return Object.keys(SUB.detail||{}).filter(q=>{ const d=SUB.detail[q]||{}; return d.ok===false && d.type!=='essay' && rv[q] && rv[q].cleared_at && !c[q]; }).sort((a,b)=>a-b); }
+async function checkFixed(){
+  const by=await myName(); if(!by){ toast('허브 로그인 이름을 찾지 못했어요. 다시 로그인해 주세요'); return; }
+  const qs=fixedQs(); if(!qs.length) return; const at=nowKst(), c=Object.assign({}, SUB.checked||{});
+  qs.forEach(q=>{ c[q]={ at, by }; });
+  saveCheck({ checked:c }, qs.join(', ')+'번 모두 잘 고쳤습니다 ♥');
+}
+/* 답장 알림톡 — 과제마다 한 번, 학생에게 (리포트 백엔드 alimSend 종류 hwork_reply · 솔라피 심사 뒤 준비됨) */
+const REPORT_API='https://script.google.com/macros/s/AKfycbzhCncBwn-JlqXARC3wfrWUCuNHzlNK2df0bdhx-w78Xr8mzYUcIYZOJdRi9N4bHtsb/exec', REPORT_KEY='sh';
+let ALIM={ ready:null, todo:null, sent:'', tsent:'' };
+async function alimReady(){
+  if(ALIM.ready!==null) return;
+  try{ const d=await (await fetch(REPORT_API+'?'+new URLSearchParams({ action:'alimConfig', pw:REPORT_KEY, t:Date.now() }))).json();
+    const ok=d&&d.result==='success'&&d.ready!==false, T=(d&&d.templates)||{};
+    ALIM.ready=!!(ok&&T.hwork_reply&&T.hwork_reply.ready); ALIM.todo=!!(ok&&T.hwork_todo&&T.hwork_todo.ready); }
+  catch(e){ ALIM.ready=false; ALIM.todo=false; }
+  draw();
+}
+function lastReplyId(){ return QA.filter(m=>m.who==='선생님').reduce((a,m)=>Math.max(a,Number(m.id)||0),0); }
+/* 과제 미완료 — 1차 오답 중 클리어·선생님께 넘김(도움·신고) 아닌 문항이 남았을 때 */
+function todoQs(){ const rv=SUB.review||{};
+  return Object.keys(SUB.detail||{}).filter(q=>{ const d=SUB.detail[q]||{}, r=rv[q]||{}; return d.ok===false && d.type!=='essay' && !(r.cleared_at||r.help||r.error); }).sort((a,b)=>a-b); }
+async function alimSend(kind){   // kind: hwork_reply(답장 안내 — 과제마다 마지막 답장 기준 한 번) · hwork_todo(과제 미완료 — 하루 한 번)
+  const reply=kind==='hwork_reply', last=lastReplyId();
+  if(reply && !last){ toast('먼저 답장을 보내 주세요'); return; }
+  const b=document.getElementById(reply?'alimBtn':'todoBtn'); const label=b?b.textContent:''; if(b){ b.disabled=true; b.textContent='보내는 중…'; }
+  try{
+    if(!STU){ const out=[]; for(let off=0;;off+=1000){ const r=await sb('/students?select=code,name,school,grade,enrolled,phone_student&order=id.asc&limit=1000&offset='+off); out.push(...r); if(r.length<1000) break; } STU=out.filter(x=>!LEFT_RE.test(String(x.enrolled||''))); }
+    const hit=STU.filter(x=>stuIsSub(x, SUB));
+    if(hit.length!==1){ toast(hit.length?'같은 이름의 학생이 여럿이라 누구에게 보낼지 정하지 못했어요':'재원 명단에서 이 학생을 찾지 못했어요'); return; }
+    const st=hit[0], to=String(st.phone_student||'').replace(/\D/g,'');
+    if(!to){ toast('학생 연락처가 등록되어 있지 않아요'); return; }
+    if(!st.code){ toast('학생 접근코드가 없어 보낼 수 없어요'); return; }
+    const title=String(SUB.code||'').replace(/^SHUEGUK REAL 내신 기출\s*/,'').replace(/^\[[^\]]*\]\s*/,'');
+    if(!confirm(SUB.name+' 학생에게 '+(reply?'답장 알림톡':'과제 미완료 알림톡')+'을 보낼까요?\n\n▶ '+title)) return;
+    const by=await myName(), today=nowKst().slice(0,10);
+    const r=await fetch(REPORT_API,{ method:'POST', headers:{ 'Content-Type':'text/plain;charset=utf-8' }, body:JSON.stringify({ pw:REPORT_KEY, action:'alimSend', kind, by,
+      items:[{ student:SUB.name, to, who:'학생', cls:'H WORK', date:reply?'H:'+SUB.id+'|'+last:'T:'+SUB.id+'|'+today, vars:{ 학생명:String(SUB.name||'').replace(/[A-Za-z]$/,''), 과제:title.slice(0,60), 접근코드:st.code } }] }) });
+    const j=await r.json(); const x=j&&j.sent&&j.sent[0];
+    if(x&&x.ok){ if(reply) ALIM.sent=nowKst(); else ALIM.tsent=nowKst();
+      toast(x.dup?(reply?'이 답장으로는 이미 알림톡을 보냈어요':'오늘은 이미 미완료 알림톡을 보냈어요'):'학생에게 알림톡을 보냈어요');
+      if(window.shuegukActivity) shuegukActivity('H WORK', reply?'답장 알림톡':'미완료 알림톡', SUB.name, SUB.code, false); }
+    else toast('보내지 못했어요: '+((x&&x.message)||(j&&j.message)||'다시 눌러 주세요'));
+  }catch(e){ toast('보내지 못했어요. 인터넷 연결을 확인해 주세요'); }
+  finally{ if(b){ b.disabled=false; b.textContent=label; } draw(); }
+}
+function alimSendReply(){ return alimSend('hwork_reply'); }
 function checkHtml(){
   if(!('checked' in SUB)) return '';
   const d=SUB.check_done, seen=SUB.check_seen_at&&d&&SUB.check_seen_at>=d.at;
   return `<section class="chc"><h2>과제 검사</h2>${d?`<div class="done">♥ ${esc(d.by)} 선생님 · ${esc(String(d.at).slice(5,16))} 검사 완료${d.note?` · “${esc(d.note)}”`:''} — ${seen?'학생이 하트 팝업을 봤어요':'학생이 다음에 들어오면 하트 팝업이 떠요'}</div>`
     :'<div class="m">답장이 필요 없는 문항은 카드 안 [잘 고쳤습니다]를 누르거나, 여기서 한 번에 검사를 마치세요. 학생이 다음에 들어오면 하트가 팡팡 터지는 팝업이 떠요.</div>'}
-    <div class="row2"><input id="chkNote" maxlength="200" placeholder="학생에게 한마디 (선택) — 예: 오답 이유를 잘 적었어요!" value="${esc(d&&d.note||'')}"><button type="button" onclick="checkAll()">${d?'한마디 바꿔 다시 보내기 ♥':'과제 검사 완료 · 하트 보내기 ♥'}</button></div></section>`;
+    <div class="row2"><input id="chkNote" maxlength="200" placeholder="학생에게 한마디 (선택) — 예: 오답 이유를 잘 적었어요!" value="${esc(d&&d.note||'')}"><button type="button" onclick="checkAll()">${d?'한마디 바꿔 다시 보내기 ♥':'과제 검사 완료 · 하트 보내기 ♥'}</button></div>
+    ${fixedQs().length?`<div class="row2"><button type="button" class="soft" onclick="checkFixed()">클리어한 ${fixedQs().join(', ')}번 모두 잘 고쳤습니다 ♥</button></div>`:''}
+    ${lastReplyId()?`<div class="row2 al"><button type="button" class="alim" id="alimBtn" onclick="alimSendReply()" ${ALIM.ready===false?'disabled':''}>학생에게 답장 알림톡 보내기</button>
+      <span class="m">${ALIM.ready===false?'알림톡 템플릿이 아직 준비 전이에요(솔라피 심사 중).':ALIM.sent?'보냄 · '+esc(ALIM.sent.slice(5,16))+' — 새 답장을 단 뒤에 다시 보낼 수 있어요':'답장을 다 단 뒤 한 번 보내 주세요. 과제마다 한 번, 학생 휴대폰으로 가요.'}</span></div>`:''}
+    ${todoQs().length&&!SUB.review_at?`<div class="row2 al"><button type="button" class="alim todo" id="todoBtn" onclick="alimSend('hwork_todo')" ${ALIM.todo===false?'disabled':''}>과제 미완료 알림톡 보내기</button>
+      <span class="m">${ALIM.todo===false?'알림톡 템플릿이 아직 준비 전이에요(솔라피 심사 중).':'아직 오답하기 안 한 문항 '+todoQs().join(', ')+'번 — '+(ALIM.tsent?'오늘 보냄 · '+esc(ALIM.tsent.slice(11,16)):"'선생님이 기다리고 있어요' 알림톡이 학생에게 가요(하루 한 번).")}</span></div>`:''}</section>`;
 }
 function kst(iso){ const d=new Date(new Date(iso).getTime()+9*3600e3); if(isNaN(d)) return String(iso||''); const p=n=>String(n).padStart(2,'0');
   return d.getUTCFullYear()+'-'+p(d.getUTCMonth()+1)+'-'+p(d.getUTCDate())+' '+p(d.getUTCHours())+':'+p(d.getUTCMinutes()); }
@@ -391,7 +450,7 @@ document.addEventListener('click', async e=>{
   if(e.target.id==='rtMake'){
     const wq=wrongQs(); e.target.disabled=true;
     try{
-      if(!STU){ const out=[]; for(let off=0;;off+=1000){ const r=await sb('/students?select=code,name,school,grade,enrolled&order=id.asc&limit=1000&offset='+off); out.push(...r); if(r.length<1000) break; } STU=out.filter(x=>!LEFT_RE.test(String(x.enrolled||''))); }
+      if(!STU){ const out=[]; for(let off=0;;off+=1000){ const r=await sb('/students?select=code,name,school,grade,enrolled,phone_student&order=id.asc&limit=1000&offset='+off); out.push(...r); if(r.length<1000) break; } STU=out.filter(x=>!LEFT_RE.test(String(x.enrolled||''))); }
       const hit=STU.filter(x=>stuIsSub(x, SUB)); const st=hit.length===1?hit[0]:(hit.length?'dup':null);
       if(st==='dup'){ toast('같은 이름의 학생이 여럿이라 누구에게 낼지 정하지 못했습니다'); e.target.disabled=false; return; }
       if(!st||!st.code){ toast('재원 명단에서 이 학생(접근코드)을 찾지 못했습니다'); e.target.disabled=false; return; }
@@ -436,6 +495,7 @@ async function boot(){
   if(!SUB){ $('view').innerHTML='<div class="wl"><p>제출 기록을 찾지 못했습니다.</p></div>'; return; }
   await Promise.all([loadQs(SUB), loadQa(), loadRt()]);
   await loadPrev();
+  alimReady();
   draw();
   if(OPENQ){ const t=document.getElementById('rvq'+OPENQ); if(t) t.scrollIntoView({ block:'start' }); }
   CTX.ui.open.forEach(q=>markRead(q));   // 열어 둔 카드의 학생 글은 읽음 — '새' 표시는 이번 화면에서는 남겨 두고 다음부터 사라짐
