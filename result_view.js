@@ -100,6 +100,15 @@
   /* 정답 번호 — gbank.css 의 덧씌운 동그라미(:before)는 글꼴에 따라 옆으로 밀려 보여서, 이 화면에서는 번호 자체를 칠한다 (2026-11-17 원장님 "정답 선지 색칠이 어긋나 있어요") */
   .rv2 .gq .cn.ok:before,.rv2 .gq .c.ok .cn:before{content:none!important}
   .rv2 .gq .cn.ok{display:inline-block;background:#5f9488;color:#fff;border-radius:50%;width:1.3em;height:1.3em;line-height:1.3em;text-align:center;font-style:normal;vertical-align:baseline}
+  .rv2 .und{align-self:flex-start;font-size:12.5px;color:#3d675d;background:#eaf3ee;border-radius:999px;padding:5px 12px}
+  /* 답장을 받은 뒤 — 이해했어요 · 다시 질문하기 */
+  .rv2 .ack2{display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:12px;background:#f6f4fa;border:1px solid #e6e2f2}
+  .rv2 .ack2 .q2{font-size:14px;color:#4a3f63}
+  .rv2 .ack2 .bb{display:flex;gap:8px;flex-wrap:wrap}
+  .rv2 .ack2 button{flex:1;min-width:140px;border:0;border-radius:12px;padding:12px 14px;font-size:15px;font-family:inherit;cursor:pointer}
+  .rv2 .ack2 .yes{background:#5f9488;color:#fff}
+  .rv2 .ack2 .no{background:#fff;color:#4a3f63;box-shadow:inset 0 0 0 1.5px #cfc7e3}
+  .rv2 .reask{align-self:flex-start;border:0;background:transparent;color:#4a3f63;text-decoration:underline;text-underline-offset:3px;font-size:13px;cursor:pointer;font-family:inherit;padding:2px 0}
   /* 지난 답장 불러오기 */
   .rv2 .prev{border:1px dashed #cfd8d2;border-radius:10px;background:#fff}
   .rv2 .prev summary{cursor:pointer;padding:8px 11px;font-size:13px;color:#3d675d}
@@ -126,7 +135,7 @@
     const d=c.detail[q]||{}, r=(c.review||{})[q]||{}, tries=r.tries||[];
     if(d.type==='essay') return { k:'essay', label:'서술형 · 예시 답과 비교', bg:'#f1f4f1', fg:'#54655c', nb:'#f1f4f1', nf:'#54655c', bd:'#e3e8e4', tip:'서술형' };
     if(d.ok===true) return { k:'ok', label:'1차 정답', bg:'#dcebe3', fg:'#4b6157', nb:'#8fb3a0', nf:'#fff', bd:'#e3e8e4', tip:'1차 정답' };
-    if(r.cleared_at) return { k:'clr', label:'클리어 · '+Math.max(1,tries.length)+'번째', bg:'#dcebe3', fg:'#4b6157', nb:'#dcebe3', nf:'#4b6157', bd:'#e3e8e4', tip:'오답하기 클리어' };
+    if(r.cleared_at) return { k:'clr', label:r.via==='qa'?'클리어 · 답장 보고 이해':'클리어 · '+Math.max(1,tries.length)+'번째', bg:'#dcebe3', fg:'#4b6157', nb:'#dcebe3', nf:'#4b6157', bd:'#e3e8e4', tip:'오답하기 클리어' };
     if(r.help||(c.qa||[]).some(m=>String(m.q)===String(q)&&m.who==='학생')) return { k:'help', label:'아직 · 도움 요청', bg:'#e6def0', fg:'#4a3f63', nb:'#f6e6e9', nf:'#a8434f', bd:'#ecd9dd', tip:'도움 요청', bar:'#e6def0', barf:'#4a3f63' };
     return { k:'todo', label:c.mode==='student'?'오답하기':'아직 · 오답하기', bg:'#f6e6e9', fg:'#a8434f', nb:'#f6e6e9', nf:'#a8434f', bd:'#ecd9dd', tip:'오답하기 전', bar:'#f6e6e9', barf:'#a8434f' };
   }
@@ -172,7 +181,11 @@
       if(r.error) parts.push(`<div class="err">문항 오류 신고 · ${esc(r.error.text||'')}</div>`);
       if(h.fixForm) { const f=h.fixForm(q); if(f) parts.push(f); }
       if(h.expl) { const x=h.expl(q); if(x) parts.push(x); }
+      // 학생이 답장을 보고 '이해했어요'를 누른 때 — 그 뒤에 다시 질문이 없으면 대화 끝에 한 줄
+      const und=(c.review||{})[q]&&c.review[q].understood_at;
+      const undHtml=und && (!last || String(last.at||'').slice(0,16)<=String(und)) ? `<div class="und">✓ ${c.mode==='student'?'답장을 보고':'학생이 답장을 보고'} '이해했어요'를 눌렀습니다 · ${esc(String(und).slice(5,16))}</div>` : '';
       if(msgs.length) parts.push(`<div class="rvthr">${msgs.map(m=>`<div class="msg ${m.who==='선생님'?'tc':'st'}"><span class="w">${m.who==='선생님'?esc(m.name||'선생님')+' 선생님':(c.mode==='student'?'내 질문':'학생 질문')} · ${esc(String(m.at||'').slice(5,16))}${m.who==='학생'&&m.mine?' · 그때 답 '+esc(m.mine):''}${(c.mode==='student'?m.who==='선생님':m.who==='학생')&&!m.read?'<span class="nw">새</span>':''}</span>${m.body==='(첨부 파일)'&&(m.files||[]).length?'':esc(m.body)}${h.files?h.files(m.files||[], m):''}</div>`).join('')}</div>`);
+      if(undHtml) parts.push(undHtml);
       if(h.composer) { const x=h.composer(q); if(x) parts.push(x); }
       body=`<div class="in">${parts.join('')}</div>`;
     }
