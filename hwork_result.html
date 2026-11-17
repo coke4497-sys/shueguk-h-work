@@ -179,6 +179,11 @@ async function myName(){   // 답장 이름 = 허브에 로그인한 선생님(t
   return ME;
 }
 /* 문제 원문 — 문항 은행(data.bank → gbank_items) 또는 교재(hwork_src_items, 숨긴 것도 선생님께는 보임) */
+/* 교재 해설(075 — 지필 워크북 해설·오답 해설) — 선생님 화면은 늘 펼쳐 볼 수 있다 */
+const EXPL={};
+function wrongLines(t){ return String(t||'').split(/(?=[①②③④⑤])/).map(x=>x.trim()).filter(Boolean); }
+function explHtml(q){ const x=EXPL[q]; if(!x) return '';
+  return `<details class="expl"><summary>교재 해설 보기</summary>${x.expl?`<div>${esc(x.expl)}</div>`:''}${wrongLines(x.wrong).map(w=>`<div>${esc(w)}</div>`).join('')}</details>`; }
 async function loadQs(s){
   try{
     const r=await sb('/hwork_homeworks?select=data&teacher=eq.'+enc(s.teacher)+'&code=eq.'+enc(s.code)+'&limit=1');
@@ -193,8 +198,10 @@ async function loadQs(s){
       if(pids.length){ (await sb('/gbank_passages?select=pid,html&pid=in.('+pids.map(p=>'"'+p+'"').join(',')+')')).forEach(p=>QP[p.pid]=p.html); }
     }else{
       STYLE='rq';
-      const rows=await sb('/hwork_src_items?select=no,html,pid,ans,type&code=eq.'+enc(s.code));
-      rows.forEach(x=>{ const okc=String(x.ans||'').split('(')[0]; if(ANS[x.no]==null&&x.ans) ANS[x.no]=String(x.ans);
+      let rows;
+      try{ rows=await sb('/hwork_src_items?select=no,html,pid,ans,type,expl,wrong&code=eq.'+enc(s.code)); }
+      catch(e){ rows=await sb('/hwork_src_items?select=no,html,pid,ans,type&code=eq.'+enc(s.code)); }   // 075 전
+      rows.forEach(x=>{ if(x.expl||x.wrong) EXPL[x.no]={ expl:x.expl||'', wrong:x.wrong||'' }; const okc=String(x.ans||'').split('(')[0]; if(ANS[x.no]==null&&x.ans) ANS[x.no]=String(x.ans);
         QS[x.no]={ html:x.type==='5지'&&/[①②③④⑤]/.test(okc)?x.html.replace(/<span class="cn">([①②③④⑤])<\/span>/g,(m,c)=>okc.includes(c)?'<span class="cn ok">'+c+'</span>':m):x.html, pid:x.pid }; });
       const pids=[...new Set(rows.map(x=>x.pid).filter(Boolean))];
       if(pids.length){ (await sb('/hwork_src_passages?select=pid,html&pid=in.('+pids.map(p=>'"'+p+'"').join(',')+')')).forEach(p=>QP[p.pid]=p.html); }
@@ -477,6 +484,7 @@ function draw(){
       hooks:{
         qhtml:q=>{ const x=QS[q]; if(!x) return null; return { pas:x.pid&&QP[x.pid]?`<div class="${STYLE}">${QP[x.pid]}</div>`:'', html:`<div class="${STYLE}">${x.html}</div>` }; },
         composer:q=>(('checked' in SUB)?`<div class="qchk">${(SUB.checked||{})[q]?`<span class="on">♥ ${esc(SUB.checked[q].by)} 선생님 확인 · ${esc(String(SUB.checked[q].at).slice(5,16))}</span><button type="button" class="un" onclick="checkQ('${q}',false)">확인 취소</button>`:`<button type="button" onclick="checkQ('${q}',true)">잘 고쳤습니다 ♥</button>`}</div>`:'')+`<div class="cmp"><span class="lab">학생에게 답장</span>${prevHtml(q)}<textarea data-rin="${q}" maxlength="5000" placeholder="답장을 적어 주세요. 학생 화면 이 문항에 바로 보입니다. 사진은 Ctrl+V 로 붙여 넣어도 돼요.">${esc(keep[q]||'')}</textarea>${reuseHtml(q)}${attHtml(q)}<button type="button" class="go" data-send="${q}">답장 보내기</button></div>`,
+        expl:q=>explHtml(q),
         files:f=>fsHtml(f),
         opened:q=>markRead(q),
         after:()=>fThumbs()
