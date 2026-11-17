@@ -223,6 +223,8 @@ function rpc(fn, p) {
       if (q.get('offset') && q.get('offset') !== '0') rows = [];
       return rt.fulfill({ json: rows.map(r => { if (cols[0] === '*') return r; const o = {}; cols.forEach(c => o[c] = r[c] === undefined ? null : r[c]); return o; }) });
     }
+    if (u.includes('/rest/v1/hwork_qa?select=id,sub_id,q,who')) return rt.fulfill({ json: (q => (q.get('offset') && q.get('offset') !== '0') ? [] : [
+      { id: 1, sub_id: 41, q: '3', who: '학생' }, { id: 2, sub_id: 41, q: '3', who: '선생님' }, { id: 3, sub_id: 42, q: '2', who: '학생' }])(new URL(u).searchParams) });
     if (/\/rest\/v1\/(hwork_qa|hwork_homeworks|hwork_retests|hwork_src_items|hwork_src_passages|students)/.test(u)) return rt.fulfill({ json: [] });
     if (u.endsWith('.js')) return rt.fulfill({ body: '', contentType: 'text/javascript' });
     return rt.fulfill({ json: { ok: true, list: [] } });
@@ -231,6 +233,16 @@ function rpc(fn, p) {
   ok((await tp.inputValue('#fTeacher')) === '이수경', '주소 ?t= 로 열면 그 강사가 골라진 목록 (결과 화면 돌아가기)');
   ok(await tp.locator('#listBody tr.chkd:has-text("박보검")').count() === 1 && await tp.locator('#listBody tr.chkd:has-text("정해인")').count() === 0 && (await tp.textContent('#listBody tr:has-text("박보검")')).includes('♥ 검사 완료'), '과제 검사 완료한 줄만 색 · ♥ 검사 완료');
   await tp.selectOption('#fTeacher', '이수경'); await tp.waitForTimeout(200);
+  // 목록 가독성 — 답장 필요 맨 위·상태 알약·거르기·제목 두 줄 (2026-11-17)
+  ok((await tp.textContent('#listBody tr.r >> nth=0')).includes('정해인') && (await tp.textContent('#listBody tr:has-text("정해인") .stp')).includes('답장 필요 1') && await tp.locator('#listBody tr.needr').count() === 1, '답장 필요한 제출이 맨 위 · 답장 필요 1');
+  ok((await tp.textContent('#listBody tr:has-text("박보검")')).includes('질문 1 · 모두 답함'), '답장을 다 한 제출: 질문 1 · 모두 답함');
+  ok((await tp.textContent('#summary')).includes('답장할 질문이 있는 과제 1건') && (await tp.textContent('#stchips')).includes('답장 필요1'), '요약·거르기 숫자');
+  ok(await tp.locator('#listBody tr.sep').count() === 2, '상태별 묶음 머리');
+  await tp.click('.stchip.need'); await tp.waitForTimeout(150);
+  ok(await tp.locator('#listBody tr.r').count() === 1 && await tp.locator('#listBody tr.sep').count() === 0, '[답장 필요] 거르기');
+  await tp.click('.stchip >> nth=0'); await tp.waitForTimeout(150);
+  if (SHOT) await tp.screenshot({ path: SHOT + '/teacher-list.png', fullPage: true });
+  ok((await tp.textContent('#listTbl thead')).includes('상태') && !(await tp.textContent('#listTbl thead')).includes('강사'), '첫 열 = 상태');
   ok((await tp.textContent('#listBody')).includes('오답 2/2 ✓') && (await tp.textContent('#listBody')).includes('도움 1') && (await tp.textContent('#listBody')).includes('신고 1'), '교사 목록: 오답 2/2 ✓ · 도움 · 신고');
   ok((await tp.locator('#listBody tr:has-text("정해인") .rtag').count()) === 0, '오답하기 안 한 학생은 표시 없음');
   ok((await tp.textContent('#listBody tr:has-text("박보검")')).includes('이탈 3회 · 2분 10초'), '교사 목록: 화면 이탈 3회 · 2분 10초');
@@ -264,7 +276,7 @@ function rpc(fn, p) {
   oldDb = true;
   await tp.goto('http://localhost:' + PORT + '/hwork_teacher.html'); await tp.waitForTimeout(700);
   await tp.selectOption('#fTeacher', '이수경'); await tp.waitForTimeout(200);
-  ok((await tp.locator('#listBody tr').count()) === 2 && (await tp.locator('#listBody .rtag').count()) === 0, '064 전 DB: 목록 그대로');
+  ok((await tp.locator('#listBody tr.r').count()) === 2 && (await tp.locator('#listBody .rtag').count()) === 0, '064 전 DB: 목록 그대로');
   [rp] = await Promise.all([tp.waitForEvent('popup'), tp.click('#listBody tr:has-text("박보검")')]);
   ok(rp.url().includes('sid=41'), '064 전 DB: 원본 제출이면 같은 결과 화면으로');
 

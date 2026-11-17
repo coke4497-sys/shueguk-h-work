@@ -141,6 +141,29 @@
   /* 과제 검사 완료(채점 결과 화면 [과제 검사 완료 · 하트 보내기]) — 줄 색 (2026-11-17 원장님) */
   tr.r.chkd td{ background:#FDF0F4; }
   tr.r.chkd:hover td{ background:#FBE4EC; }
+  /* 목록 가독성 (2026-11-17 원장님 "질문에 답이 필요한 리스트가 한눈에") — 상태 알약·거르기·제목 두 줄 */
+  .stchips{ display:flex; flex-wrap:wrap; gap:6px; margin:0 16px 10px; }
+  .stchip{ border:0; background:#fff; color:#4F5C56; font-family:inherit; font-size:13px; padding:7px 13px;
+    border-radius:99px; cursor:pointer; box-shadow:var(--shadow); }
+  .stchip b{ font-weight:700; margin-left:3px; }
+  .stchip.on{ background:#5A4A6A; color:#fff; }
+  .stchip.need:not(.on) b{ color:#C0392B; }
+  table.list td.tt{ text-align:left; white-space:normal; min-width:220px; }
+  table.list td.tt .bk{ display:block; font-size:11.5px; color:#8B928C; line-height:1.4; }
+  table.list td.tt .ls{ display:block; font-weight:700; color:#2A332F; line-height:1.45; }
+  table.list td.stc{ text-align:left; }
+  table.list td.sc{ white-space:normal; min-width:96px; max-width:200px; line-height:1.9; }
+  .stp{ display:inline-block; font-size:12px; font-weight:700; padding:3px 10px; border-radius:99px; white-space:nowrap; }
+  .stp.need{ background:#E5533F; color:#fff; }
+  .stp.ing{ background:#F9EFD0; color:#7A6230; }
+  .stp.wait{ background:#E3EEF9; color:#3D5F86; }
+  .stp.done{ background:#FBE4EA; color:#B0476A; }
+  .stp.sub{ background:#F2F5F3; color:#65726B; }
+  .qsub{ display:block; font-size:11.5px; color:#8B928C; margin-top:3px; white-space:nowrap; }
+  .qsub.need{ color:#C0392B; font-weight:700; }
+  tr.r.needr td{ background:#FFF4EF; }
+  tr.r.needr:hover td{ background:#FDE8DF; }
+  tr.sep td{ background:#F6F8F7; color:#65726B; font-size:12.5px; font-weight:700; text-align:left; padding:8px 12px; cursor:default; }
   .rtag.dn{ background:#FBE4EA; color:#B0476A; }
   .rtag.hp{ background:#F7E2DE; color:#8A4A40; }
   #report .whytag.err{ background:#F7E2DE; color:#8A4A40; }
@@ -167,6 +190,7 @@
     <button onclick="reload()">새로고침</button>
   </div>
   <div class="summary" id="summary"></div>
+  <div class="stchips" id="stchips"></div>
   <div class="qbtn" id="qbtn"><button onclick="analyzeQuestions()">이 시험 문항별 오답률 분석</button></div>
   <div class="qpanel" id="qpanel">
     <div class="qhead"><span id="qhTitle">문항별 오답률</span><span class="x" onclick="closeQ()">닫기</span></div>
@@ -176,7 +200,7 @@
   <div class="list-wrap">
     <div class="loading" id="loading">불러오는 중…</div>
     <table class="list" id="listTbl" style="display:none;">
-      <thead><tr><th>강사</th><th>제목</th><th>이름</th><th>점수</th><th>학교</th><th>학년</th><th>제출일</th></tr></thead>
+      <thead><tr><th>상태</th><th>제목</th><th>이름</th><th>점수</th><th>학교</th><th>학년</th><th>제출일</th></tr></thead>
       <tbody id="listBody"></tbody>
     </table>
     <div class="empty" id="empty" style="display:none;">제출된 H WORK이 없습니다.</div>
@@ -290,6 +314,15 @@
         if(!json.ok){ showDiag('목록 오류: '+(json.error||'')); document.getElementById('loading').style.display='none'; return; }
         list = json.list||[];
       }
+      // 질문 대화 — 문항마다 마지막 글이 학생이면 '답장 필요' (2026-11-17)
+      try{
+        const qa=await sbAllRows('/hwork_qa?select=id,sub_id,q,who&order=id');
+        const by={};
+        qa.forEach(m=>{ const k=m.sub_id+'|'+m.q; by[k]=m.who; });
+        const st={};
+        Object.keys(by).forEach(k=>{ const sid=k.split('|')[0]; const o=st[sid]||(st[sid]={ need:0, ans:0 }); if(by[k]==='선생님') o.ans++; else o.need++; });
+        list.forEach(r=>{ if(r._id){ const o=st[r._id]; r.qaNeed=o?o.need:0; r.qaAns=o?o.ans:0; r.qaOn=true; } });
+      }catch(e){ console.warn('질문 대화 읽기 실패', e); }
       ALL=list;
       fillSel('fTeacher', uniq(ALL.map(r=>r.teacher)), '전체 강사');
       if(!T_PRESET){ T_PRESET=true;   // 처음 열 때 강사 = 주소 ?t= 또는 허브 로그인 이름 (2026-11-17 원장님 "돌아가기 했을 때 제 이름이 선택된 상태로")
@@ -326,29 +359,79 @@
       return;
     }
 
-    const rows=ALL.filter(r=>
+    const base=ALL.filter(r=>
       (r.teacher===t) && (!c||r.code===c) && (!s||r.school===s) && (!g||r.grade===g) &&
       (!q||(r.name||'').includes(q)) );
+    base.forEach(r=>{ r.st=stOf(r); });
+    const cnt={ all:base.length, need:0, ing:0, wait:0, done:0 };
+    base.forEach(r=>{ if(cnt[r.st]!=null) cnt[r.st]++; });
+    if(ST_F!=='all' && !cnt[ST_F]) ST_F='all';
+    document.getElementById('stchips').innerHTML=[['all','전체'],['need','답장 필요'],['ing','오답하기 중'],['wait','검사 대기'],['done','검사 완료']]
+      .map(([k,l])=>`<button class="stchip${k==='need'?' need':''}${ST_F===k?' on':''}" onclick="setStF('${k}')">${l}<b>${cnt[k]}</b></button>`).join('');
+    // 답장 필요 → 오답하기 중 → 검사 대기 → 검사 완료 → 그 밖, 같은 상태 안은 최근 제출 먼저
+    const ORD={ need:0, ing:1, wait:2, done:3, sub:4 };
+    const rows=base.filter(r=>ST_F==='all'||r.st===ST_F).sort((a,b)=>(ORD[a.st]-ORD[b.st]) || (Number(b._id||0)-Number(a._id||0)));
     CUR=rows;
 
     // 요약
-    let sumLine=`제출 <b>${rows.length}</b>건`;
-    if(rows.length){
+    let sumLine=`제출 <b>${base.length}</b>건`;
+    if(cnt.need) sumLine+=` · <span style="color:#C0392B;font-weight:700">답장할 질문이 있는 과제 ${cnt.need}건</span>`;
+    if(base.length){
       let acc=0,n=0;
-      rows.forEach(r=>{ const tot=Number(r.total)||0; if(tot>0){ acc+=Number(r.got)/tot; n++; } });
+      base.forEach(r=>{ const tot=Number(r.total)||0; if(tot>0){ acc+=Number(r.got)/tot; n++; } });
       if(n) sumLine+=` · 평균 정답률 <b>${Math.round(acc/n*100)}%</b>`;
     }
     document.getElementById('summary').innerHTML=sumLine;
 
     if(!rows.length){ tbl.style.display='none'; empty.style.display='block'; empty.textContent='조건에 맞는 제출이 없습니다.'; return; }
     empty.style.display='none'; tbl.style.display='table';
-    body.innerHTML=rows.map((r,i)=>`<tr class="r${r.done?' chkd':''}" onclick="openReportAt(${i})"${r.done?` title="${escapeHtml((r.done.by||'')+' 선생님 · '+String(r.done.at||'').slice(5,16)+' 과제 검사 완료')}"`:''}>
-      <td>${escapeHtml(r.teacher||'')}</td><td>${escapeHtml(r.code||'')}</td>
-      <td class="nm">${escapeHtml(r.name||'')}${r.done?' <span class="rtag dn">♥ 검사 완료</span>':''}${Number(r.qCount)>0?` <span class="qbadge">질문 ${r.qCount}</span>`:''}</td>
+    const SEP={ need:'답장이 필요한 질문이 있어요', ing:'학생이 오답하기를 하고 있어요', wait:'오답하기를 끝냈어요 · 선생님 검사를 기다려요', done:'과제 검사 완료', sub:'그 밖의 제출' };
+    let prev='';
+    body.innerHTML=rows.map((r,i)=>{
+      let sep='';
+      if(ST_F==='all' && r.st!==prev){ prev=r.st; sep=`<tr class="sep"><td colspan="7">${SEP[r.st]}</td></tr>`; }
+      return sep+`<tr class="r${r.st==='need'?' needr':''}${r.done?' chkd':''}" onclick="openReportAt(${i})"${r.done?` title="${escapeHtml((r.done.by||'')+' 선생님 · '+String(r.done.at||'').slice(5,16)+' 과제 검사 완료')}"`:''}>
+      <td class="stc">${stPill(r)}${qaSub(r)}</td>
+      <td class="tt">${titleHtml(r.code)}</td>
+      <td class="nm">${escapeHtml(r.name||'')}</td>
       <td class="sc">${escapeHtml(r.got)} / ${escapeHtml(r.total)}${retryTag(r)}</td>
       <td>${escapeHtml(r.school||'')}</td><td>${escapeHtml(r.grade||'')}</td>
-      <td class="date">${escapeHtml(shortDate(r.submittedAt))}</td></tr>`).join('');
+      <td class="date" title="${escapeHtml(shortDate(r.submittedAt))}">${escapeHtml(listDate(r.submittedAt))}</td></tr>`; }).join('');
     if(c && rows.length) document.getElementById('qbtn').style.display='block';
+  }
+
+  /* 줄 상태 (2026-11-17) — need 답장 필요 · ing 오답하기 중 · wait 검사 대기 · done 검사 완료 · sub 그 밖 */
+  let ST_F='all';
+  function setStF(k){ ST_F=k; applyFilter(); }
+  function stOf(r){
+    if(r.qaNeed>0) return 'need';
+    if(r.done) return 'done';
+    if(!RETRY_COL || !r._id) return 'sub';
+    const wrong=(Number(r.total)||0)-(Number(r.got)||0);
+    if(r.reviewed || wrong<=0) return 'wait';
+    return 'ing';
+  }
+  function stPill(r){
+    const f=r.fix||{}, wrong=(Number(r.total)||0)-(Number(r.got)||0);
+    if(r.st==='need') return `<span class="stp need">답장 필요 ${r.qaNeed}</span>`;
+    if(r.st==='done') return '<span class="stp done">♥ 검사 완료</span>';
+    if(r.st==='wait') return '<span class="stp wait">검사 대기</span>';
+    if(r.st==='ing') return `<span class="stp ing">오답하기 중 ${f.clr||0}/${wrong}</span>`;
+    return '<span class="stp sub">제출</span>';
+  }
+  function qaSub(r){
+    const n=(r.qaNeed||0)+(r.qaAns||0);
+    if(!n) return '';
+    if(r.qaNeed) return r.qaAns?`<span class="qsub">질문 ${n} · 답함 ${r.qaAns}</span>`:'';
+    return `<span class="qsub">질문 ${n} · 모두 답함</span>`;
+  }
+  /* 제목 두 줄 — 교재 이름(작게) + 차시(굵게) */
+  function titleHtml(code){
+    code=String(code||'');
+    let m=code.match(/^(.*?\))\s+(\d.*)$/);
+    if(!m){ const i=code.lastIndexOf(' · '); if(i>0 && /^\[/.test(code)) m=[0, code.slice(0,i), code.slice(i+3)]; }
+    if(!m) return `<span class="ls">${escapeHtml(code)}</span>`;
+    return `<span class="bk">${escapeHtml(m[1])}</span><span class="ls">${escapeHtml(m[2])}</span>`;
   }
 
   /* 오답하기 표시 (064·065) — 1차 점수 옆에 '오답 클리어 n/m · 도움 k · 신고 j' */
@@ -368,6 +451,12 @@
     return ` <span class="rtag">오답 ${f.clr}/${f.n}${r.reviewed?' ✓':''}</span>`+(f.help?` <span class="rtag hp">도움 ${f.help}</span>`:'')+(f.err?` <span class="rtag hp">신고 ${f.err}</span>`:'')+awayTag(r);
   }
 
+  function listDate(s){   // 목록용 짧은 날짜 '11/12 15:00'
+    const d=new Date(s); if(!s || isNaN(d.getTime())) return shortDate(s);
+    const k=new Date(d.getTime()+9*3600e3);
+    const p=n=>String(n).padStart(2,'0');
+    return (k.getUTCMonth()+1)+'/'+k.getUTCDate()+' '+p(k.getUTCHours())+':'+p(k.getUTCMinutes());
+  }
   function shortDate(s){
     if(!s) return '';
     const d=new Date(s);
