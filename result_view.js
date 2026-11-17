@@ -97,6 +97,20 @@
   .rv2 .cmp .go{align-self:flex-end;border:0;border-radius:999px;background:#4a3f63;color:#fff;padding:9px 18px;font-size:14px;cursor:pointer;font-family:inherit}
   .rv2 .cmp .go:disabled{opacity:.5}
   .rv2 .cmp .tip{font-size:12px;color:#8a978f}
+  /* 정답 번호 — gbank.css 의 덧씌운 동그라미(:before)는 글꼴에 따라 옆으로 밀려 보여서, 이 화면에서는 번호 자체를 칠한다 (2026-11-17 원장님 "정답 선지 색칠이 어긋나 있어요") */
+  .rv2 .gq .cn.ok:before,.rv2 .gq .c.ok .cn:before{content:none!important}
+  .rv2 .gq .cn.ok{display:inline-block;background:#5f9488;color:#fff;border-radius:50%;width:1.3em;height:1.3em;line-height:1.3em;text-align:center;font-style:normal;vertical-align:baseline}
+  /* 지난 답장 불러오기 */
+  .rv2 .prev{border:1px dashed #cfd8d2;border-radius:10px;background:#fff}
+  .rv2 .prev summary{cursor:pointer;padding:8px 11px;font-size:13px;color:#3d675d}
+  .rv2 .prev .pl{display:flex;flex-direction:column;gap:6px;padding:0 10px 10px}
+  .rv2 .prev .pi{display:flex;gap:8px;align-items:flex-start;background:#f6f8f6;border-radius:9px;padding:8px 10px;font-size:13px}
+  .rv2 .prev .pi .tx{flex:1;min-width:0;white-space:pre-line;color:#33443c}
+  .rv2 .prev .pi .tx small{display:block;color:#8a978f;font-size:11.5px;margin-bottom:2px}
+  .rv2 .prev .pi button{flex:none;border:0;border-radius:999px;background:#e6e2f2;color:#4a3f63;padding:5px 11px;font-size:12.5px;cursor:pointer;font-family:inherit}
+  .rv2 .reuse{display:flex;flex-wrap:wrap;gap:6px}
+  .rv2 .reuse span{font-size:12.5px;background:#eef5f1;color:#3d675d;border-radius:999px;padding:4px 6px 4px 10px}
+  .rv2 .reuse button{border:0;background:#fff;border-radius:50%;width:20px;height:20px;cursor:pointer;color:#a8434f;margin-left:4px}
   .rv2 .sub{border:0;border-radius:999px;background:#f3eff8;color:#4a3f63;padding:8px 14px;font-size:13.5px;cursor:pointer;font-family:inherit;align-self:flex-start}
   .rv2 .expl{font-size:14px;background:#eef6f3;border-radius:12px;padding:10px 12px;color:#24443d}
   .rv2 .expl div{margin-top:3px}

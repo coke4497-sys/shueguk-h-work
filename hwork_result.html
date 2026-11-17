@@ -153,7 +153,7 @@ async function sb(path, opts){
   if(!r.ok) throw new Error(path.split('?')[0]+' '+r.status);
   const t=await r.text(); return t?JSON.parse(t):null;
 }
-let ME='', ANS={}, SUB=null, QA=[], QS={}, QP={}, STYLE='', CTX=null, PEND={}, FBLOB={}, RT=null;
+let ME='', ANS={}, BANK={}, PREV={}, REUSE={}, SUB=null, QA=[], QS={}, QP={}, STYLE='', CTX=null, PEND={}, FBLOB={}, RT=null;
 const qp=new URLSearchParams(location.search), SID=qp.get('sid'), OPENQ=qp.get('q');
 async function myName(ask){
   if(ME) return ME;
@@ -169,7 +169,7 @@ async function loadQs(s){
     const d=(r[0]&&r[0].data)||{};
     Object.keys(d.items||{}).forEach(n=>{ const a=d.items[n]&&d.items[n].ans; if(a!=null&&a!=='') ANS[n]=Array.isArray(a)?a.join(', '):String(a); });
     if(d.bank && typeof d.bank==='object'){
-      STYLE='gq'; const ids=[...new Set(Object.values(d.bank))];
+      STYLE='gq'; BANK=d.bank; const ids=[...new Set(Object.values(d.bank))];
       const g=ids.length?await sb('/gbank_items?select=id,html,pid,ans&id=in.('+ids.join(',')+')'):[];
       const by={}; g.forEach(x=>by[x.id]=x);
       Object.keys(d.bank).forEach(n=>{ const x=by[d.bank[n]]; if(x&&ANS[n]==null) ANS[n]=String(x.ans); if(x) QS[n]={ html:x.html.replace(new RegExp('<span class="cn" data-d="'+x.ans+'">'),'<span class="cn ok" data-d="'+x.ans+'">'), pid:x.pid }; });
@@ -185,6 +185,52 @@ async function loadQs(s){
     }
   }catch(e){}
 }
+/* 같은 문제에 다른 학생에게 남긴 답장 — 문항 은행 문제는 문항 id 가 같으면(과제가 달라도), 그 밖은 같은 과제·같은 번호 (2026-11-17 원장님 "동일한 문제를 질문 받았을 때 답변 불러오기") */
+async function loadPrev(){
+  try{
+    const pairs={};   // 'code|q' -> 이 제출의 문항 번호
+    if(Object.keys(BANK).length){
+      const idToQ={}; Object.keys(BANK).forEach(n=>{ (idToQ[BANK[n]]=idToQ[BANK[n]]||[]).push(n); });
+      const hws=await sb('/hwork_homeworks?select=code,data&limit=2000');
+      (hws||[]).forEach(h=>{ const b=h.data&&h.data.bank; if(!b||typeof b!=='object') return;
+        Object.keys(b).forEach(n=>{ (idToQ[b[n]]||[]).forEach(myq=>{ pairs[h.code+'|'+n]=myq; }); }); });
+    }else Object.keys(SUB.detail||{}).forEach(n=>{ pairs[SUB.code+'|'+n]=n; });
+    const codes=[...new Set(Object.keys(pairs).map(k=>k.slice(0,k.lastIndexOf('|'))))];
+    if(!codes.length) return;
+    const inList=codes.map(c=>'"'+c.replace(/\\/g,'\\\\').replace(/"/g,'\\"')+'"').join(',');
+    let rows=[];
+    try{ rows=await sb('/hwork_qa?select=id,q,body,name,at,sub_id,who,files:hwork_reply_files(name,size,mime,path),s:hwork_submissions!inner(code,name)&who=eq.'+enc('선생님')+'&s.code=in.('+enc(inList)+')&order=id.desc&limit=400'); }
+    catch(e){ rows=await sb('/hwork_qa?select=id,q,body,name,at,sub_id,who,s:hwork_submissions!inner(code,name)&who=eq.'+enc('선생님')+'&s.code=in.('+enc(inList)+')&order=id.desc&limit=400'); }
+    PREV={}; const seen={};
+    (rows||[]).forEach(r=>{ if(r.who!=='선생님' || r.sub_id==SUB.id || !r.s) return;
+      const myq=pairs[r.s.code+'|'+r.q]; if(myq==null) return;
+      const k=myq+'|'+r.body; if(seen[k]) return; seen[k]=1;
+      (PREV[myq]=PREV[myq]||[]).push(r); });
+  }catch(e){ PREV={}; }
+}
+function prevHtml(q){
+  const L=(PREV[q]||[]).slice(0,8); if(!L.length) return '';
+  return `<details class="prev"><summary>같은 문제에 남긴 답장 ${(PREV[q]||[]).length}개 — 불러오기</summary><div class="pl">${L.map((r,i)=>
+    `<div class="pi"><div class="tx"><small>${esc(r.name||'')} 선생님 → ${esc(r.s.name||'')} · ${esc(kst(r.at))}${(r.files||[]).length?' · 첨부 '+r.files.length+'개':''}</small>${esc(r.body===FILE_ONLY?'(첨부 파일)':r.body)}</div><button type="button" data-pv="${q}|${i}">불러오기</button></div>`).join('')}</div></details>`;
+}
+function reuseHtml(q){
+  const L=REUSE[q]||[]; if(!L.length) return '';
+  return `<div class="reuse" data-reuse="${q}">${L.map((f,i)=>`<span>다시 보낼 첨부 · ${esc(f.name)}<button type="button" data-ru="${q}|${i}" aria-label="빼기">×</button></span>`).join('')}</div>`;
+}
+document.addEventListener('click', e=>{
+  const b=e.target.closest&&e.target.closest('[data-pv]');
+  if(b){ const [q,i]=b.dataset.pv.split('|'), r=(PREV[q]||[])[Number(i)]; if(!r) return;
+    const ta=document.querySelector('textarea[data-rin="'+q+'"]'); if(!ta) return;
+    const body=r.body===FILE_ONLY?'':r.body;
+    if(ta.value.trim() && body && !confirm('적어 둔 답장 뒤에 이어 붙일까요?\n(취소를 누르면 바꿉니다)')) ta.value=body;
+    else ta.value=ta.value.trim()?ta.value.replace(/\s+$/,'')+'\n'+body:body;
+    const fs=(r.files||[]).filter(f=>f.path); REUSE[q]=(REUSE[q]||[]).filter(x=>!fs.some(f=>f.path===x.path)).concat(fs);
+    const old=document.querySelector('[data-reuse="'+q+'"]'), html=reuseHtml(q);
+    if(old) old.outerHTML=html||''; else if(html) ta.insertAdjacentHTML('afterend', html);
+    ta.focus(); toast('지난 답장을 불러왔어요. 고친 뒤 보내 주세요'); return; }
+  const x=e.target.closest&&e.target.closest('[data-ru]');
+  if(x){ const [q,i]=x.dataset.ru.split('|'); (REUSE[q]||[]).splice(Number(i),1); const el=document.querySelector('[data-reuse="'+q+'"]'); if(el) el.outerHTML=reuseHtml(q); }
+});
 async function loadQa(){
   try{ QA=await sb('/hwork_qa?select=id,q,who,name,body,mine,at,read_at,files:hwork_reply_files(id,name,size,mime,path)&sub_id=eq.'+SUB.id+'&order=id'); }
   catch(e){ QA=await sb('/hwork_qa?select=id,q,who,name,body,mine,at,read_at&sub_id=eq.'+SUB.id+'&order=id').catch(()=>[]); }
@@ -255,16 +301,18 @@ async function upFile(sid, f){
   return { path, name:f.name.slice(0,200), size:f.size, mime:f.type||'' };
 }
 async function reply(q){
-  const ta=document.querySelector('textarea[data-rin="'+q+'"]'); let body=(ta&&ta.value||'').trim(); const files=(PEND[q]||[]).slice();
-  if(!body && !files.length){ toast('답장을 적거나 파일을 붙여 주세요'); return; }
+  const ta=document.querySelector('textarea[data-rin="'+q+'"]'); let body=(ta&&ta.value||'').trim(); const files=(PEND[q]||[]).slice(), again=(REUSE[q]||[]).slice();
+  if(!body && !files.length && !again.length){ toast('답장을 적거나 파일을 붙여 주세요'); return; }
   if(!body) body=FILE_ONLY;
   const name=await myName(true); if(!name){ toast('이름이 있어야 보낼 수 있어요'); return; }
   const btn=document.querySelector('[data-send="'+q+'"]'); btn.disabled=true; btn.textContent='보내는 중…';
   try{
     const up=[]; for(const f of files){ btn.textContent='파일 올리는 중… ('+(up.length+1)+'/'+files.length+')'; up.push(await upFile(SUB.id, f)); }
     const r=await sb('/hwork_qa',{ method:'POST', headers:{ Prefer:'return=representation' }, body:JSON.stringify({ sub_id:SUB.id, q:String(q), who:'선생님', name, body }) });
+    again.forEach(f=>up.push({ path:f.path, name:f.name, size:f.size, mime:f.mime||'' }));   // 지난 답장 첨부 — 같은 파일을 다시 잇는다(올리지 않음)
     if(up.length) await sb('/hwork_reply_files',{ method:'POST', headers:{ Prefer:'return=minimal' }, body:JSON.stringify(up.map(x=>Object.assign({ sub_id:SUB.id, q:String(q), qa_id:r[0].id, created_by:name }, x))) });
-    (PEND[q]||[]).forEach(x=>x._u&&URL.revokeObjectURL(x._u)); PEND[q]=[]; if(ta) ta.value='';
+    (PEND[q]||[]).forEach(x=>x._u&&URL.revokeObjectURL(x._u)); PEND[q]=[]; REUSE[q]=[]; if(ta) ta.value='';
+    loadPrev();
     toast('답장을 보냈어요');
     if(window.shuegukActivity) shuegukActivity('H WORK', '질문 답장', SUB.name+' '+q+'번', SUB.code, false);
     await loadQa(); draw();
@@ -331,7 +379,7 @@ function draw(){
       away:Number(SUB.away_n)>0?{ n:Number(SUB.away_n), sec:Number(SUB.away_sec)||0 }:null, reviewAt:SUB.review_at||'', qa:QA,
       hooks:{
         qhtml:q=>{ const x=QS[q]; if(!x) return null; return { pas:x.pid&&QP[x.pid]?`<div class="${STYLE}">${QP[x.pid]}</div>`:'', html:`<div class="${STYLE}">${x.html}</div>` }; },
-        composer:q=>`<div class="cmp"><span class="lab">학생에게 답장</span><textarea data-rin="${q}" maxlength="1000" placeholder="답장을 적어 주세요. 학생 화면 이 문항에 바로 보입니다. 사진은 Ctrl+V 로 붙여 넣어도 돼요.">${esc(keep[q]||'')}</textarea>${attHtml(q)}<button type="button" class="go" data-send="${q}">답장 보내기</button></div>`,
+        composer:q=>`<div class="cmp"><span class="lab">학생에게 답장</span>${prevHtml(q)}<textarea data-rin="${q}" maxlength="1000" placeholder="답장을 적어 주세요. 학생 화면 이 문항에 바로 보입니다. 사진은 Ctrl+V 로 붙여 넣어도 돼요.">${esc(keep[q]||'')}</textarea>${reuseHtml(q)}${attHtml(q)}<button type="button" class="go" data-send="${q}">답장 보내기</button></div>`,
         files:f=>fsHtml(f),
         opened:q=>markRead(q),
         after:()=>fThumbs()
@@ -349,6 +397,7 @@ async function boot(){
   try{ SUB=(await sb('/hwork_submissions?select=*&id=eq.'+SID))[0]; }catch(e){}
   if(!SUB){ $('view').innerHTML='<div class="wl"><p>제출 기록을 찾지 못했습니다.</p></div>'; return; }
   await Promise.all([loadQs(SUB), loadQa(), loadRt()]);
+  await loadPrev();
   draw();
   if(OPENQ){ const t=document.getElementById('rvq'+OPENQ); if(t) t.scrollIntoView({ block:'start' }); }
   CTX.ui.open.forEach(q=>markRead(q));   // 열어 둔 카드의 학생 글은 읽음 — '새' 표시는 이번 화면에서는 남겨 두고 다음부터 사라짐

@@ -1,4 +1,4 @@
-// 모의고사 문법 문항 은행 — 출제·인쇄(bank_make.html) · 학생 문제 화면과 질문 대화(hwork.html) · 선생님 채점 결과 화면(hwork_result.html) E2E
+// 문항 은행(슈핏 문법) 과제 — 학생 문제 화면과 질문 대화(hwork.html) · 선생님 채점 결과 화면(hwork_result.html) E2E. 출제·인쇄는 허브 tools/shufit-e2e.js
 // LC_ALL=C.UTF-8 NODE_PATH=$(npm root -g) node tools/bank-e2e.js [캡처 폴더]
 // 가짜 수파베이스(표·함수)로 돈다. 실제 문항(저작권 자료)은 저장소에 없으므로 기본은 가짜 문항 4개,
 // GBANK_JSON=<tools/gbank_load.py build 결과> 를 주면 그 문항으로 출제 화면을 그려 캡처한다.
@@ -47,6 +47,7 @@ function fake(rt, u, method, body) {
   if (rest.startsWith('/gbank_passages')) { const m = rest.match(/pid=eq\.([^&]+)/); return rt.fulfill({ json: m ? PAS.filter(p => p.pid === decodeURIComponent(m[1])) : (rest.includes('offset=0') ? PAS : []) }); }
   if (rest.startsWith('/hwork_homeworks')) {
     if (method === 'POST') { DB.saved = JSON.parse(body)[0]; return rt.fulfill({ status: 201, body: '' }); }
+    if (rest.includes('select=code,data')) return rt.fulfill({ json: [{ code: '[모의고사 문법] 음운 1회', data: { bank: { '1': 101, '2': 102, '3': 103 } } }, { code: '다른 과제', data: { bank: { '5': 102 } } }] });
     if (rest.includes('teacher=eq') && RS_MODE) return rt.fulfill({ json: [{ data: { count: 3 } }] });
     if (rest.includes('teacher=eq')) return rt.fulfill({ json: [{ data: { bank: { '1': 101, '2': 102, '3': 103 } } }] });
     return rt.fulfill({ json: rest.includes('offset=0') ? DB.hws : [] });
@@ -56,6 +57,7 @@ function fake(rt, u, method, body) {
   if (rest.startsWith('/students')) return rt.fulfill({ json: rest.includes('offset=0') ? [{ school: '화정고', enrolled: '재원' }, { school: '능곡고', enrolled: '재원' }, { school: '옛학교', enrolled: '퇴원' }] : [] });
   if (rest.startsWith('/hwork_submissions')) { const m = rest.match(/id=eq\.(\d+)/); return rt.fulfill({ json: m && DB.sub && DB.sub.id == m[1] ? [DB.sub] : [] }); }
   if (rest.startsWith('/hwork_retests')) return rt.fulfill({ json: [] });
+  if (rest.startsWith('/hwork_reply_files')) { DB.files = (DB.files || []).concat(JSON.parse(body)); return rt.fulfill({ status: 201, body: '' }); }
   if (rest.startsWith('/hwork_qa')) {
     if (method === 'GET') { const m = rest.match(/sub_id=eq\.(\d+)/); return rt.fulfill({ json: m ? DB.qa.filter(x => x.sub_id == m[1]) : DB.qa.slice().sort((a, b) => b.id - a.id) }); }
     if (method === 'POST') { const r = JSON.parse(body); const row = Object.assign({ id: 900 + DB.qa.length, at: new Date().toISOString(), read_at: null, mine: '', s: DB.qa[0].s }, r); DB.qa.push(row); DB.calls.push({ fn: 'qa-post', r }); return rt.fulfill({ status: 201, json: [row] }); }
@@ -98,71 +100,7 @@ function rpc(fn, p) {
   const ctx = await b.newContext({ viewport: { width: 1300, height: 900 } });
   await ctx.route('**/*', rt => { const r = rt.request(), u = r.url(); if (u.startsWith(U)) return rt.continue(); return fake(rt, u, r.method(), r.postData()); });
   ctx.on('page', pg => pg.on('dialog', d => d.accept()));
-  // ── 1. 출제·인쇄 ──
-  const p = await ctx.newPage();
-  const errs = []; p.on('pageerror', e => errs.push(e.message));
-  await p.goto(U + 'bank_make.html'); await p.waitForSelector('.it');
-  ok(await p.locator('#fArea .chip').count() >= 2, '영역 칩');
-  if (!REAL) {
-    ok((await p.locator('#fInfo').textContent()).includes('문항 4개 · 지문 세트 1개'), '문항·세트 수: ' + await p.locator('#fInfo').textContent());
-    ok(await p.locator('.it').count() === 3, '묶음 3개(세트는 한 묶음)');
-    ok((await p.locator('.it').first().textContent()).includes('세트 2문항 담기'), '세트 담기 버튼');
-    ok(await p.locator('.it').first().locator('.pas').count() === 1, '지문 보기');
-    await p.click('.chip[data-k=area][data-v="품사"]'); ok(await p.locator('.it').count() === 1, '영역 거르기');
-    await p.click('.chip[data-k=area][data-v=""]');
-    await p.fill('#fq', '반모음'); await p.waitForTimeout(400);
-    ok(await p.locator('.it').count() === 1 && (await p.locator('.it').textContent()).includes('둘째'), '찾기 — 세트 하나 걸려도 세트 전체');
-    await p.fill('#fq', ''); await p.waitForTimeout(400);
-    await p.check('#fAns');
-    ok(await p.locator('#list.teacher .cn.ok').count() === 4, '정답·해설 보기 — 정답 표시');
-    ok(await p.locator('.exb').first().isVisible(), '해설 보임');
-    await p.uncheck('#fAns');
-    await p.click('[data-add="101"]');
-    ok((await p.locator('#selN').textContent()) === '2문항', '세트 담기 → 2문항');
-    ok((await p.locator('#sel .sg .n').first().textContent()) === '1~2', '고른 목록 번호 1~2');
-    await p.click('[data-add="104"]');
-    await p.click('#sel [data-mv="1"][data-d="-1"]');
-    ok((await p.locator('#sel .sg .n').first().textContent()) === '1', '순서 바꾸기 — 세트가 통째로 내려감');
-    await p.click('[data-add="101"]'); ok((await p.locator('#selN').textContent()) === '1문항', '세트 빼기 — 두 문항 함께');
-    await p.click('#autoBtn'); ok((await p.locator('#selN').textContent()) === '4문항', '10문항 채우기 — 남은 문항 다');
-    // 인쇄
-    await p.fill('#pTitle', '음운 연습');
-    await p.evaluate(() => { window.print = () => { window.__printed = (window.__printed || 0) + 1; }; });
-    await p.click('#prS'); await p.waitForFunction(() => window.__printed === 1);
-    const pr = await p.locator('#print').innerHTML();
-    ok(pr.includes('음운 연습') && !pr.includes('교사용'), '학생용 제목');
-    ok((await p.locator('#print .prng').first().textContent()) === '[02~03]', '지문 범위 [02~03] (품사 문항이 1번)');
-    ok(await p.locator('#print .qn').count() === 4, '문항 번호 4개');
-    ok(await p.locator('#print .xbox').count() === 0 && !pr.includes('cn ok'), '학생용에 정답·해설 없음');
-    ok(await p.evaluate(() => getComputedStyle(document.querySelector('.wrap')).display) !== 'none', '화면에서는 인쇄본 숨김');
-    await p.click('#prT'); await p.waitForFunction(() => window.__printed === 2);
-    ok(await p.locator('#print .xbox').count() === 4 && await p.locator('#print .quick').count() === 1, '교사용 해설 4개 + 빠른 정답');
-    ok(await p.locator('#print.teacher .cn.ok').count() === 4, '교사용 정답 동그라미');
-    await p.emulateMedia({ media: 'print' });
-    ok(await p.evaluate(() => getComputedStyle(document.querySelector('.wrap')).display) === 'none' && await p.evaluate(() => getComputedStyle(document.getElementById('print')).display) === 'block', '인쇄 때는 시험지만');
-    if (SHOT) await p.screenshot({ path: path.join(SHOT, 'bank-print-teacher.png'), fullPage: true });
-    await p.emulateMedia({ media: 'screen' });
-    // 저장
-    ok((await p.locator('#hTeacher').inputValue()) === '이현지', '담당 강사 = 로그인 이름');
-    await p.fill('#hCode', '일반 과제'); await p.click('#saveBtn');
-    ok((await p.locator('#saveMsg').textContent()).includes('일반 H WORK 과제가 이미'), '같은 이름 일반 과제는 막음');
-    await p.fill('#hCode', '[모의고사 문법] 음운 연습'); await p.click('#saveBtn');
-    await p.waitForFunction(() => document.getElementById('saveMsg').textContent.includes('저장했습니다'));
-    const post = DB.posts.find(x => x.action === 'saveHomework');
-    ok(post && post.data.count === 4 && post.data.items['1'].type === 'choice5' && post.data.items['1'].ans === 5, '시트 저장 — 5지선다 정답');
-    ok(post && JSON.stringify(post.data.bank) === '{"1":104,"2":101,"3":102,"4":103}', '저장 — bank 번호표 ' + JSON.stringify(post && post.data.bank));
-    ok(post && post.data.schools.join() === '능곡고,화정고', '학교 목록 = 재원생 학교(퇴원 제외)');
-    ok(DB.saved && DB.saved.data.bank['2'] === 101, '수파베이스 과제 표에도 저장');
-    ok((await p.locator('.tg.used').count()) >= 1, '저장 뒤 낸 적 있음 표시');
-    if (SHOT) await p.screenshot({ path: path.join(SHOT, 'bank-make.png') });
-  } else {
-    if (SHOT) { await p.check('#fAns'); await p.screenshot({ path: path.join(SHOT, 'bank-make-real.png') });
-      await p.click('#autoBtn'); await p.evaluate(() => { window.print = () => {}; }); await p.click('#prT');
-      await p.emulateMedia({ media: 'print' }); await p.screenshot({ path: path.join(SHOT, 'bank-print-real.png'), fullPage: true }); }
-    ok(true, '실제 문항 ' + ITEMS.length + '개 그림');
-  }
-  ok(!errs.length, '출제 화면 오류 없음 ' + errs.join(' | '));
-  if (REAL) { await b.close(); srv.close(); console.log(`통과 ${pass} · 실패 ${fail}`); process.exit(fail ? 1 : 0); }
+  // ── 1. 출제·인쇄 — 슈핏 문법으로 옮김(허브 tools/shufit-e2e.js) ──
 
   // ── 2. 학생 문제 화면 · 질문 ──
   const sctx = await b.newContext({ viewport: { width: 400, height: 860 } });
@@ -207,15 +145,25 @@ function rpc(fn, p) {
     review: { '2': { tries: [{ wrong: '1', why_wrong: '느낌으로', pick: '3', why_right: '비교', ok: false }], help: { at: '15:10' } } } };
   DB.sub = sub;
   DB.qa = [{ id: 1, sub_id: 55, q: '2', who: '학생', name: '김철수', body: 'ㄴ이 왜 틀렸는지 모르겠어요', mine: '3', at: '2026-11-17T06:10:00Z', read_at: null, s: sub }];
+  DB.qa.push({ id: 50, sub_id: 70, q: '5', who: '선생님', name: '남주혜', body: '지난 설명 — 보기의 ㄴ은 반모음입니다', mine: '', at: '2026-11-10T06:10:00Z', read_at: null,
+    files: [{ name: '풀이.png', size: 10, mime: 'image/png', path: 'r/70/abc.png' }], s: { code: '다른 과제', name: '박영희' } });
+  DB.qa.push({ id: 51, sub_id: 71, q: '1', who: '선생님', name: '남주혜', body: '다른 문항 설명', mine: '', at: '2026-11-10T06:10:00Z', read_at: null, s: { code: '다른 과제', name: '박영희' } });
   const t = await ctx.newPage(); const terr = []; t.on('pageerror', e => terr.push(e.message));
   await t.goto(U + 'hwork_result.html?sid=55&q=2'); await t.waitForSelector('#rvq2 .rvthr');
+  const cs = await t.evaluate(() => { const e = document.querySelector('#rvq2 .cn.ok'); return { bg: getComputedStyle(e).backgroundColor, before: getComputedStyle(e, '::before').content }; });
+  ok(cs.bg === 'rgb(95, 148, 136)' && (cs.before === 'none' || cs.before === 'normal'), '정답 번호를 칠함(덧씌운 동그라미 없음) ' + JSON.stringify(cs));
+  ok((await t.textContent('#rvq2 .prev summary')).includes('같은 문제에 남긴 답장 1개'), '같은 문항 id(다른 과제 5번)의 지난 답장 1개 — 다른 문항 답장은 빠짐');
+  await t.click('#rvq2 .prev summary'); await t.click('[data-pv="2|0"]');
+  ok((await t.inputValue('textarea[data-rin="2"]')).includes('지난 설명'), '불러오기 → 답장 칸에 글');
+  ok((await t.textContent('[data-reuse="2"]')).includes('풀이.png'), '지난 첨부도 다시 보낼 목록에');
   ok((await t.locator('#rvq2 .gq .stem').textContent()) === '지문 세트 둘째 문항', '결과 화면 — 문제');
   ok(await t.locator('#rvq2 .cn.ok').count() === 1, '선생님 화면 — 정답 동그라미');
   ok((await t.locator('#rvq2').textContent()).includes('느낌으로'), '오답하기 기록(이유) 보임');
   await t.waitForTimeout(300);
   ok(DB.patches.some(x => x.includes('id=in.(1)')), '열면 학생 글 읽음 처리');
   await t.fill('textarea[data-rin="2"]', '보기 ㄴ의 둘째 문장을 다시 보세요'); await t.click('[data-send="2"]');
-  await t.waitForFunction(() => document.getElementById('toast').textContent.includes('답장'));
+  await t.waitForFunction(() => document.getElementById('toast').textContent.includes('답장을 보냈어요'));
+  ok((DB.files || []).some(f => f.path === 'r/70/abc.png' && f.sub_id === 55 && f.q === '2'), '지난 첨부를 같은 파일로 다시 이음(올리지 않음) ');
   const r = DB.calls.find(c => c.fn === 'qa-post');
   ok(r && r.r.who === '선생님' && r.r.name === '이현지' && r.r.sub_id === 55 && r.r.q === '2', '답장 POST — 선생님·이름·제출·문항');
   await t.waitForSelector('#rvq2 .msg.tc');
