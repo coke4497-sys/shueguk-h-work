@@ -231,6 +231,7 @@ function rpc(fn, p) {
     return rt.fulfill({ json: { ok: true, list: [] } });
   });
   await tp.goto('http://localhost:' + PORT + '/hwork_teacher.html?t=' + encodeURIComponent('이수경')); await tp.waitForTimeout(700);
+  ok((await tp.getAttribute('a.tomenu', 'href') || '').endsWith('shueguk-hub/hwork.html'), '상위 메뉴(H WORK 메뉴)로 가는 링크');
   ok((await tp.inputValue('#fTeacher')) === '이수경', '주소 ?t= 로 열면 그 강사가 골라진 목록 (결과 화면 돌아가기)');
   ok(await tp.locator('#listBody tr.chkd:has-text("박보검")').count() === 1 && await tp.locator('#listBody tr.chkd:has-text("정해인")').count() === 0 && (await tp.textContent('#listBody tr:has-text("박보검")')).includes('♥ 검사 완료'), '과제 검사 완료한 줄만 색 · ♥ 검사 완료');
   await tp.selectOption('#fTeacher', '이수경'); await tp.waitForTimeout(200);
@@ -250,7 +251,7 @@ function rpc(fn, p) {
   ok(QAPOST.length === 1 && QAPOST[0][0].sub_id === 42 && QAPOST[0][0].q === '2' && QAPOST[0][0].who === '선생님' && QAPOST[0][0].name === '이수경' && QAPOST[0][0].body.includes('수업 시간에'), '수업에서 처리: 답장 한 줄 POST');
   ok(await tp.locator('#listBody tr.needr').count() === 0 && (await tp.textContent('#listBody tr:has-text("정해인")')).includes('모두 답함'), '수업에서 처리 뒤 답장 필요에서 빠짐');
   ok((await tp.textContent('#listTbl thead')).includes('상태') && !(await tp.textContent('#listTbl thead')).includes('강사'), '첫 열 = 상태');
-  ok((await tp.textContent('#listBody')).includes('오답 2/2 ✓') && (await tp.textContent('#listBody')).includes('도움 1') && (await tp.textContent('#listBody')).includes('신고 1'), '교사 목록: 오답 2/2 ✓ · 도움 · 신고');
+  ok((await tp.textContent('#listBody')).includes('오답 2/2 ✓') && !(await tp.textContent('#listBody')).includes('도움 1') && (await tp.textContent('#listBody')).includes('신고 1'), '교사 목록: 오답 2/2 ✓ · 신고 (도움 꼬리표 없음)');
   ok((await tp.locator('#listBody tr:has-text("정해인") .rtag').count()) === 0, '오답하기 안 한 학생은 표시 없음');
   ok((await tp.textContent('#listBody tr:has-text("박보검")')).includes('이탈 3회 · 2분 10초'), '교사 목록: 화면 이탈 3회 · 2분 10초');
   // 성적표 = 학생과 같은 채점 결과 화면(hwork_result.html) 새 탭
