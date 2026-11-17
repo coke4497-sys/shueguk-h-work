@@ -199,7 +199,13 @@ function gradeOne(item, studentAns){
   if(!item) return false;
   if(item.type === 'essay') return null;   // 서술형(예시 답 비교) — 채점하지 않음 (수파베이스 063 과 같은 규칙)
   if(item.type === 'text') return isTextCorrect(studentAns, item.ans);
-  return String(studentAns) === String(item.ans);   // choice5 · ox 공통
+  const a = String(item.ans==null?'':item.ans);
+  if(a === '*') return true;                       // 모두 정답 (수파베이스 069)
+  if(a.indexOf(',') >= 0){                         // 복수 정답 '3,4' — 하나만 골라도 정답 (069)
+    const m = String(studentAns).trim();
+    return m !== '' && a.split(',').map(x=>x.trim()).indexOf(m) >= 0;
+  }
+  return String(studentAns) === a;   // choice5 · ox 공통
 }
 
 // 전역 잠금 없이 동시 처리 — 채점은 읽기만 하고, 저장은 appendRow(줄 추가)라 동시에 해도 안전.
