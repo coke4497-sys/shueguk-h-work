@@ -210,7 +210,7 @@ function rpc(fn, p) {
     { id: 42, ts: '2026-11-11 15:10', teacher: '이수경', code: 'T세트', school: '무원고등학교', grade: '고2', name: '정해인', got: 1, total: 4, questions: {},
       retry_got: null, retry_at: null, review_at: null, detail: grade({ '1': '1', '3': '가', '4': 'O' }).detail, review: null } ];
   sub[0].away_n = 3; sub[0].away_sec = 130; sub[0].check_done = { at: '2026-11-17 21:11', by: '이수경', note: '' }; sub[0].ts = '2026-11-12 15:00';
-  let oldDb = false, awayOld = false;
+  let oldDb = false, awayOld = false; const QAPOST = [];
   await tp.context().route('**/*', async rt => {
     const u = rt.request().url();
     if (u.startsWith('http://localhost:' + PORT)) return rt.continue();
@@ -223,6 +223,7 @@ function rpc(fn, p) {
       if (q.get('offset') && q.get('offset') !== '0') rows = [];
       return rt.fulfill({ json: rows.map(r => { if (cols[0] === '*') return r; const o = {}; cols.forEach(c => o[c] = r[c] === undefined ? null : r[c]); return o; }) });
     }
+    if (u.endsWith('/rest/v1/hwork_qa') && rt.request().method() === 'POST') { QAPOST.push(JSON.parse(rt.request().postData())); return rt.fulfill({ status: 201, body: '' }); }
     if (u.includes('/rest/v1/hwork_qa?select=id,sub_id,q,who')) return rt.fulfill({ json: (q => (q.get('offset') && q.get('offset') !== '0') ? [] : [
       { id: 1, sub_id: 41, q: '3', who: '학생' }, { id: 2, sub_id: 41, q: '3', who: '선생님' }, { id: 3, sub_id: 42, q: '2', who: '학생' }])(new URL(u).searchParams) });
     if (/\/rest\/v1\/(hwork_qa|hwork_homeworks|hwork_retests|hwork_src_items|hwork_src_passages|students)/.test(u)) return rt.fulfill({ json: [] });
@@ -242,6 +243,12 @@ function rpc(fn, p) {
   ok(await tp.locator('#listBody tr.r').count() === 1 && await tp.locator('#listBody tr.sep').count() === 0, '[답장 필요] 거르기');
   await tp.click('.stchip >> nth=0'); await tp.waitForTimeout(150);
   if (SHOT) await tp.screenshot({ path: SHOT + '/teacher-list.png', fullPage: true });
+  // 수업에서 처리 — 남은 질문마다 짧은 답장
+  await tp.evaluate(() => { window.shuegukTeacherName = async () => '이수경'; });
+  tp.once('dialog', d => d.accept());
+  await tp.click('#listBody tr:has-text("정해인") .inclass'); await tp.waitForTimeout(400);
+  ok(QAPOST.length === 1 && QAPOST[0][0].sub_id === 42 && QAPOST[0][0].q === '2' && QAPOST[0][0].who === '선생님' && QAPOST[0][0].name === '이수경' && QAPOST[0][0].body.includes('수업 시간에'), '수업에서 처리: 답장 한 줄 POST');
+  ok(await tp.locator('#listBody tr.needr').count() === 0 && (await tp.textContent('#listBody tr:has-text("정해인")')).includes('모두 답함'), '수업에서 처리 뒤 답장 필요에서 빠짐');
   ok((await tp.textContent('#listTbl thead')).includes('상태') && !(await tp.textContent('#listTbl thead')).includes('강사'), '첫 열 = 상태');
   ok((await tp.textContent('#listBody')).includes('오답 2/2 ✓') && (await tp.textContent('#listBody')).includes('도움 1') && (await tp.textContent('#listBody')).includes('신고 1'), '교사 목록: 오답 2/2 ✓ · 도움 · 신고');
   ok((await tp.locator('#listBody tr:has-text("정해인") .rtag').count()) === 0, '오답하기 안 한 학생은 표시 없음');

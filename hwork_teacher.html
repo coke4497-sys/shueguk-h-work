@@ -159,6 +159,8 @@
   .stp.wait{ background:#E3EEF9; color:#3D5F86; }
   .stp.done{ background:#FBE4EA; color:#B0476A; }
   .stp.sub{ background:#F2F5F3; color:#65726B; }
+  .inclass{ display:block; margin-top:5px; border:0; background:#EDE4F4; color:#5A4A6A; font-family:inherit; font-size:11.5px; padding:3px 9px; border-radius:99px; cursor:pointer; }
+  .inclass:hover{ background:#E3D7EE; }
   .qsub{ display:block; font-size:11.5px; color:#8B928C; margin-top:3px; white-space:nowrap; }
   .qsub.need{ color:#C0392B; font-weight:700; }
   tr.r.needr td{ background:#FFF4EF; }
@@ -320,8 +322,8 @@
         const by={};
         qa.forEach(m=>{ const k=m.sub_id+'|'+m.q; by[k]=m.who; });
         const st={};
-        Object.keys(by).forEach(k=>{ const sid=k.split('|')[0]; const o=st[sid]||(st[sid]={ need:0, ans:0 }); if(by[k]==='선생님') o.ans++; else o.need++; });
-        list.forEach(r=>{ if(r._id){ const o=st[r._id]; r.qaNeed=o?o.need:0; r.qaAns=o?o.ans:0; r.qaOn=true; } });
+        Object.keys(by).forEach(k=>{ const [sid,qq]=k.split('|'); const o=st[sid]||(st[sid]={ need:0, ans:0, qs:[] }); if(by[k]==='선생님') o.ans++; else { o.need++; o.qs.push(qq); } });
+        list.forEach(r=>{ if(r._id){ const o=st[r._id]; r.qaNeed=o?o.need:0; r.qaAns=o?o.ans:0; r.qaQs=o?o.qs:[]; r.qaOn=true; } });
       }catch(e){ console.warn('질문 대화 읽기 실패', e); }
       ALL=list;
       fillSel('fTeacher', uniq(ALL.map(r=>r.teacher)), '전체 강사');
@@ -391,7 +393,7 @@
       let sep='';
       if(ST_F==='all' && r.st!==prev){ prev=r.st; sep=`<tr class="sep"><td colspan="7">${SEP[r.st]}</td></tr>`; }
       return sep+`<tr class="r${r.st==='need'?' needr':''}${r.done?' chkd':''}" onclick="openReportAt(${i})"${r.done?` title="${escapeHtml((r.done.by||'')+' 선생님 · '+String(r.done.at||'').slice(5,16)+' 과제 검사 완료')}"`:''}>
-      <td class="stc">${stPill(r)}${qaSub(r)}</td>
+      <td class="stc">${stPill(r)}${qaSub(r)}${r.st==='need'?`<button class="inclass" onclick="event.stopPropagation();inClass(${i})" title="답장 칸에 '수업 시간에 직접 설명했어요.'를 남겨 답장 필요에서 뺍니다">수업에서 처리</button>`:''}</td>
       <td class="tt">${titleHtml(r.code)}</td>
       <td class="nm">${escapeHtml(r.name||'')}</td>
       <td class="sc">${escapeHtml(r.got)} / ${escapeHtml(r.total)}${retryTag(r)}</td>
@@ -418,6 +420,23 @@
     if(r.st==='wait') return '<span class="stp wait">검사 대기</span>';
     if(r.st==='ing') return `<span class="stp ing">오답하기 중 ${f.clr||0}/${wrong}</span>`;
     return '<span class="stp sub">제출</span>';
+  }
+  /* 수업에서 처리 (2026-11-17 원장님 "이 두 리스트는 수업에서 처리했어요") — 남은 질문마다 짧은 답장을 남긴다.
+     학생 화면에는 이 답장이 보이고([이해했어요]로 클리어), 072 트리거가 슈톡 할 일을 완료로 바꾼다. */
+  const INCLASS_TXT='수업 시간에 직접 설명했어요.';
+  async function inClass(i){
+    const r=CUR&&CUR[i]; if(!r||!r._id||!(r.qaQs||[]).length) return;
+    let who=''; try{ who=window.shuegukTeacherName?((await shuegukTeacherName())||''):''; }catch(e){}
+    if(!who){ toast('허브에 로그인한 선생님 이름을 찾지 못했어요. 다시 로그인해 주세요.'); return; }
+    if(!confirm(r.name+' 학생의 질문 '+r.qaQs.length+'개('+r.qaQs.join('·')+'번)를 수업에서 처리한 것으로 할까요?\n학생에게 「'+INCLASS_TXT+'」 답장이 남습니다.')) return;
+    try{
+      const t=await sbAuth();
+      const res=await fetch(SB_URL+'/rest/v1/hwork_qa',{ method:'POST', headers:{ apikey:SB_KEY, Authorization:'Bearer '+t, 'Content-Type':'application/json', Prefer:'return=minimal' },
+        body:JSON.stringify(r.qaQs.map(q=>({ sub_id:r._id, q:String(q), who:'선생님', name:who, body:INCLASS_TXT }))) });
+      if(!res.ok) throw new Error('sb '+res.status);
+      r.qaAns=(r.qaAns||0)+r.qaQs.length; r.qaNeed=0; r.qaQs=[];
+      toast('수업에서 처리한 것으로 남겼어요.'); applyFilter();
+    }catch(e){ toast('저장하지 못했어요. 다시 눌러 주세요.'); }
   }
   function qaSub(r){
     const n=(r.qaNeed||0)+(r.qaAns||0);
