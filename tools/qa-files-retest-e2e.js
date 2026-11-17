@@ -1,6 +1,6 @@
 // 질문함 답장 첨부 · 개인 리테스트 (2026-11-17, 리포트 070) E2E
 // LC_ALL=C.UTF-8 NODE_PATH=$(npm root -g) node tools/qa-files-retest-e2e.js [캡처 폴더]
-// 가짜 수파베이스(표·저장소·함수)로 돈다 — 선생님 질문함(첨부 올리기·리테스트 내기·지우기) · 학생 H WORK(첨부 보기·리테스트 풀기).
+// 가짜 수파베이스(표·저장소·함수)로 돈다 — 선생님 채점 결과 화면 hwork_result.html(첨부 답장·리테스트 내기·지우기) · 학생 H WORK(첨부 보기·리테스트 풀기).
 const { chromium } = require('playwright');
 const http = require('http'), fs = require('fs'), path = require('path');
 const ROOT = path.join(__dirname, '..'), SHOT = process.argv[2] || '', PORT = 8774, U = 'http://localhost:' + PORT + '/';
@@ -39,6 +39,7 @@ function fake(rt, u, method, body) {
   if (rest.startsWith('/students')) return rt.fulfill({ json: rest.includes('offset=0') ? DB.stu : [] });
   if (rest.startsWith('/hwork_homeworks')) return rt.fulfill({ json: [{ data: { count: 4 } }] });
   if (rest.startsWith('/hwork_src_items')) return rt.fulfill({ json: [] });
+  if (rest.startsWith('/hwork_submissions')) return rt.fulfill({ json: [Object.assign({ got: 1, total: 3, away_n: 0, review_at: null }, SUB)] });
   const fn = (u.match(/\/rpc\/([a-z_]+)/) || [])[1];
   if (fn) { const p = (JSON.parse(body || '{}').p) || {}; return rt.fulfill({ json: rpc(fn, p) }); }
   return rt.fulfill({ status: 404, body: '' });
@@ -61,54 +62,60 @@ function rpc(fn, p) {
   const ctx = await b.newContext({ viewport: { width: 1300, height: 900 } });
   await ctx.route('**/*', rt => { const r = rt.request(), u = r.url(); if (u.startsWith(U)) return rt.continue(); return fake(rt, u, r.method(), r.postData()); });
   ctx.on('page', pg => pg.on('dialog', d => d.accept()));
-  // ── 1. 선생님 질문함 — 첨부 ──
+  // ── 1. 선생님 채점 결과 화면 — 문항 카드 안 답장·첨부 ──
   const t = await ctx.newPage(); const terr = []; t.on('pageerror', e => terr.push(e.message));
-  await t.goto(U + 'hwork_qa.html'); await t.waitForSelector('.th'); await t.click('.th'); await t.waitForSelector('#att');
-  ok(await t.locator('#attB').isVisible(), '질문함 — 첨부 버튼');
-  await t.locator('#attF').setInputFiles([{ name: '풀이.png', mimeType: 'image/png', buffer: PNG }, { name: '정리.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF') }]);
-  ok(await t.locator('#att .pf').count() === 2 && await t.locator('#att .pf img').count() === 1, '붙인 파일 칩 2개 · 사진 미리보기');
-  await t.locator('#att .pf button').nth(1).click(); ok(await t.locator('#att .pf').count() === 1, '× 로 빼기');
-  await t.click('#rIn'); await t.evaluate(() => { const dt = new DataTransfer(); dt.items.add(new File([new Uint8Array([1, 2])], 'image.png', { type: 'image/png' }));
-    document.getElementById('rIn').dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true })); });
-  ok(await t.locator('#att .pf').count() === 2 && (await t.locator('#att').textContent()).includes('캡처_'), 'Ctrl+V 캡처 붙여넣기 — 캡처_ 이름');
-  await t.click('#rSend'); await t.waitForFunction(() => document.getElementById('toast').textContent.includes('답장'));
+  await t.goto(U + 'hwork_result.html?sid=77&q=1'); await t.waitForSelector('#rvq1 [data-attb]');
+  ok(await t.locator('#rvq1 .rvthr .msg.st').count() === 1, '결과 화면 — 1번 카드가 열리고 학생 질문이 보임');
+  ok(await t.locator('#rvq2 [data-attb]').count() === 0, '맞힌 문항(질문 없음)은 닫혀 있음');
+  await t.locator('#attF1').setInputFiles([{ name: '풀이.png', mimeType: 'image/png', buffer: PNG }, { name: '정리.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF') }]);
+  ok(await t.locator('[data-att="1"] .pf').count() === 2 && await t.locator('[data-att="1"] .pf img').count() === 1, '붙인 파일 칩 2개 · 사진 미리보기');
+  await t.locator('[data-att="1"] .pf button').nth(1).click(); ok(await t.locator('[data-att="1"] .pf').count() === 1, '× 로 빼기');
+  await t.click('textarea[data-rin="1"]'); await t.evaluate(() => { const dt = new DataTransfer(); dt.items.add(new File([new Uint8Array([1, 2])], 'image.png', { type: 'image/png' }));
+    document.querySelector('textarea[data-rin="1"]').dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true })); });
+  ok(await t.locator('[data-att="1"] .pf').count() === 2 && (await t.locator('[data-att="1"]').textContent()).includes('캡처_'), 'Ctrl+V 캡처 붙여넣기 — 캡처_ 이름');
+  await t.click('[data-send="1"]'); await t.waitForFunction(() => document.getElementById('toast').textContent.includes('답장'));
   ok(DB.up.length === 2 && DB.up.every(x => /^r\/77\/[0-9a-f]{24}\.png$/.test(x.path)) && DB.up[0].auth === 'Bearer T', '저장소에 r/제출/무작위 경로로 교사 신분 올림');
   const sent = DB.qa[DB.qa.length - 1];
-  ok(sent.who === '선생님' && sent.body === '(첨부 파일)', '글 없이 파일만 — 답장 글은 (첨부 파일)');
+  ok(sent.who === '선생님' && sent.body === '(첨부 파일)' && sent.q === '1', '글 없이 파일만 — 답장 글은 (첨부 파일)');
   ok(DB.files.length === 2 && DB.files.every(f => f.qa_id === sent.id && f.sub_id === 77 && f.q === '1' && f.created_by === '이현지'), 'hwork_reply_files 에 qa_id·제출·문항·보낸 사람');
-  await t.waitForSelector('#det .fs .fimg img');
-  ok(await t.locator('#det .bub.tc .fs').count() === 1 && !(await t.locator('#det .bub.tc').last().textContent()).includes('(첨부 파일)'), '대화에 첨부가 보이고 (첨부 파일) 글은 숨김');
-  ok(await t.locator('#att .pf').count() === 0, '보낸 뒤 칩 비움');
-  // ── 2. 선생님 질문함 — 개인 리테스트 ──
+  await t.waitForSelector('#rvq1 .fs .fimg img');
+  ok(await t.locator('#rvq1 .msg.tc .fs').count() === 1 && !(await t.locator('#rvq1 .msg.tc').last().textContent()).includes('(첨부 파일)'), '대화에 첨부가 보이고 (첨부 파일) 글은 숨김');
+  ok(await t.locator('[data-att="1"] .pf').count() === 0, '보낸 뒤 칩 비움');
+  // ── 2. 같은 화면 — 개인 리테스트 ──
   await t.waitForSelector('#rtMake');
-  ok((await t.locator('#rtbox').textContent()).includes('틀린 2문항(1, 4번)'), '리테스트 — 틀린 문항만(서술형 빼고) 1, 4번');
+  ok((await t.locator('.rtc').textContent()).includes('틀린 2문항(1, 4번)'), '리테스트 — 틀린 문항만(서술형 빼고) 1, 4번');
   await t.click('#rtMake'); await t.waitForSelector('#rtDel');
   const rp = DB.rtPosts[0];
   ok(rp && rp.rest.includes('on_conflict=src_id') && rp.r[0].src_id === 77 && rp.r[0].stu_code === 'tok-kim' && JSON.stringify(rp.r[0].qs) === '["1","4"]' && rp.r[0].created_by === '이현지', '리테스트 POST — 원 제출·접근코드·문항·낸 사람');
-  ok((await t.locator('#rtbox').textContent()).includes('아직 안 풂'), '낸 뒤 상태 — 아직 안 풂');
+  ok((await t.locator('.rtc').textContent()).includes('아직 안 풂'), '낸 뒤 상태 — 아직 안 풂');
   await t.click('#rtDel'); await t.waitForSelector('#rtMake');
   ok(DB.rtDel[0] && DB.rtDel[0].includes('submitted_at=is.null'), '지우기는 안 푼 것만');
   DB.retests = [{ id: 9, qs: ['1', '4'], submitted_at: '2026-11-17 16:00', got: 1, total: 2, detail: { '1': { ok: true }, '4': { ok: false } } }];
-  await t.click('#seg [data-m=all]'); await t.click('.th'); await t.waitForFunction(() => document.getElementById('rtbox').textContent.includes('리테스트 1 / 2'));
-  ok((await t.locator('#rtbox').textContent()).includes('또 틀림 4번'), '푼 뒤 — 점수·또 틀린 번호');
-  if (SHOT) await t.screenshot({ path: path.join(SHOT, 'qa-teacher-files-retest.png') });
-  ok(!terr.length, '질문함 오류 없음 ' + terr.join(' | '));
+  await t.reload(); await t.waitForFunction(() => (document.querySelector('.rtc') || {}).textContent && document.querySelector('.rtc').textContent.includes('리테스트 1 / 2'));
+  ok((await t.locator('.rtc').textContent()).includes('또 틀림 4번'), '푼 뒤 — 점수·또 틀린 번호');
+  if (SHOT) await t.screenshot({ path: path.join(SHOT, 'result-teacher.png'), fullPage: true });
+  ok(!terr.length, '선생님 결과 화면 오류 없음 ' + terr.join(' | '));
   // 동명이인 — 리테스트 막기
   DB.retests = []; DB.stu.push({ code: 'y', name: '김철수', school: '화정고', grade: '고1', enrolled: '재원' });
   const t2 = await ctx.newPage();
-  await t2.goto(U + 'hwork_qa.html'); await t2.click('#seg [data-m=all]'); await t2.waitForSelector('.th'); await t2.click('.th'); await t2.waitForSelector('#rtMake');
+  await t2.goto(U + 'hwork_result.html?sid=77'); await t2.waitForSelector('#rtMake');
   const before = DB.rtPosts.length; await t2.click('#rtMake'); await t2.waitForFunction(() => document.getElementById('toast').textContent.includes('여럿'));
   ok(DB.rtPosts.length === before, '같은 이름 학생이 둘이면 리테스트를 내지 않음');
+  // 주소 없이 — 답장 기다리는 질문 목록 · 옛 질문함 주소는 넘김
+  const t3 = await ctx.newPage();
+  await t3.goto(U + 'hwork_qa.html'); await t3.waitForSelector('.wl');
+  ok(t3.url().includes('hwork_result.html'), '옛 질문함 주소 → 채점 결과 화면');
   // ── 3. 학생 — 첨부 보기 ──
   const s = await ctx.newPage(); const serr = []; s.on('pageerror', e => serr.push(e.message));
   await s.goto(U + 'hwork.html'); await s.evaluate(k => localStorage.setItem('hw_retry_v1', JSON.stringify([{ id: 77, key: k, code: '[테스트] 문장 1회', name: '김철수', at: Date.now() }])), KEY);
   await s.goto(U + 'hwork.html'); await s.waitForSelector('#resumeBox button, #resume button', { timeout: 5000 }).catch(() => {});
   const rb = s.locator('#resumeBox button, #resume button').first();
   if (await rb.count()) await rb.click();
-  await s.waitForSelector('#report .qa-btn'); await s.locator('#report tr:has(td.qn:text-is("1")) .qa-btn').click();
-  await s.waitForSelector('#qv .rfs .rfimg img');
-  ok(await s.locator('#qv .rfs .rfimg').count() === 1 && await s.locator('#qv .rfs .rfb').count() === 1, '학생 — 답장 사진 미리보기·파일 내려받기 버튼');
-  ok(!(await s.locator('#qv .bub.tc').textContent()).includes('(첨부 파일)'), '학생 — (첨부 파일) 글 숨김');
+  await s.waitForSelector('#rvq1');
+  if (!(await s.locator('#rvq1 .rvthr').count())) await s.click('#rvq1 [data-rv-tog]');
+  await s.waitForSelector('#rvq1 .rfs .rfimg img');
+  ok(await s.locator('#rvq1 .rfs .rfimg').count() === 1 && await s.locator('#rvq1 .rfs .rfb').count() === 1, '학생 — 답장 사진 미리보기·파일 내려받기 버튼');
+  ok(!(await s.locator('#rvq1 .msg.tc').textContent()).includes('(첨부 파일)'), '학생 — (첨부 파일) 글 숨김');
   ok(DB.fileUrl.some(x => x.via === 'retry' && x.id === 77 && x.key === KEY && x.file == 300), '학생 — 제출 열쇠로 내려받기 창 열기');
   ok(!serr.length, '학생 첨부 화면 오류 없음 ' + serr.join(' | '));
   // ── 4. 학생 — 리테스트 풀기 ──

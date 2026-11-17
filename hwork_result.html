@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<script src="https://coke4497-sys.github.io/shueguk-hub/assets/teacher-gate.js"></script><!-- 교사 로그인 게이트 (허브 로그인 필요) -->
+<script src="https://coke4497-sys.github.io/shueguk-report/teacher-name.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>H WORK 채점 결과</title>
+<link rel="icon" type="image/png" href="icon-check.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&family=Do+Hyeon&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="gbank.css">
+<link rel="stylesheet" href="real.css">
+<script src="result_view.js"></script>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;background:#e4efea;color:#33443c;font-family:'Gowun Dodum',sans-serif;font-size:15px;line-height:1.55}
+  button,textarea,select,input{font-family:inherit}
+  .top{max-width:780px;margin:0 auto;padding:16px 18px 0;display:flex;gap:8px;flex-wrap:wrap}
+  .top a{display:inline-flex;gap:6px;color:#54655c;text-decoration:none;font-size:14px;background:#fff;border-radius:999px;padding:6px 14px}
+  .fs{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;white-space:normal}
+  .fs .fimg{border:0;padding:0;background:#fff;border-radius:10px;overflow:hidden;cursor:zoom-in;max-width:220px;min-height:36px}
+  .fs .fimg img{display:block;max-width:220px;max-height:200px}
+  .fs .fimg .ld,.fs .fb{display:block;padding:7px 11px;font-size:12.5px;color:#3d675d;background:#fff;border:0;border-radius:999px;cursor:pointer;text-align:left;word-break:break-all}
+  .fs .sz{color:#8a978f;font-size:11px}
+  .att{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+  .att .ab{border:0;border-radius:999px;background:#f3eff8;color:#4a3f63;padding:7px 13px;font-size:13px;cursor:pointer}
+  .att .pf{display:inline-flex;align-items:center;gap:5px;background:#f1f4f1;border-radius:999px;padding:4px 6px 4px 10px;font-size:12.5px}
+  .att .pf img{width:28px;height:28px;object-fit:cover;border-radius:6px}
+  .att .pf button{border:0;background:#fff;border-radius:50%;width:22px;height:22px;cursor:pointer;color:#a8434f}
+  .att .hint{font-size:12px;color:#8a978f}
+  .rtc{background:#fff;border-radius:24px;padding:20px 22px;display:flex;flex-direction:column;gap:8px}
+  .rtc h2{margin:0;font-family:'Gowun Batang',serif;font-weight:700;font-size:18px;color:#2b3a33}
+  .rtc .m{font-size:14px;color:#54655c}
+  .rtc .st{display:inline-block;border-radius:999px;padding:3px 10px;font-size:13px}
+  .rtc .st.ok{background:#dcebe3;color:#4b6157}.rtc .st.wait{background:#f7f0dc;color:#7a6630}
+  .rtc button{align-self:flex-start;border:0;border-radius:999px;background:#f3eff8;color:#4a3f63;padding:8px 14px;font-size:13.5px;cursor:pointer}
+  .rtc button.del{background:#fbeeea;color:#a8434f}
+  .wl{max-width:780px;margin:0 auto;padding:16px 18px 60px}
+  .wl h1{font-family:'Gowun Batang',serif;font-size:24px;margin:8px 4px 4px;color:#2b3a33}
+  .wl p{color:#54655c;font-size:14px;margin:0 4px 12px}
+  .wl a.row{display:block;background:#fff;border-radius:16px;padding:12px 16px;margin-bottom:8px;text-decoration:none;color:#2b3a33}
+  .wl a.row small{display:block;color:#8a978f;font-size:12.5px}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#2C2F2D;color:#fff;padding:9px 18px;border-radius:999px;font-size:14px;opacity:0;transition:.2s;pointer-events:none;z-index:50}
+  .toast.show{opacity:1}
+</style>
+</head>
+<body class="teacher">
+<div class="top"><a href="https://coke4497-sys.github.io/shueguk-h-work/hwork_teacher.html">← H WORK 제출 확인</a><a href="https://coke4497-sys.github.io/shueguk-hub/messenger.html">슈톡</a></div>
+<div id="view"><div class="wl"><p>불러오는 중…</p></div></div>
+<div class="toast" id="toast"></div>
+<script>
+/* ══ 교사 페이지 조용한 인증 (2026-08-25, 3단계) ═══════════════════════
+ * 이 아래 연결부들이 수파베이스에 보내는 요청에 '교사 신분'을 붙인다.
+ * 화면에 로그인 창은 없다 — 페이지가 열릴 때 알아서 받아 온다.
+ *
+ * 왜 필요한가:
+ *   공개 키(sb_publishable_…)는 학생이 여는 페이지에도 들어 있어서, 그 키로 표를
+ *   직접 읽을 수 있으면 전교생 명단(학생ID=비밀번호·접근코드)이 새어 나간다.
+ *   그래서 공개 키에서는 표 접근을 없애고(anon), 표는 이 신분(authenticated)만
+ *   읽고 쓰도록 나눴다. 학생 화면은 표 대신 함수(student_bundle 등)를 쓴다.
+ *
+ * 주의:
+ *   · 이 조각은 **교사용 페이지에만** 넣는다. 학생이 여는 페이지(s·r·클리닉 신청·
+ *     모의고사 신청·H WORK 제출)에는 절대 넣지 말 것 — 넣는 순간 위 보호가 무의미해진다.
+ *   · 아래 연결부들이 시작할 때 window.fetch 를 붙잡아 두므로, 이 조각은 **그것들보다
+ *     먼저** 실행돼야 한다. 페이지의 첫 스크립트 자리를 지킬 것.
+ *   · 인증이 실패하면 예전처럼 공개 키로 보낸다(권한을 회수하기 전까지는 그래도 동작). */
+(function(){
+  var SB_URL = 'https://bangdbhqpphqqdwcledg.supabase.co';
+  var SB_KEY = 'sb_publishable_dE9d1KIbpgYaQkaS2MSrlg_-7SiRJuT';
+  var T_ID = 'teachers@shueguk.internal';
+  var T_PW = 'shg_FCePWvnawH44SV8kYB9BHRKi6aag';
+  var tok = null, until = 0, pending = null;
+  var raw = window.fetch.bind(window);
+  var TOK_LS = 'sb_teacher_tok_v1';   // 받아 둔 신분증은 브라우저에 남겨 다음 페이지에서 다시 받지 않는다(1시간짜리)
+
+  function cachedTok(){
+    try {
+      var c = JSON.parse(localStorage.getItem(TOK_LS) || 'null');
+      if (c && c.t && c.u > Date.now()){ tok = c.t; until = c.u; return true; }
+    } catch(e){}
+    return false;
+  }
+  function auth(){
+    if (tok && Date.now() < until) return Promise.resolve(tok);
+    if (cachedTok()) return Promise.resolve(tok);
+    if (pending) return pending;
+    var req = raw(SB_URL + '/auth/v1/token?grant_type=password', {
+      method: 'POST',
+      headers: { 'apikey': SB_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: T_ID, password: T_PW })
+    }).then(function(r){ return r.json(); }).then(function(d){
+      if (!d || !d.access_token) throw new Error('teacher auth');
+      tok = d.access_token;
+      until = Date.now() + Math.max(60, (d.expires_in || 3600) - 300) * 1000;   // 만료 5분 전에 다시 받는다
+      try { localStorage.setItem(TOK_LS, JSON.stringify({ t: tok, u: until })); } catch(e){}
+      return tok;
+    });
+    /* 로그인이 멈춰 있으면 이 아래 모든 조회가 함께 멈춘다 — 10초를 넘기면 실패로 보고
+     * 그 조회는 예전 방식(공개 키)으로 내보낸다. 다음 호출 때 다시 받는다. */
+    var late = new Promise(function(_, rej){ setTimeout(function(){ rej(new Error('teacher auth timeout')); }, 10000); });
+    pending = Promise.race([req, late]).then(function(t){ pending = null; return t; },
+                                            function(e){ pending = null; throw e; });
+    return pending;
+  }
+  function withAuth(url, opts, t){
+    var src = (opts && opts.headers) || {}, h = {};
+    if (src.forEach && !src.hasOwnProperty) src.forEach(function(v, k){ h[k] = v; });
+    else for (var k in src) h[k] = src[k];
+    h['apikey'] = SB_KEY;
+    h['Authorization'] = 'Bearer ' + t;
+    var o = {}; for (var k2 in (opts || {})) o[k2] = opts[k2];
+    o.headers = h;
+    return o;
+  }
+  window.fetch = function(url, opts){
+    var u = (typeof url === 'string') ? url : ((url && url.url) || '');
+    if (u.indexOf(SB_URL + '/rest/v1') !== 0 && u.indexOf(SB_URL + '/storage/v1') !== 0) return raw(url, opts);   // 저장소(답장 첨부)도 교사 신분
+    return auth().then(function(t){
+      return raw(url, withAuth(url, opts, t)).then(function(r){
+        if (r.status !== 401) return r;
+        tok = null; until = 0;                       // 만료가 겹쳤으면 한 번만 다시 받아 재시도
+        try { localStorage.removeItem(TOK_LS); } catch(e){}
+        return auth().then(function(t2){ return raw(url, withAuth(url, opts, t2)); });
+      });
+    }, function(){ return raw(url, opts); });
+  };
+})();
+</script>
+<script>
+/* ══ H WORK 채점 결과 — 선생님 화면 (2026-11-17 원장님 디자인 · "학생에게도 동일한 화면이 보이고 여기서 교사와 학생이 질문 답변이")
+ * 학생 화면(hwork.html 결과)과 같은 result_view.js 로 그린다. 주소 ?sid=제출번호(&q=문항) — 슈톡 업무 카드의 'H WORK 질문' 링크·제출 확인에서 연다.
+ * 문항 카드 안에서 학생 질문에 바로 답장(사진·영상·파일 첨부, Ctrl+V 캡처) — 답장하면 슈톡 업무 카드의 그 할 일이 완료된다(리포트 072 트리거).
+ * 위에 개인 리테스트(이 제출의 틀린 문항, hwork_retests). 주소 없이 열면 답장을 기다리는 질문 목록. */
+const SB_REST="https://bangdbhqpphqqdwcledg.supabase.co/rest/v1", SB_STORE="https://bangdbhqpphqqdwcledg.supabase.co/storage/v1", SB_KEY="sb_publishable_dE9d1KIbpgYaQkaS2MSrlg_-7SiRJuT";
+const BUCKET='hwork-reply-files', FILE_ONLY='(첨부 파일)';
+const $=id=>document.getElementById(id), enc=encodeURIComponent;
+function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function toast(m){ const t=$('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),2400); }
+async function sb(path, opts){
+  const o=Object.assign({}, opts||{}); o.headers=Object.assign({ apikey:SB_KEY, Authorization:'Bearer '+SB_KEY, 'Content-Type':'application/json' }, (opts||{}).headers||{});
+  const r=await fetch(SB_REST+path, o);
+  if(!r.ok) throw new Error(path.split('?')[0]+' '+r.status);
+  const t=await r.text(); return t?JSON.parse(t):null;
+}
+let ME='', ANS={}, SUB=null, QA=[], QS={}, QP={}, STYLE='', CTX=null, PEND={}, FBLOB={}, RT=null;
+const qp=new URLSearchParams(location.search), SID=qp.get('sid'), OPENQ=qp.get('q');
+async function myName(ask){
+  if(ME) return ME;
+  try{ if(window.shuegukTeacherName) ME=await shuegukTeacherName(); }catch(e){}
+  if(!ME){ try{ ME=localStorage.getItem('hw_qa_who')||''; }catch(e){} }
+  if(!ME && ask){ ME=(prompt('답장에 표시할 선생님 이름을 적어 주세요 (예: 이현지)')||'').trim(); try{ if(ME) localStorage.setItem('hw_qa_who',ME); }catch(e){} }
+  return ME;
+}
+/* 문제 원문 — 문항 은행(data.bank → gbank_items) 또는 교재(hwork_src_items, 숨긴 것도 선생님께는 보임) */
+async function loadQs(s){
+  try{
+    const r=await sb('/hwork_homeworks?select=data&teacher=eq.'+enc(s.teacher)+'&code=eq.'+enc(s.code)+'&limit=1');
+    const d=(r[0]&&r[0].data)||{};
+    Object.keys(d.items||{}).forEach(n=>{ const a=d.items[n]&&d.items[n].ans; if(a!=null&&a!=='') ANS[n]=Array.isArray(a)?a.join(', '):String(a); });
+    if(d.bank && typeof d.bank==='object'){
+      STYLE='gq'; const ids=[...new Set(Object.values(d.bank))];
+      const g=ids.length?await sb('/gbank_items?select=id,html,pid,ans&id=in.('+ids.join(',')+')'):[];
+      const by={}; g.forEach(x=>by[x.id]=x);
+      Object.keys(d.bank).forEach(n=>{ const x=by[d.bank[n]]; if(x&&ANS[n]==null) ANS[n]=String(x.ans); if(x) QS[n]={ html:x.html.replace(new RegExp('<span class="cn" data-d="'+x.ans+'">'),'<span class="cn ok" data-d="'+x.ans+'">'), pid:x.pid }; });
+      const pids=[...new Set(g.map(x=>x.pid).filter(Boolean))];
+      if(pids.length){ (await sb('/gbank_passages?select=pid,html&pid=in.('+pids.map(p=>'"'+p+'"').join(',')+')')).forEach(p=>QP[p.pid]=p.html); }
+    }else{
+      STYLE='rq';
+      const rows=await sb('/hwork_src_items?select=no,html,pid,ans,type&code=eq.'+enc(s.code));
+      rows.forEach(x=>{ const okc=String(x.ans||'').split('(')[0]; if(ANS[x.no]==null&&x.ans) ANS[x.no]=String(x.ans);
+        QS[x.no]={ html:x.type==='5지'&&/[①②③④⑤]/.test(okc)?x.html.replace(/<span class="cn">([①②③④⑤])<\/span>/g,(m,c)=>okc.includes(c)?'<span class="cn ok">'+c+'</span>':m):x.html, pid:x.pid }; });
+      const pids=[...new Set(rows.map(x=>x.pid).filter(Boolean))];
+      if(pids.length){ (await sb('/hwork_src_passages?select=pid,html&pid=in.('+pids.map(p=>'"'+p+'"').join(',')+')')).forEach(p=>QP[p.pid]=p.html); }
+    }
+  }catch(e){}
+}
+async function loadQa(){
+  try{ QA=await sb('/hwork_qa?select=id,q,who,name,body,mine,at,read_at,files:hwork_reply_files(id,name,size,mime,path)&sub_id=eq.'+SUB.id+'&order=id'); }
+  catch(e){ QA=await sb('/hwork_qa?select=id,q,who,name,body,mine,at,read_at&sub_id=eq.'+SUB.id+'&order=id').catch(()=>[]); }
+  QA.forEach(m=>{ m.read=!!m.read_at; m.at=kst(m.at); });
+}
+function kst(iso){ const d=new Date(new Date(iso).getTime()+9*3600e3); if(isNaN(d)) return String(iso||''); const p=n=>String(n).padStart(2,'0');
+  return d.getUTCFullYear()+'-'+p(d.getUTCMonth()+1)+'-'+p(d.getUTCDate())+' '+p(d.getUTCHours())+':'+p(d.getUTCMinutes()); }
+function fKind(f){ const m=String(f.mime||f.type||''), n=String(f.name||'');
+  if(m.indexOf('image/')===0||/\.(png|jpe?g|gif|webp)$/i.test(n)) return 'img';
+  if(m.indexOf('video/')===0||/\.(mp4|mov|m4v|webm)$/i.test(n)) return 'vid'; return 'file'; }
+function fSize(n){ n=Number(n)||0; return n>=1048576?(n/1048576).toFixed(1)+'MB':Math.max(1,Math.round(n/1024))+'KB'; }
+function fsHtml(files){
+  if(!files||!files.length) return '';
+  return '<div class="fs">'+files.map(f=>fKind(f)==='img'
+    ? `<button type="button" class="fimg" data-fp="${esc(f.path)}" data-fk="img"><span class="ld">사진 · ${esc(f.name)}</span></button>`
+    : `<button type="button" class="fb" data-fp="${esc(f.path)}" data-fk="${fKind(f)}" data-nm="${esc(f.name)}">${fKind(f)==='vid'?'영상':'내려받기'} · ${esc(f.name)} <span class="sz">${fSize(f.size)}</span></button>`).join('')+'</div>';
+}
+async function fBlob(path){
+  if(FBLOB[path]) return FBLOB[path];
+  const r=await fetch(SB_STORE+'/object/authenticated/'+BUCKET+'/'+path.split('/').map(encodeURIComponent).join('/'),{ headers:{ apikey:SB_KEY } });
+  if(!r.ok) throw new Error('file '+r.status);
+  return FBLOB[path]=URL.createObjectURL(await r.blob());
+}
+function fThumbs(){ document.querySelectorAll('.fimg[data-fp]:not([data-ld])').forEach(b=>{ b.setAttribute('data-ld','1'); fBlob(b.dataset.fp).then(u=>{ b.innerHTML=`<img src="${u}" alt="">`; }).catch(()=>{}); }); }
+document.addEventListener('click', async e=>{
+  const b=e.target.closest&&e.target.closest('[data-fp]'); if(!b) return;
+  try{ const u=await fBlob(b.dataset.fp);
+    if(b.dataset.fk==='file'){ const a=document.createElement('a'); a.href=u; a.download=b.dataset.nm||'파일'; document.body.appendChild(a); a.click(); a.remove(); }
+    else window.open(u,'_blank'); }catch(err){ toast('파일을 열지 못했어요'); }
+});
+/* 답장 칸 — 문항마다. 붙인 파일은 PEND[q] */
+function attHtml(q){
+  const L=PEND[q]||[];
+  return `<div class="att" data-att="${q}"><button type="button" class="ab" data-attb="${q}">사진·영상·파일 첨부</button><input type="file" id="attF${q}" multiple hidden>`+
+    L.map((f,i)=>`<span class="pf">${f._u?`<img src="${f._u}" alt="">`:''}${esc(f.name)} <span class="sz">${fSize(f.size)}</span><button type="button" data-rm="${q}|${i}" aria-label="빼기">×</button></span>`).join('')+
+    (L.length?'':'<span class="hint">파일당 50MB · 6개까지 · 캡처는 Ctrl+V</span>')+'</div>';
+}
+function attAdd(q, list){
+  const L=PEND[q]=PEND[q]||[];
+  [...(list||[])].forEach(f=>{
+    if(L.length>=6){ toast('한 번에 6개까지 붙일 수 있어요'); return; }
+    if(f.size>52428800){ toast(f.name+' — 50MB가 넘어요'); return; }
+    if(!f.size) return;
+    if(f.name==='image.png'||!f.name){ const d=new Date(Date.now()+9*3600e3), p=n=>String(n).padStart(2,'0');
+      f=new File([f], '캡처_'+p(d.getUTCMonth()+1)+p(d.getUTCDate())+'_'+p(d.getUTCHours())+p(d.getUTCMinutes())+p(d.getUTCSeconds())+'.png', { type:f.type||'image/png' }); }
+    if(fKind(f)==='img') f._u=URL.createObjectURL(f);
+    L.push(f);
+  });
+  redrawAtt(q);
+}
+function redrawAtt(q){ const el=document.querySelector('[data-att="'+q+'"]'); if(el) el.outerHTML=attHtml(q); }
+document.addEventListener('click', e=>{
+  const b=e.target.closest&&e.target.closest('[data-attb]'); if(b){ $('attF'+b.dataset.attb).click(); return; }
+  const r=e.target.closest&&e.target.closest('[data-rm]'); if(r){ const [q,i]=r.dataset.rm.split('|'); const f=(PEND[q]||[]).splice(Number(i),1)[0]; if(f&&f._u) URL.revokeObjectURL(f._u); redrawAtt(q); }
+});
+document.addEventListener('change', e=>{ const m=/^attF(.+)$/.exec(e.target.id||''); if(m){ attAdd(m[1], e.target.files); } });
+document.addEventListener('paste', e=>{
+  const ta=e.target.closest&&e.target.closest('textarea[data-rin]'); if(!ta) return;
+  const fs=[...((e.clipboardData&&e.clipboardData.files)||[])]; if(!fs.length) return;
+  e.preventDefault(); attAdd(ta.dataset.rin, fs);
+});
+async function upFile(sid, f){
+  const ext=((f.name.match(/\.([A-Za-z0-9]{1,8})$/)||[])[1]||'bin').toLowerCase();
+  const rnd=[...crypto.getRandomValues(new Uint8Array(12))].map(b=>b.toString(16).padStart(2,'0')).join('');
+  const path='r/'+sid+'/'+rnd+'.'+ext;
+  const r=await fetch(SB_STORE+'/object/'+BUCKET+'/'+path,{ method:'POST', headers:{ apikey:SB_KEY, 'Content-Type':f.type||'application/octet-stream', 'x-upsert':'false' }, body:f });
+  if(!r.ok) throw new Error('upload '+r.status);
+  return { path, name:f.name.slice(0,200), size:f.size, mime:f.type||'' };
+}
+async function reply(q){
+  const ta=document.querySelector('textarea[data-rin="'+q+'"]'); let body=(ta&&ta.value||'').trim(); const files=(PEND[q]||[]).slice();
+  if(!body && !files.length){ toast('답장을 적거나 파일을 붙여 주세요'); return; }
+  if(!body) body=FILE_ONLY;
+  const name=await myName(true); if(!name){ toast('이름이 있어야 보낼 수 있어요'); return; }
+  const btn=document.querySelector('[data-send="'+q+'"]'); btn.disabled=true; btn.textContent='보내는 중…';
+  try{
+    const up=[]; for(const f of files){ btn.textContent='파일 올리는 중… ('+(up.length+1)+'/'+files.length+')'; up.push(await upFile(SUB.id, f)); }
+    const r=await sb('/hwork_qa',{ method:'POST', headers:{ Prefer:'return=representation' }, body:JSON.stringify({ sub_id:SUB.id, q:String(q), who:'선생님', name, body }) });
+    if(up.length) await sb('/hwork_reply_files',{ method:'POST', headers:{ Prefer:'return=minimal' }, body:JSON.stringify(up.map(x=>Object.assign({ sub_id:SUB.id, q:String(q), qa_id:r[0].id, created_by:name }, x))) });
+    (PEND[q]||[]).forEach(x=>x._u&&URL.revokeObjectURL(x._u)); PEND[q]=[]; if(ta) ta.value='';
+    toast('답장을 보냈어요');
+    if(window.shuegukActivity) shuegukActivity('H WORK', '질문 답장', SUB.name+' '+q+'번', SUB.code, false);
+    await loadQa(); draw();
+  }catch(e){ toast('보내지 못했어요. 다시 눌러 주세요'); btn.disabled=false; btn.textContent='답장 보내기'; }
+}
+document.addEventListener('click', e=>{ const b=e.target.closest&&e.target.closest('[data-send]'); if(b) reply(b.dataset.send); });
+async function markRead(q){
+  const mine=QA.filter(m=>String(m.q)===String(q)&&m.who==='학생'&&!m.read), ids=mine.map(m=>m.id); if(!ids.length) return;
+  mine.forEach(m=>{ m.read=true; });
+  try{ await sb('/hwork_qa?id=in.('+ids.join(',')+')',{ method:'PATCH', headers:{ Prefer:'return=minimal' }, body:JSON.stringify({ read_at:new Date().toISOString() }) }); }catch(e){}
+}
+/* 개인 리테스트 — 이 제출의 틀린 문항(서술형 빼고) */
+const LEFT_RE=/퇴원|아웃|휴원/; let STU=null;
+function gdOf(g){ const s=String(g||'').replace(/\s+/g,''); const m=s.match(/([1-3])학년/)||s.match(/고([1-3])/); if(m) return m[1]; const a=s.match(/[1-3]/g); return a?a[a.length-1]:''; }
+function stuIsSub(st, sub){
+  const nm=String(st.name||'').trim(), base=nm.replace(/[A-Za-z]$/,''), rn=String(sub.name||'').trim();
+  if(!nm || (rn!==nm && rn!==base)) return false;
+  const mg=gdOf(st.grade), rg=gdOf(sub.grade); if(mg && rg && mg!==rg) return false;
+  const ms=String(st.school||'').replace(/\s+/g,''), rs=String(sub.school||'').replace(/\s+/g,'');
+  if(ms && rs && ms.indexOf(rs)<0 && rs.indexOf(ms)<0) return false;
+  return true;
+}
+function wrongQs(){ const d=SUB.detail||{}; return Object.keys(d).filter(q=>d[q]&&d[q].ok===false&&d[q].type!=='essay').sort((a,b)=>a-b); }
+function rtHtml(){
+  if(RT===false) return '';
+  const wq=wrongQs();
+  let h='<section class="rtc"><h2>개인 리테스트</h2>';
+  if(RT){ const qs=RT.qs||[];
+    if(RT.submitted_at){ const still=Object.keys(RT.detail||{}).filter(q=>RT.detail[q]&&RT.detail[q].ok===false).sort((a,b)=>a-b);
+      h+=`<div class="m"><span class="st ok">리테스트 ${RT.got} / ${RT.total}</span> ${esc(RT.submitted_at)} 제출 · ${still.length?'또 틀림 '+still.join(', ')+'번':'모두 맞힘'}</div>`; }
+    else h+=`<div class="m"><span class="st wait">아직 안 풂</span> ${qs.length}문항 · ${qs.join(', ')}번</div><button type="button" class="del" id="rtDel">리테스트 지우기</button>`;
+  }else if(!wq.length) h+='<div class="m">틀린 문항이 없어 리테스트를 낼 수 없습니다.</div>';
+  else h+=`<div class="m">틀린 ${wq.length}문항(${wq.join(', ')}번)만 모아 이 학생에게만 다시 풀게 합니다. 학생 페이지 H WORK 목록에 바로 보여요. 별은 주지 않습니다.</div><button type="button" id="rtMake">리테스트 내기</button>`;
+  return h+'</section>';
+}
+async function loadRt(){ try{ RT=(await sb('/hwork_retests?select=id,qs,submitted_at,got,total,detail&src_id=eq.'+SUB.id))[0]||null; }catch(e){ RT=false; } }
+document.addEventListener('click', async e=>{
+  if(e.target.id==='rtMake'){
+    const wq=wrongQs(); e.target.disabled=true;
+    try{
+      if(!STU){ const out=[]; for(let off=0;;off+=1000){ const r=await sb('/students?select=code,name,school,grade,enrolled&order=id.asc&limit=1000&offset='+off); out.push(...r); if(r.length<1000) break; } STU=out.filter(x=>!LEFT_RE.test(String(x.enrolled||''))); }
+      const hit=STU.filter(x=>stuIsSub(x, SUB)); const st=hit.length===1?hit[0]:(hit.length?'dup':null);
+      if(st==='dup'){ toast('같은 이름의 학생이 여럿이라 누구에게 낼지 정하지 못했습니다'); e.target.disabled=false; return; }
+      if(!st||!st.code){ toast('재원 명단에서 이 학생(접근코드)을 찾지 못했습니다'); e.target.disabled=false; return; }
+      if(!confirm(SUB.name+' 학생에게 틀린 '+wq.length+'문항('+wq.join(', ')+'번)으로 리테스트를 낼까요?')){ e.target.disabled=false; return; }
+      await sb('/hwork_retests?on_conflict=src_id',{ method:'POST', headers:{ Prefer:'resolution=ignore-duplicates,return=minimal' },
+        body:JSON.stringify([{ teacher:SUB.teacher, code:SUB.code, src_id:SUB.id, stu_code:st.code, name:SUB.name, school:SUB.school||'', grade:SUB.grade||'', qs:wq.map(String), created_by:(await myName(true))||'' }]) });
+      toast('리테스트를 냈어요'); await loadRt(); draw();
+    }catch(err){ toast('리테스트를 내지 못했어요'); e.target.disabled=false; }
+  }
+  if(e.target.id==='rtDel'){
+    if(!confirm('이 리테스트를 지울까요? 학생 화면에서도 사라집니다.')) return;
+    try{ await sb('/hwork_retests?id=eq.'+RT.id+'&submitted_at=is.null',{ method:'DELETE', headers:{ Prefer:'return=minimal' } }); toast('지웠어요'); }catch(err){ toast('지우지 못했어요'); }
+    await loadRt(); draw();
+  }
+});
+function draw(){
+  const keep={};   // 다시 그릴 때 쓰던 답장 글은 그대로
+  document.querySelectorAll('textarea[data-rin]').forEach(t=>{ keep[t.dataset.rin]=t.value; });
+  const n=Math.max(Number(SUB.total)||0, ...Object.keys(SUB.detail||{}).map(Number));
+  if(!CTX){
+    CTX={ mode:'teacher', st:{ name:SUB.name, school:SUB.school, grade:SUB.grade, teacher:SUB.teacher, code:SUB.code, ts:SUB.ts },
+      got:Number(SUB.got)||0, total:Number(SUB.total)||0, n, detail:SUB.detail||{}, review:SUB.review||{}, answers:ANS,
+      away:Number(SUB.away_n)>0?{ n:Number(SUB.away_n), sec:Number(SUB.away_sec)||0 }:null, reviewAt:SUB.review_at||'', qa:QA,
+      hooks:{
+        qhtml:q=>{ const x=QS[q]; if(!x) return null; return { pas:x.pid&&QP[x.pid]?`<div class="${STYLE}">${QP[x.pid]}</div>`:'', html:`<div class="${STYLE}">${x.html}</div>` }; },
+        composer:q=>`<div class="cmp"><span class="lab">학생에게 답장</span><textarea data-rin="${q}" maxlength="1000" placeholder="답장을 적어 주세요. 학생 화면 이 문항에 바로 보입니다. 사진은 Ctrl+V 로 붙여 넣어도 돼요.">${esc(keep[q]||'')}</textarea>${attHtml(q)}<button type="button" class="go" data-send="${q}">답장 보내기</button></div>`,
+        files:f=>fsHtml(f),
+        opened:q=>markRead(q),
+        after:()=>fThumbs()
+      } };
+    CTX.ui={ filter:'전체', open:RV.openDefault(CTX) };
+    if(OPENQ) CTX.ui.open.add(String(OPENQ));
+  }
+  CTX.qa=QA; CTX.extra=rtHtml();
+  RV.draw($('view'), CTX);
+  Object.keys(keep).forEach(q=>{ const t=document.querySelector('textarea[data-rin="'+q+'"]'); if(t) t.value=keep[q]; });
+}
+async function boot(){
+  myName();
+  if(!SID || !/^\d{1,18}$/.test(SID)) return waitList();
+  try{ SUB=(await sb('/hwork_submissions?select=*&id=eq.'+SID))[0]; }catch(e){}
+  if(!SUB){ $('view').innerHTML='<div class="wl"><p>제출 기록을 찾지 못했습니다.</p></div>'; return; }
+  await Promise.all([loadQs(SUB), loadQa(), loadRt()]);
+  draw();
+  if(OPENQ){ const t=document.getElementById('rvq'+OPENQ); if(t) t.scrollIntoView({ block:'start' }); }
+  CTX.ui.open.forEach(q=>markRead(q));   // 열어 둔 카드의 학생 글은 읽음 — '새' 표시는 이번 화면에서는 남겨 두고 다음부터 사라짐
+  setInterval(async()=>{ if(document.hidden || document.querySelector('textarea[data-rin]:focus') || Object.values(PEND).some(l=>l.length)) return;
+    const before=QA.length; await loadQa(); if(QA.length!==before) draw(); }, 30000);
+}
+/* 주소 없이 열면 — 답장을 기다리는 질문(마지막 글이 학생) 목록 */
+async function waitList(){
+  let rows=[];
+  try{ rows=await sb('/hwork_qa?select=sub_id,q,who,body,at,s:hwork_submissions(name,school,grade,code,teacher)&order=id.desc&limit=2000'); }catch(e){}
+  const seen=new Set(), wait=[];
+  rows.forEach(r=>{ const k=r.sub_id+'|'+r.q; if(seen.has(k)) return; seen.add(k); if(r.who==='학생'&&r.s) wait.push(r); });
+  $('view').innerHTML=`<div class="wl"><h1>답장을 기다리는 H WORK 질문</h1><p>학생 질문은 슈톡 업무 카드로 알려 드려요. 줄을 누르면 그 학생의 채점 결과 화면에서 바로 답할 수 있어요.</p>
+    ${wait.length?wait.map(r=>`<a class="row" href="?sid=${r.sub_id}&q=${enc(r.q)}"><b>${esc(r.s.name)}</b> · ${esc(r.q)}번<small>${esc(r.s.code)} · ${esc(r.s.teacher)} · ${esc(kst(r.at))}</small>${esc(r.body)}</a>`).join(''):'<p>답장을 기다리는 질문이 없습니다.</p>'}</div>`;
+}
+boot();
+</script>
+<script src="https://coke4497-sys.github.io/shueguk-report/activity.js"></script>
+<script src="oh.js"></script>
+</body>
+</html>

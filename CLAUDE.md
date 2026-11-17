@@ -78,3 +78,11 @@
 - **온라인** = 학생마다 hwork_retests 한 줄(src_id 없음, code = 제목, qs 1..N, parts [{teacher, code, q}]) — 학생 페이지 H WORK '개인 리테스트' → hwork.html?rt= 에서 과제마다 hwork_qs 로 문제를 받아 리테스트 번호로 잇는다(`rtQ`). 접근코드는 재원 명단에서 이름·학교·학년으로, 같은 이름이 둘이면 내지 않고 알림. 아래 '최근에 낸 오답 리테스트'(parts 있는 것 60개, 안 푼 것 지우기).
 - 질문함의 [리테스트 내기](한 제출)는 parts 없이 예전 방식 그대로.
 - 검증: `LC_ALL=C.UTF-8 NODE_PATH=$(npm root -g) node tools/retest-make-e2e.js [캡처 폴더]`(23건).
+
+## 채점 결과 화면 하나 — 학생·선생님 공용 · 문항 카드 안 질문·답장 (2026-11-17 원장님 디자인 `design_handoff_hwork_result`, 리포트 072)
+- 원장님 "학생에게도 동일한 화면이 보이고 여기서 교사와 학생이 질문 답변이 가능했으면. 따로 페이지가 있는 것이 아니라" + "질문함은 없애고 새 질문이 도착하면 슈톡에서 알려줘 업무진행에도 추가".
+- **그리기 = `result_view.js`**(`RV.draw(el, ctx)` — mode 'student'|'teacher', hooks qhtml·fixForm·expl·composer·files·opened·after, `ctx.extra` 자리, 스타일은 `.rv2` 아래 주입 — 클래스 이름 rvcard·rvbar·rvthr 은 hwork.html 의 .card·.bar·.thr 과 겹치지 않게). 채점 결과(점수·번호 막대 — 누르면 그 카드로)·문항 카드(학생 답·정답(학생은 맞았거나 클리어한 문항만)·상태 알약·문제 보기·오답하기 기록·도움·신고·대화·답장 칸). 처음 열리는 카드 = 학생은 클리어 전 오답, 선생님은 시도·도움·질문이 있는 오답.
+- **학생** = hwork.html 결과(`drawReport`) — 오답하기 칸·해설 보기·질문 보내기가 그 문항 카드 안에. 옛 결과표·질문 창(#qv)은 쓰지 않는다.
+- **선생님** = `hwork_result.html?sid=제출번호(&q=문항)` — 제출 확인(hwork_teacher.html)의 원본 제출 줄을 누르면 새 탭, 슈톡 업무 카드의 'H WORK 질문' 링크도 이 주소. 카드 안 답장(사진·영상·파일 첨부, Ctrl+V 캡처 — 버킷 hwork-reply-files, hwork_reply_files.qa_id), 위에 개인 리테스트(ctx.extra). 답장하면 072 트리거가 그 슈톡 할 일을 완료로 바꾼다. 열어 둔 카드의 학생 글은 읽음. 정답은 과제 data.items·문항 은행·교재 원문에서. 주소 없이 열면 답장 기다리는 질문 목록.
+- **질문함(hwork_qa.html)은 없앴다** — 옛 주소는 hwork_result.html 로 넘기고, 허브 H WORK 메뉴 카드도 뺐다. 새 질문은 담당 선생님(과제 강사 = 활성 교사 이름, 없으면 원장님) 슈톡 업무 카드 + 휴대폰 알림(엣지 함수 hwork-ask → pushHand, 제목 'H WORK 학생 질문').
+- 검증: `tools/bank-e2e.js`(67)·`tools/qa-files-retest-e2e.js`(29)·`tools/hwork-retry-e2e.js`(56)·`tools/retest-make-e2e.js`(23).

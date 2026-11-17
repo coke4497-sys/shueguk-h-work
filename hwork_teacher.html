@@ -387,6 +387,8 @@
   async function openReportAt(i){
     const r = CUR && CUR[i];
     if (!r) return;
+    /* 원본 제출(_id)은 학생과 같은 채점 결과 화면(hwork_result.html)에서 — 질문 답장·리테스트도 거기서 (2026-11-17) */
+    if (r._id){ window.open('hwork_result.html?sid=' + r._id, '_blank'); return; }
     toast('불러오는 중…');
     try{ renderReport(await reportOf(r)); }
     catch(err){ toast('조회 실패 · 다시 시도해 주세요'); }
