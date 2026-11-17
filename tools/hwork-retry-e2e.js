@@ -60,6 +60,8 @@ function rpc(fn, p) {
     cur[p.kind] = { at: '15:07', text: p.text || '' };
     return { ok: true, q, kind: p.kind, at: '15:07', done: done() };
   }
+  if (fn === 'hwork_qa_post') { s.qa = s.qa || []; s.qa.push({ id: s.qa.length + 1, q: p.q, who: '학생', body: p.text, mine: '', at: '2026-11-17 15:08', read: false }); return { ok: true, msgs: s.qa }; }
+  if (fn === 'hwork_qa_list') return { ok: true, msgs: s.qa || [] };
   if (fn === 'hwork_retry_state') {
     const ans = {}; wq.forEach(q => { if ((s.review[q] || {}).cleared_at) ans[q] = KEY[q].ans; });
     return { ok: true, stage: done() ? 'done' : 'fix', teacher: s.teacher, code: s.code, name: s.name, got: s.got, total: s.total,
@@ -157,11 +159,15 @@ function rpc(fn, p) {
   ok(await p.evaluate(() => JSON.parse(localStorage.getItem('hw_retry_v1') || '[]').length) === 0, '모두 클리어·넘김이면 이어 하기 기록 지움');
   ok((await p.textContent('#fixBox')).includes('오답하기를 마쳤습니다'), '끝 안내');
   ok(await p.locator('#rv3 textarea[data-f=ww]').count() === 1, '넘긴 뒤에도 계속 오답하기 가능');
-  // 도움 요청
-  await p.click('#rv3 .flags button:has-text("선생님 도와주세요")'); await p.waitForTimeout(400);
+  // 도움 요청 — 2026-11-17(067)부터 [선생님께 질문하기] 대화 창에서 첫 질문을 보내면 help 표시도 함께
+  await p.click('#rv3 .flags button:has-text("선생님께 질문하기")'); await p.waitForTimeout(300);
+  ok(await p.locator('#qv.on').isVisible(), '질문 창 열림');
+  await p.fill('#qvIn', '왜 틀렸는지 모르겠어요'); await p.click('#qvSend'); await p.waitForTimeout(400);
+  ok(DB.calls.some(c => c.fn === 'hwork_qa_post' && c.p.q === '3' && c.p.text === '왜 틀렸는지 모르겠어요'), '질문 본문');
   ok(DB.calls.some(c => c.fn === 'hwork_flag' && c.p.kind === 'help' && c.p.q === '3'), '도움 요청 본문');
   ok(REP.length === 1, '도움 요청은 수정 요청함으로 안 보냄');
-  ok((await p.textContent('#rv3')).includes('선생님 도움 요청함') && (await p.locator('#rv3 .flags button').count()) === 0, '도움 요청 표시·버튼 사라짐');
+  await p.click('#qv .x'); await p.waitForTimeout(200);
+  ok((await p.textContent('#rv3')).includes('선생님 도움 요청함') && (await p.textContent('#rv3 .flags')).includes('선생님과 나눈 질문 보기'), '도움 요청 표시 · 버튼은 질문 보기로');
   // 이어 하기 — 저장 기록 강제로 넣고 다시 열기
   await p.evaluate(() => localStorage.setItem('hw_retry_v1', JSON.stringify([{ id: 41, key: 'abcdef0123456789abcdef0123456789', code: 'T세트', name: '박보검' }])));
   await p.reload(); await p.waitForTimeout(600);
