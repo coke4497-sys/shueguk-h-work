@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <script src="https://coke4497-sys.github.io/shueguk-hub/assets/teacher-gate.js"></script><!-- 교사 로그인 게이트 (허브 로그인 필요, 2026-10-12) -->
+<script src="https://coke4497-sys.github.io/shueguk-report/teacher-name.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>이수경국어 · H WORK 확인</title>
 <link rel="apple-touch-icon" href="icon-check.png">
@@ -137,6 +138,10 @@
   .qrank .cpt{ color:#8A4A40; }
   .rtag.aw{ background:#F9EFD0; color:#7A6230; }
   .snote.awl{ color:#7A6230; }
+  /* 과제 검사 완료(채점 결과 화면 [과제 검사 완료 · 하트 보내기]) — 줄 색 (2026-11-17 원장님) */
+  tr.r.chkd td{ background:#FDF0F4; }
+  tr.r.chkd:hover td{ background:#FBE4EC; }
+  .rtag.dn{ background:#FBE4EA; color:#B0476A; }
   .rtag.hp{ background:#F7E2DE; color:#8A4A40; }
   #report .whytag.err{ background:#F7E2DE; color:#8A4A40; }
   #report .flg{ color:#8A4A40; }
@@ -257,6 +262,7 @@
     throw lastErr || new Error('요청 실패');
   }
 
+  let T_PRESET=false;
   async function reload(){
     document.getElementById('loading').style.display='block';
     document.getElementById('listTbl').style.display='none';
@@ -268,15 +274,16 @@
         const BASE = 'id,ts,teacher,code,school,grade,name,got,total,questions';
         let rows;   // 다시 풀기 열(064)이 없는 DB면 옛 열만 다시 읽는다
         // 화면 이탈 열(066)·다시 풀기 열(064)이 없는 DB면 있는 열만 다시 읽는다
-        try{ rows = await sbAllRows('/hwork_submissions?select=' + BASE + ',retry_at,review,review_at,away_n,away_sec&order=id.desc'); RETRY_COL = true; AWAY_COL = true; }
+        try{ rows = await sbAllRows('/hwork_submissions?select=' + BASE + ',retry_at,review,review_at,away_n,away_sec,check_done&order=id.desc'); RETRY_COL = true; AWAY_COL = true; }   // check_done = 과제 검사 완료(리포트 074)
+        catch(eC){ try{ rows = await sbAllRows('/hwork_submissions?select=' + BASE + ',retry_at,review,review_at,away_n,away_sec&order=id.desc'); RETRY_COL = true; AWAY_COL = true; }
         catch(e0){ AWAY_COL = false;
           try{ rows = await sbAllRows('/hwork_submissions?select=' + BASE + ',retry_at,review,review_at&order=id.desc'); RETRY_COL = true; }
-          catch(e){ rows = await sbAllRows('/hwork_submissions?select=' + BASE + '&order=id.desc'); RETRY_COL = false; } }
+          catch(e){ rows = await sbAllRows('/hwork_submissions?select=' + BASE + '&order=id.desc'); RETRY_COL = false; } } }
         list = rows.map(r => ({ _id: r.id, submittedAt: r.ts, teacher: r.teacher, code: r.code,
           school: r.school, grade: r.grade, name: r.name, got: String(r.got), total: String(r.total),
           qCount: Object.keys(r.questions || {}).length,
           fix: fixSum(r.review, (Number(r.total)||0) - (Number(r.got)||0)), reviewed: !!r.review_at,
-          awayN: Number(r.away_n)||0, awaySec: Number(r.away_sec)||0 }));
+          awayN: Number(r.away_n)||0, awaySec: Number(r.away_sec)||0, done: r.check_done||null }));
       }catch(e){ console.warn('수파베이스 목록 실패 — 기존 백엔드(시트)로 폴백', e); }
       if (!list){
         const json=await fetchJSON(API_URL+'?action=responses');
@@ -285,6 +292,10 @@
       }
       ALL=list;
       fillSel('fTeacher', uniq(ALL.map(r=>r.teacher)), '전체 강사');
+      if(!T_PRESET){ T_PRESET=true;   // 처음 열 때 강사 = 주소 ?t= 또는 허브 로그인 이름 (2026-11-17 원장님 "돌아가기 했을 때 제 이름이 선택된 상태로")
+        let want=new URLSearchParams(location.search).get('t')||'';
+        if(!want){ try{ want=window.shuegukTeacherName?((await shuegukTeacherName())||''):''; }catch(e){} }
+        const sel=document.getElementById('fTeacher'); if(want && [...sel.options].some(o=>o.value===want)) sel.value=want; }
       fillSel('fCode',    uniq(ALL.map(r=>r.code)),    '전체 제목');
       fillSel('fSchool',  uniq(ALL.map(r=>r.school)),  '전체 학교');
       fillSel('fGrade',   uniq(ALL.map(r=>r.grade)),   '전체 학년');
@@ -331,9 +342,9 @@
 
     if(!rows.length){ tbl.style.display='none'; empty.style.display='block'; empty.textContent='조건에 맞는 제출이 없습니다.'; return; }
     empty.style.display='none'; tbl.style.display='table';
-    body.innerHTML=rows.map((r,i)=>`<tr class="r" onclick="openReportAt(${i})">
+    body.innerHTML=rows.map((r,i)=>`<tr class="r${r.done?' chkd':''}" onclick="openReportAt(${i})"${r.done?` title="${escapeHtml((r.done.by||'')+' 선생님 · '+String(r.done.at||'').slice(5,16)+' 과제 검사 완료')}"`:''}>
       <td>${escapeHtml(r.teacher||'')}</td><td>${escapeHtml(r.code||'')}</td>
-      <td class="nm">${escapeHtml(r.name||'')}${Number(r.qCount)>0?` <span class="qbadge">질문 ${r.qCount}</span>`:''}</td>
+      <td class="nm">${escapeHtml(r.name||'')}${r.done?' <span class="rtag dn">♥ 검사 완료</span>':''}${Number(r.qCount)>0?` <span class="qbadge">질문 ${r.qCount}</span>`:''}</td>
       <td class="sc">${escapeHtml(r.got)} / ${escapeHtml(r.total)}${retryTag(r)}</td>
       <td>${escapeHtml(r.school||'')}</td><td>${escapeHtml(r.grade||'')}</td>
       <td class="date">${escapeHtml(shortDate(r.submittedAt))}</td></tr>`).join('');

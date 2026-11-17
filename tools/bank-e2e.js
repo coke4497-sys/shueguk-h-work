@@ -176,6 +176,7 @@ function rpc(fn, p) {
   ok((await t.textContent('[data-reuse="2"]')).includes('풀이.png'), '지난 첨부도 다시 보낼 목록에');
   ok((await t.locator('#rvq2 .gq .stem').textContent()) === '지문 세트 둘째 문항', '결과 화면 — 문제');
   ok(await t.locator('#rvq2 .cn.ok').count() === 1, '선생님 화면 — 정답 동그라미');
+  ok((await t.getAttribute('#backList', 'href')).endsWith('hwork_teacher.html?t=' + encodeURIComponent('이현지')), '돌아가기 = 로그인 이름이 골라진 제출 목록');
   ok((await t.locator('#rvq2').textContent()).includes('느낌으로'), '오답하기 기록(이유) 보임');
   await t.waitForTimeout(300);
   ok(DB.patches.some(x => x.includes('id=in.(1)')), '열면 학생 글 읽음 처리');

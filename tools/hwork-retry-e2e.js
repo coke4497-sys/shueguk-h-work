@@ -209,7 +209,7 @@ function rpc(fn, p) {
       retry_got: 1, retry_at: '2026-11-11 15:05', review_at: '2026-11-11 15:09', detail: R.detail, review: R.review },
     { id: 42, ts: '2026-11-11 15:10', teacher: '이수경', code: 'T세트', school: '무원고등학교', grade: '고2', name: '정해인', got: 1, total: 4, questions: {},
       retry_got: null, retry_at: null, review_at: null, detail: grade({ '1': '1', '3': '가', '4': 'O' }).detail, review: null } ];
-  sub[0].away_n = 3; sub[0].away_sec = 130; sub[0].ts = '2026-11-12 15:00';
+  sub[0].away_n = 3; sub[0].away_sec = 130; sub[0].check_done = { at: '2026-11-17 21:11', by: '이수경', note: '' }; sub[0].ts = '2026-11-12 15:00';
   let oldDb = false, awayOld = false;
   await tp.context().route('**/*', async rt => {
     const u = rt.request().url();
@@ -227,7 +227,9 @@ function rpc(fn, p) {
     if (u.endsWith('.js')) return rt.fulfill({ body: '', contentType: 'text/javascript' });
     return rt.fulfill({ json: { ok: true, list: [] } });
   });
-  await tp.goto('http://localhost:' + PORT + '/hwork_teacher.html'); await tp.waitForTimeout(700);
+  await tp.goto('http://localhost:' + PORT + '/hwork_teacher.html?t=' + encodeURIComponent('이수경')); await tp.waitForTimeout(700);
+  ok((await tp.inputValue('#fTeacher')) === '이수경', '주소 ?t= 로 열면 그 강사가 골라진 목록 (결과 화면 돌아가기)');
+  ok(await tp.locator('#listBody tr.chkd:has-text("박보검")').count() === 1 && await tp.locator('#listBody tr.chkd:has-text("정해인")').count() === 0 && (await tp.textContent('#listBody tr:has-text("박보검")')).includes('♥ 검사 완료'), '과제 검사 완료한 줄만 색 · ♥ 검사 완료');
   await tp.selectOption('#fTeacher', '이수경'); await tp.waitForTimeout(200);
   ok((await tp.textContent('#listBody')).includes('오답 2/2 ✓') && (await tp.textContent('#listBody')).includes('도움 1') && (await tp.textContent('#listBody')).includes('신고 1'), '교사 목록: 오답 2/2 ✓ · 도움 · 신고');
   ok((await tp.locator('#listBody tr:has-text("정해인") .rtag').count()) === 0, '오답하기 안 한 학생은 표시 없음');

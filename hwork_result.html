@@ -67,7 +67,7 @@
 </style>
 </head>
 <body class="teacher">
-<div class="top"><a href="https://coke4497-sys.github.io/shueguk-h-work/hwork_teacher.html">← H WORK 제출 확인</a><a href="https://coke4497-sys.github.io/shueguk-hub/messenger.html">슈톡</a></div>
+<div class="top"><a id="backList" href="https://coke4497-sys.github.io/shueguk-h-work/hwork_teacher.html">← H WORK 제출 확인</a><a href="https://coke4497-sys.github.io/shueguk-hub/messenger.html">슈톡</a></div>
 <div id="view"><div class="wl"><p>불러오는 중…</p></div></div>
 <div class="toast" id="toast"></div>
 <script>
@@ -430,7 +430,7 @@ function draw(){
   Object.keys(keep).forEach(q=>{ const t=document.querySelector('textarea[data-rin="'+q+'"]'); if(t) t.value=keep[q]; });
 }
 async function boot(){
-  myName();
+  myName().then(n=>{ if(n) document.getElementById('backList').href='https://coke4497-sys.github.io/shueguk-h-work/hwork_teacher.html?t='+enc(n); });
   if(!SID || !/^\d{1,18}$/.test(SID)) return waitList();
   try{ SUB=(await sb('/hwork_submissions?select=*&id=eq.'+SID))[0]; }catch(e){}
   if(!SUB){ $('view').innerHTML='<div class="wl"><p>제출 기록을 찾지 못했습니다.</p></div>'; return; }
