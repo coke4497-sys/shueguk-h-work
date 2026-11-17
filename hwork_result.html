@@ -12,7 +12,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&family=Do+Hyeon&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="gbank.css">
 <link rel="stylesheet" href="real.css">
-<script src="result_view.js"></script>
+<script src="result_view.js?v=20261117b"></script>
 <style>
   *{box-sizing:border-box}
   body{margin:0;background:#e4efea;color:#33443c;font-family:'Gowun Dodum',sans-serif;font-size:15px;line-height:1.55}
@@ -82,6 +82,7 @@
   var T_PW = 'shg_FCePWvnawH44SV8kYB9BHRKi6aag';
   var tok = null, until = 0, pending = null;
   var raw = window.fetch.bind(window);
+  window.__sbRawFetch = raw;   // 허브 로그인 이름(teacher-name.js)은 공용 계정 신분을 거치지 않고 묻는다 — 없으면 이름을 못 찾아 입력 창이 떴다(2026-11-17)
   var TOK_LS = 'sb_teacher_tok_v1';   // 받아 둔 신분증은 브라우저에 남겨 다음 페이지에서 다시 받지 않는다(1시간짜리)
 
   function cachedTok(){
@@ -155,11 +156,9 @@ async function sb(path, opts){
 }
 let ME='', ANS={}, BANK={}, PREV={}, REUSE={}, SUB=null, QA=[], QS={}, QP={}, STYLE='', CTX=null, PEND={}, FBLOB={}, RT=null;
 const qp=new URLSearchParams(location.search), SID=qp.get('sid'), OPENQ=qp.get('q');
-async function myName(ask){
+async function myName(){   // 답장 이름 = 허브에 로그인한 선생님(teacher-name.js). 묻는 창은 없앴다(2026-11-17 원장님 "로그인한 강사명으로 기록")
   if(ME) return ME;
-  try{ if(window.shuegukTeacherName) ME=await shuegukTeacherName(); }catch(e){}
-  if(!ME){ try{ ME=localStorage.getItem('hw_qa_who')||''; }catch(e){} }
-  if(!ME && ask){ ME=(prompt('답장에 표시할 선생님 이름을 적어 주세요 (예: 이현지)')||'').trim(); try{ if(ME) localStorage.setItem('hw_qa_who',ME); }catch(e){} }
+  try{ if(window.shuegukTeacherName) ME=(await shuegukTeacherName())||''; }catch(e){}
   return ME;
 }
 /* 문제 원문 — 문항 은행(data.bank → gbank_items) 또는 교재(hwork_src_items, 숨긴 것도 선생님께는 보임) */
@@ -304,7 +303,7 @@ async function reply(q){
   const ta=document.querySelector('textarea[data-rin="'+q+'"]'); let body=(ta&&ta.value||'').trim(); const files=(PEND[q]||[]).slice(), again=(REUSE[q]||[]).slice();
   if(!body && !files.length && !again.length){ toast('답장을 적거나 파일을 붙여 주세요'); return; }
   if(!body) body=FILE_ONLY;
-  const name=await myName(true); if(!name){ toast('이름이 있어야 보낼 수 있어요'); return; }
+  const name=await myName(); if(!name){ toast('허브 로그인 이름을 찾지 못했어요. 티쳐스에 다시 로그인한 뒤 보내 주세요'); return; }
   const btn=document.querySelector('[data-send="'+q+'"]'); btn.disabled=true; btn.textContent='보내는 중…';
   try{
     const up=[]; for(const f of files){ btn.textContent='파일 올리는 중… ('+(up.length+1)+'/'+files.length+')'; up.push(await upFile(SUB.id, f)); }
@@ -359,7 +358,7 @@ document.addEventListener('click', async e=>{
       if(!st||!st.code){ toast('재원 명단에서 이 학생(접근코드)을 찾지 못했습니다'); e.target.disabled=false; return; }
       if(!confirm(SUB.name+' 학생에게 틀린 '+wq.length+'문항('+wq.join(', ')+'번)으로 리테스트를 낼까요?')){ e.target.disabled=false; return; }
       await sb('/hwork_retests?on_conflict=src_id',{ method:'POST', headers:{ Prefer:'resolution=ignore-duplicates,return=minimal' },
-        body:JSON.stringify([{ teacher:SUB.teacher, code:SUB.code, src_id:SUB.id, stu_code:st.code, name:SUB.name, school:SUB.school||'', grade:SUB.grade||'', qs:wq.map(String), created_by:(await myName(true))||'' }]) });
+        body:JSON.stringify([{ teacher:SUB.teacher, code:SUB.code, src_id:SUB.id, stu_code:st.code, name:SUB.name, school:SUB.school||'', grade:SUB.grade||'', qs:wq.map(String), created_by:(await myName())||'' }]) });
       toast('리테스트를 냈어요'); await loadRt(); draw();
     }catch(err){ toast('리테스트를 내지 못했어요'); e.target.disabled=false; }
   }
