@@ -49,7 +49,7 @@ function fake(rt, u, method, body) {
     return rt.fulfill({ json: rest.includes('offset=0') ? DB.hws : [] });
   }
   if (rest.startsWith('/hwork_src_items')) { DB.calls.push({ fn: 'src', rest }); return rt.fulfill({ json: [{ html: RQ(2), pid: 'wb-P1', type: '5지', ans: '③', essay: '', src: '건대부고3 24 1 중간', err: false, book: '문장 1권(기본·실력)' }] }); }
-  if (rest.startsWith('/hwork_src_passages')) return rt.fulfill({ json: [{ html: '<div class="psg">교재 지문 글</div>' }] });
+  if (rest.startsWith('/hwork_src_passages')) return rt.fulfill({ json: [{ html: '<div class="psg">교재 지문 글 나랏 말ᄊᆞ미</div>' }] });
   if (rest.startsWith('/students')) return rt.fulfill({ json: rest.includes('offset=0') ? [{ school: '화정고', enrolled: '재원' }, { school: '능곡고', enrolled: '재원' }, { school: '옛학교', enrolled: '퇴원' }] : [] });
   if (rest.startsWith('/hwork_submissions')) return rt.fulfill({ json: [] });
   if (rest.startsWith('/hwork_qa')) {
@@ -70,7 +70,7 @@ const S = { id: 55, key: 'ffffffffffffffffffffffffffffffff', review: {}, msgs: [
 function rpc(fn, p) {
   if (fn === 'hwork_list') return { ok: true, list: [{ teacher: '이현지', code: '[모의고사 문법] 음운 1회', due: '', closed: false }] };
   if (fn === 'hwork_meta') return { ok: true, meta: { teacher: '이현지', code: '[모의고사 문법] 음운 1회', count: 3, schools: ['화정고'], items: { '1': { type: 'choice5' }, '2': { type: 'choice5' }, '3': { type: 'choice5' } }, due: '', closed: false, bank: true } };
-  if (fn === 'hwork_qs' && RS_MODE) return { ok: true, style: 'real', items: { '1': { html: RQ(1), pid: 'wb-P1', src: 'A고' }, '2': { html: RQ(2), pid: 'wb-P1', src: 'B고' }, '3': { html: RQ(3), pid: '', src: 'C고' } }, passages: { 'wb-P1': '<div class="psg">교재 지문 글</div>' } };
+  if (fn === 'hwork_qs' && RS_MODE) return { ok: true, style: 'real', items: { '1': { html: RQ(1), pid: 'wb-P1', src: 'A고' }, '2': { html: RQ(2), pid: 'wb-P1', src: 'B고' }, '3': { html: RQ(3), pid: '', src: 'C고' } }, passages: { 'wb-P1': '<div class="psg">교재 지문 글 나랏 말ᄊᆞ미</div>' } };
   if (fn === 'hwork_qs') { const it = {}, ps = {}; for (const k in BANK) { const g = ITEMS.find(x => x.id === BANK[k]); it[k] = { html: g.html, pid: g.pid, src: g.src }; if (g.pid) ps[g.pid] = PAS.find(x => x.pid === g.pid).html; } return { ok: true, items: it, passages: ps }; }
   if (fn === 'hwork_submit') {
     const d = {}; let got = 0; for (const q in KEY) { const okv = String(p.answers[q]) === String(KEY[q]); if (okv) got++; d[q] = { type: 'choice5', mine: String(p.answers[q] || ''), ok: okv }; if (okv) d[q].ans = String(KEY[q]); }
@@ -240,6 +240,7 @@ function rpc(fn, p) {
   ok(await rs.locator('#qwrap .gqp .rq').count() === 1 && (await rs.locator('#qwrap .gqp .prng').textContent()) === '[1~2]', '교재 — 지문 한 번 [1~2]');
   ok(await rs.locator('#q1 .rq .stem').isVisible() && await rs.locator('#q1 .gq').count() === 0, '교재 — 문제가 교재 모양(.rq)');
   ok(await rs.locator('#q1 .rq .bogi .bl').isVisible(), '교재 — 〈보기〉 상자');
+  ok((await rs.locator('#qwrap .gqp .oh').textContent()) === '말ᄊᆞ미' && (await rs.locator('#qwrap .gqp .oh').evaluate(e => getComputedStyle(e).fontFamily)).includes('Noto Sans CJK KR'), '옛한글 낱말만 기기 글꼴(.oh)로');
   await rs.click('#q1 .choices button:nth-child(2)'); await rs.click('#q2 .choices button:nth-child(1)'); await rs.click('#q3 .choices button:nth-child(3)');
   await rs.click('#submit'); await rs.waitForSelector('#report table.detail');
   await rs.locator('#report tr:has(td.qn:text-is("2")) .qa-btn').click();

@@ -61,3 +61,4 @@
 ## 이미 낸 교재 과제에 문제 원문 — SHUEGUK REAL 내신 기출 (2026-11-17 원장님, 리포트 마이그레이션 068)
 - 정답만 올라가 있던 「SHUEGUK REAL 내신 기출」 과제에 문제 원문을 이었다(리포트 `hwork_src_items` — 과제 이름 × 번호). `hwork_meta` 의 `bank` 가 참, `style` 'real' 이면 hwork.html 이 `hwork_qs` 문항을 `real.css`(.rq — 교재 tpl.html 의 문항 모양)로 그리고, [질문] 창의 버튼은 '정답 보기'(정답·서술형 예시 답만, 해설 없음 안내). 질문함(hwork_qa.html)은 data.bank 가 없으면 `hwork_src_items` 를 과제 이름·번호로 읽어 문제·지문·정답(③ 동그라미)을 보여 준다. 올리기·교재 목록은 리포트 CLAUDE.md 같은 절.
 - 검증: `tools/bank-e2e.js` 4절(72건).
+- **옛한글(중세 국어) 표시 = `oh.js`**(같은 날): 조합형 자모가 든 낱말만 `.oh`로 감싸 기기 글꼴로 그린다(웹 글꼴은 자모를 모으지 못함). hwork.html·hwork_qa.html·bank_make.html 끝에 `<script src="oh.js"></script>`. 문항을 그리는 새 화면에도 넣을 것. 검증 bank-e2e 4절.
