@@ -137,6 +137,7 @@
   #report td.fixc{ text-align:left; white-space:pre-wrap; word-break:break-all; }
   .qrank .cpt{ color:#8A4A40; }
   .rtag.aw{ background:#F9EFD0; color:#7A6230; }
+  .rtag.tm{ background:#E9EDF8; color:#4F6478; }
   .snote.awl{ color:#7A6230; }
   /* 과제 검사 완료(채점 결과 화면 [과제 검사 완료 · 하트 보내기]) — 줄 색 (2026-11-17 원장님) */
   tr.r.chkd td{ background:#FDF0F4; }
@@ -305,16 +306,17 @@
         const BASE = 'id,ts,teacher,code,school,grade,name,got,total,questions';
         let rows;   // 다시 풀기 열(064)이 없는 DB면 옛 열만 다시 읽는다
         // 화면 이탈 열(066)·다시 풀기 열(064)이 없는 DB면 있는 열만 다시 읽는다
-        try{ rows = await sbAllRows('/hwork_submissions?select=' + BASE + ',retry_at,review,review_at,away_n,away_sec,check_done&order=id.desc'); RETRY_COL = true; AWAY_COL = true; }   // check_done = 과제 검사 완료(리포트 074)
+        try{ rows = await sbAllRows('/hwork_submissions?select=' + BASE + ',retry_at,review,review_at,away_n,away_sec,check_done,timelog&order=id.desc'); RETRY_COL = true; AWAY_COL = true; }   // check_done = 과제 검사 완료(리포트 074)
+        catch(eT){ try{ rows = await sbAllRows('/hwork_submissions?select=' + BASE + ',retry_at,review,review_at,away_n,away_sec,check_done&order=id.desc'); RETRY_COL = true; AWAY_COL = true; }   // timelog 열 없음(리포트 078 전)
         catch(eC){ try{ rows = await sbAllRows('/hwork_submissions?select=' + BASE + ',retry_at,review,review_at,away_n,away_sec&order=id.desc'); RETRY_COL = true; AWAY_COL = true; }
         catch(e0){ AWAY_COL = false;
           try{ rows = await sbAllRows('/hwork_submissions?select=' + BASE + ',retry_at,review,review_at&order=id.desc'); RETRY_COL = true; }
-          catch(e){ rows = await sbAllRows('/hwork_submissions?select=' + BASE + '&order=id.desc'); RETRY_COL = false; } } }
+          catch(e){ rows = await sbAllRows('/hwork_submissions?select=' + BASE + '&order=id.desc'); RETRY_COL = false; } } } }
         list = rows.map(r => ({ _id: r.id, submittedAt: r.ts, teacher: r.teacher, code: r.code,
           school: r.school, grade: r.grade, name: r.name, got: String(r.got), total: String(r.total),
           qCount: Object.keys(r.questions || {}).length,
           fix: fixSum(r.review, (Number(r.total)||0) - (Number(r.got)||0)), reviewed: !!r.review_at,
-          awayN: Number(r.away_n)||0, awaySec: Number(r.away_sec)||0, done: r.check_done||null }));
+          awayN: Number(r.away_n)||0, awaySec: Number(r.away_sec)||0, done: r.check_done||null, tl: r.timelog||null }));
       }catch(e){ console.warn('수파베이스 목록 실패 — 기존 백엔드(시트)로 폴백', e); }
       if (!list){
         const json=await fetchJSON(API_URL+'?action=responses');
@@ -469,7 +471,8 @@
   let AWAY_COL = false;
   const AWAY_FROM = '2026-11-12';   // 이 날부터 센다 — 그 전 제출의 0은 '기록 없음'이 아니라 '세지 않음'
   function awayDur(sec){ sec=Number(sec)||0; if(sec<60) return sec+'초'; const m=Math.floor(sec/60), x=sec%60; return m+'분'+(x?' '+x+'초':''); }
-  function awayTag(r){ return r.awayN? ` <span class="rtag aw" title="푸는 동안 다른 앱으로 넘어가거나 화면을 끈 횟수와 시간">이탈 ${r.awayN}회 · ${awayDur(r.awaySec)}</span>` : ''; }
+  function timeTag(r){ const t=r.tl; if(!t || !(t.sessions||[]).length) return ''; return ` <span class="rtag tm" title="화면을 보며 푼 시간${t.breaks?' · '+(t.breaks+1)+'번에 나눠 풂':''}">풀이 ${awayDur(t.act)}${t.breaks?' · '+(t.breaks+1)+'번':''}</span>`; }
+  function awayTag(r){ return timeTag(r)+(r.awayN? ` <span class="rtag aw" title="푸는 동안 다른 앱으로 넘어가거나 화면을 끈 횟수와 시간">이탈 ${r.awayN}회 · ${awayDur(r.awaySec)}</span>` : ''); }
   function retryTag(r){
     const f=r.fix; if(!f || !f.any) return awayTag(r);
     return ` <span class="rtag">오답 ${f.clr}/${f.n}${r.reviewed?' ✓':''}</span>`+(f.err?` <span class="rtag hp">신고 ${f.err}</span>`:'')+awayTag(r);

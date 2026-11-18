@@ -12,7 +12,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&family=Do+Hyeon&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="gbank.css">
 <link rel="stylesheet" href="real.css">
-<script src="result_view.js?v=20261117j"></script>
+<script src="result_view.js?v=20261118a"></script>
 <style>
   *{box-sizing:border-box}
   body{margin:0;background:#e4efea;color:#33443c;font-family:'Gowun Dodum',sans-serif;font-size:15px;line-height:1.55}
@@ -480,7 +480,7 @@ function draw(){
   if(!CTX){
     CTX={ mode:'teacher', st:{ name:SUB.name, school:SUB.school, grade:SUB.grade, teacher:SUB.teacher, code:SUB.code, ts:SUB.ts },
       got:Number(SUB.got)||0, total:Number(SUB.total)||0, n, detail:SUB.detail||{}, review:SUB.review||{}, answers:ANS,
-      away:Number(SUB.away_n)>0?{ n:Number(SUB.away_n), sec:Number(SUB.away_sec)||0 }:null, reviewAt:SUB.review_at||'', qa:QA,
+      away:Number(SUB.away_n)>0?{ n:Number(SUB.away_n), sec:Number(SUB.away_sec)||0 }:null, time:SUB.timelog||null, reviewAt:SUB.review_at||'', qa:QA,
       hooks:{
         qhtml:q=>{ const x=QS[q]; if(!x) return null; return { pas:x.pid&&QP[x.pid]?`<div class="${STYLE}">${QP[x.pid]}</div>`:'', html:`<div class="${STYLE}">${x.html}</div>` }; },
         composer:q=>(('checked' in SUB)?`<div class="qchk">${(SUB.checked||{})[q]?`<span class="on">♥ ${esc(SUB.checked[q].by)} 선생님 확인 · ${esc(String(SUB.checked[q].at).slice(5,16))}</span><button type="button" class="un" onclick="checkQ('${q}',false)">확인 취소</button>`:`<button type="button" onclick="checkQ('${q}',true)">잘 고쳤습니다 ♥</button>`}</div>`:'')+`<div class="cmp"><span class="lab">학생에게 답장</span>${prevHtml(q)}<textarea data-rin="${q}" maxlength="5000" placeholder="답장을 적어 주세요. 학생 화면 이 문항에 바로 보입니다. 사진은 Ctrl+V 로 붙여 넣어도 돼요.">${esc(keep[q]||'')}</textarea>${reuseHtml(q)}${attHtml(q)}<button type="button" class="go" data-send="${q}">답장 보내기</button></div>`,
