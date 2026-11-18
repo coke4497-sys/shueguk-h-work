@@ -121,3 +121,11 @@
 
 ## H WORK 메뉴 이름 정리 (2026-11-18 원장님 "혼란스럽다" — '배정 · 현황'과 '배정 현황' 카드가 나란히 있었다)
 - 허브 H WORK 메뉴 순서·이름 = 출제 → **배정하기**(hwork_assign.html — 옛 '배정·현황') → **제출 현황**(hwork_status.html — 옛 '배정 현황') → **채점·질문 확인**(hwork_teacher.html — 옛 '확인') → 오답 리테스트 만들기. 페이지 제목·머리 글(title·tagline)과 운영 안내(hwork_guide.html)도 같은 이름으로. 파일 이름은 그대로.
+
+## 풀이 시간 기록 — 멈추기·이어 풀기 (2026-11-18 원장님 "푸는 시간을 기록하고 싶어요. 화면 밖으로 나간 시간, 빈도 등을요. 나눠서 풀었다면 중지한 시간과 재시작 시간도요. 시간 기록을 친구가 확인할 수 있고 이 내용에 대한 안내를 만들어줘", 리포트 078)
+- hwork.html `TL` — 문항을 연 때부터 제출까지를 **구간**으로 센다 {s, e, act 화면을 보며 푼 ms, an 화면 밖 횟수, as 화면 밖 ms, end}. 구간이 끝나는 때 = [잠시 멈추기](`tlPause`, 'pause') · 창 닫힘(pagehide, 'close') · **화면 밖 10분 넘음(`TL_BREAK`, 'idle' — 그 나감은 횟수에 안 셈)** · 제출('submit'). 10분 기준은 클로슈 기본값 — 원장님이 바꾸라면 이 값만.
+- **이어 풀기**: 푸는 중의 답·질문 글·구간은 이 기기 localStorage `hw_draft_v1`(강사|과제마다, 14일)에 15초마다·답을 고를 때마다 남긴다. 같은 기기에서 과제를 다시 열면 방해 금지 상자에 '이 기기에 풀던 기록' + [이어 풀기]/[처음부터 다시 풀기]. FX(학생 페이지에서 연 과제)는 이름이 다르면 이어 풀지 않는다. 다른 기기에서는 이어지지 않는다. 제출하면 지운다.
+- 제출 본문 `time` {first,last,span,act,an,as,breaks,sessions:[{s,e,act,an,as,end}]}(초·ms) + `away`(합계) → `hwork_submissions.timelog`(리포트 078 — 2026-11-18 실제 적용, `hwork_retry_state`가 time·away_n·away_sec 를 돌려줌).
+- 결과 화면(result_view.js — 학생·선생님 공용): 채점 결과 상자에 '풀이 시간' + 접이식 '풀이 시간 기록'(넷 칸 + 구간마다 '시작/다시 시작 → 멈춤 까닭' · 쉰 시간). 시간 기록이 없는 옛 제출은 옛 '화면을 벗어난 기록' 상자. 제출 목록(hwork_teacher.html) 꼬리표 '풀이 n분 · n번'.
+- 안내: 학생용 `hwork_time_guide.html`(hwork_student_guide.html 3단계·시작 상자·결과 화면에서 링크), 선생님용 hwork_guide.html 한 줄.
+- 검증: `LC_ALL=C.UTF-8 NODE_PATH=$(npm root -g) node tools/hwork-time-e2e.js [캡처 폴더]`(24건) + hwork-retry-e2e(74)·bank-e2e(70).

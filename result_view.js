@@ -3,7 +3,7 @@
  * 색·서체·간격은 디자인 README 값 그대로. 문항 카드 안에 문제 · 오답하기 기록 · 도움 요청 · 질문·답장 대화 · (학생) 오답하기 칸.
  * RV.draw(el, ctx) — ctx 는 화면마다 만든다:
  *   mode 'student'|'teacher', st {name,school,grade,teacher,code,ts}, got, total, n, detail, review, answers(학생: 클리어한 정답),
- *   away {n,sec}|null, reviewAt, qa [{id,q,who,name,body,mine,at,files,read}],
+ *   away {n,sec}|null, time {first,last,span,act,an,as,breaks,sessions:[{s,e,act,an,as,end}]}|null(2026-11-18 풀이 시간 기록), reviewAt, qa [{id,q,who,name,body,mine,at,files,read}],
  *   hooks: qhtml(q)→{pas,html}|null · fixForm(q)→html(학생) · composer(q)→html · expl(q)→html · files(files)→html · after()
  *   ui {filter, open:Set} 는 RV 가 지킨다. 문항 번호 막대를 누르면 그 카드로 가서 연다. */
 (function(){
@@ -37,6 +37,22 @@
   .rv2 .bx.fix{background:#f1f4f1}.rv2 .bx.fix .a{color:#4b6157}
   .rv2 .bx.away{background:#f7f0dc}.rv2 .bx.away .a{color:#7a6630}
   .rv2 .bx .s{font-size:12px;color:#8a978f}
+  .rv2 .bx.tm{background:#eef3f7}.rv2 .bx.tm .a{color:#4f6478}
+  .rv2 .tml{border:1px solid #e3e8e4;border-radius:14px;padding:0}
+  .rv2 .tml summary{cursor:pointer;list-style:none;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:14px;color:#2b3a33}
+  .rv2 .tml summary::-webkit-details-marker{display:none}
+  .rv2 .tml summary .r{font-size:12px;color:#4a3f63;white-space:nowrap}
+  .rv2 .tml[open] summary .r::after{content:' 접기'} .rv2 .tml:not([open]) summary .r::after{content:' 펼치기'}
+  .rv2 .tmg{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;padding:0 14px 12px}
+  .rv2 .tmg div{background:#f6f7f4;border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:2px}
+  .rv2 .tmg .k{font-size:12px;color:#8a978f}.rv2 .tmg .v{font-family:'Do Hyeon';font-size:20px;color:#2b3a33}
+  .rv2 .tmrows{display:flex;flex-direction:column;gap:6px;padding:0 14px 14px}
+  .rv2 .tmr{display:grid;grid-template-columns:62px minmax(0,1fr);gap:10px;align-items:start;padding:10px 12px;border-radius:12px;background:#fafbf9}
+  .rv2 .tmr .no{font-family:'Do Hyeon';font-size:15px;color:#4f6478}
+  .rv2 .tmr .w{font-size:14px;color:#2b3a33;line-height:1.55}
+  .rv2 .tmr .m{font-size:12.5px;color:#6b776f;line-height:1.5}
+  .rv2 .tmr .gap{grid-column:1/-1;font-size:12px;color:#8a978f;padding:2px 0 0}
+  .rv2 .tmn{font-size:12px;color:#8a978f;padding:0 14px 12px;line-height:1.55}
   .rv2 .h2row{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px}
   .rv2 .flt{display:flex;gap:4px;background:#f1f4f1;border-radius:999px;padding:4px}
   .rv2 .flt button{border:0;cursor:pointer;padding:7px 12px;border-radius:999px;font-size:13px;background:transparent;color:#54655c;font-family:inherit}
@@ -204,6 +220,28 @@
     }
     return `<div class="qc${s.k==='help'||s.k==='todo'?' un':''}" id="rvq${q}">${head}${peek}${body}</div>`;
   }
+  function fmtDur(sec){ sec=Math.max(0,Math.round(Number(sec)||0)); if(sec<60) return sec+'초'; const h=Math.floor(sec/3600), m=Math.floor(sec%3600/60); return (h?h+'시간 ':'')+(m?m+'분':(h?'':'0분')); }
+  function fmtT(ms){ const d=new Date(Number(ms)); if(isNaN(d)) return ''; const h=d.getHours(); return (h<12?'오전 ':'오후 ')+((h%12)||12)+':'+String(d.getMinutes()).padStart(2,'0'); }
+  function fmtD(ms){ const d=new Date(Number(ms)); if(isNaN(d)) return ''; return (d.getMonth()+1)+'/'+d.getDate()+' ('+'일월화수목금토'[d.getDay()]+')'; }
+  const TM_END={ pause:'잠시 멈춤', close:'창을 닫음', idle:'10분 넘게 화면 밖', submit:'제출' };
+  /* 풀이 시간 기록 (2026-11-18 원장님) — 구간마다 시작·끝(멈춤/다시 시작)·푼 시간·화면 밖 횟수와 시간 */
+  function timeHtml(c){
+    const t=c.time; if(!t || !(t.sessions||[]).length) return '';
+    const ss=t.sessions, me=c.mode==='student';
+    const rows=ss.map((x,i)=>{
+      const sameDay=fmtD(x.s)===fmtD(x.e);
+      const gap=i? Math.round((x.s-ss[i-1].e)/1000) : 0;
+      return `${i?`<div class="gap">↳ ${fmtDur(gap)} 쉬고 다시 시작</div>`:''}<div class="tmr"><span class="no">${ss.length>1?(i+1)+'번째':'한 번에'}</span>
+        <div><div class="w">${esc(fmtD(x.s))} ${esc(fmtT(x.s))} ${i?'다시 시작':'시작'} → ${sameDay?'':esc(fmtD(x.e))+' '}${esc(fmtT(x.e))} ${esc(TM_END[x.end]||'멈춤')}</div>
+        <div class="m">화면을 보며 푼 시간 ${fmtDur(x.act)}${x.an?` · 화면 밖 ${x.an}회 · ${fmtDur(x.as)}`:' · 화면 밖으로 나가지 않음'}</div></div></div>`; }).join('');
+    return `<details class="tml"${me?'':' open'}><summary><span><b>풀이 시간 기록</b> · ${ss.length>1?ss.length+'번에 나눠 풀었어요':'한 번에 풀었어요'}</span><span class="r">자세히</span></summary>
+      <div class="tmg"><div><span class="k">화면을 보며 푼 시간</span><span class="v">${fmtDur(t.act)}</span></div>
+        <div><span class="k">처음 시작 → 제출</span><span class="v">${fmtDur(t.span)}</span></div>
+        <div><span class="k">화면 밖으로 나간 횟수</span><span class="v">${t.an||0}회</span></div>
+        <div><span class="k">화면 밖에 있던 시간</span><span class="v">${fmtDur(t.as)}</span></div></div>
+      <div class="tmrows">${rows}</div>
+      <div class="tmn">'화면 밖'은 푸는 중에 다른 앱으로 넘어가거나 화면을 끈 때입니다. 10분 넘게 나가 있거나 창을 닫으면 그때 멈춘 것으로 보고, 다시 열면 새 구간으로 셉니다.${me?' <a href="https://coke4497-sys.github.io/shueguk-h-work/hwork_time_guide.html" target="_blank" rel="noopener">안내 보기</a>':''}</div></details>`;
+  }
   function fmtAway(sec){ sec=Number(sec)||0; const m=Math.floor(sec/60), s=sec%60; return (m?m+'분 ':'')+s+'초'; }
   function ringFix(el){
     el.querySelectorAll('.cn.ok').forEach(n=>{ const t=(n.textContent||'').trim(); const k='①②③④⑤⑥⑦⑧⑨'.indexOf(t); const d=n.getAttribute('data-d')||(k>=0?String(k+1):t.replace(/[^0-9]/g,'')); if(!d) return; n.innerHTML='<b>'+d+'</b>'; n.classList.add('okn'); n.setAttribute('aria-label','정답 '+d+'번'); });
@@ -221,7 +259,8 @@
       return `<button type="button" data-rv-bar="${q}" title="${q}번 · ${esc(s.tip)} — 누르면 그 문항으로" style="background:${bg};color:${fg}">${q}</button>`; }).join('');
     const boxes=[];
     if(wrong.length) boxes.push(`<div class="bx fix"><span class="a">오답하기${c.reviewAt?' · 마침 '+esc(c.reviewAt):''}</span><span class="b">틀린 ${wrong.length}문항 중 <b>${clr.length}문항</b> 클리어${help.length?' · 질문함 '+help.length:''}</span></div>`);
-    if(c.away && c.away.n>0) boxes.push(`<div class="bx away"><span class="a">푸는 동안 화면을 벗어난 기록</span><span class="b"><b>${c.away.n}회</b> · 모두 ${fmtAway(c.away.sec)} <span class="s">(다른 앱으로 넘어가거나 화면을 끈 경우)</span></span></div>`);
+    if(c.time && (c.time.sessions||[]).length) boxes.push(`<div class="bx tm"><span class="a">풀이 시간</span><span class="b"><b>${fmtDur(c.time.act)}</b>${c.time.breaks?` · ${c.time.breaks+1}번에 나눠 풂`:''}${c.time.an?` · 화면 밖 ${c.time.an}회`:''}</span></div>`);
+    else if(c.away && c.away.n>0) boxes.push(`<div class="bx away"><span class="a">푸는 동안 화면을 벗어난 기록</span><span class="b"><b>${c.away.n}회</b> · 모두 ${fmtAway(c.away.sec)} <span class="s">(다른 앱으로 넘어가거나 화면을 끈 경우)</span></span></div>`);
     const list=qs.filter(q=>filterHit(c,q,c.ui.filter));
     el.innerHTML=`<div class="rv2">
       <header class="hd"><span class="ey">이수경국어 · SHUEGUK · H WORK${c.mode==='teacher'?' · 선생님 화면':''}</span><h1>${esc(st.code||'')}</h1></header>
@@ -231,6 +270,7 @@
           <div class="strip"><div class="rvbar">${bar}</div>
             <div class="lg"><span><i style="background:#8fb3a0"></i>1차 정답</span><span><i style="background:#dcebe3"></i>오답하기 클리어</span><span><i style="background:#e6def0"></i>질문함</span>${wrong.some(q=>stateOf(c,q).k==='todo')?'<span><i style="background:#f6e6e9"></i>오답하기 전</span>':''}<span style="color:#8a978f">번호를 누르면 그 문항으로 가요</span></div></div></div>
         ${boxes.length?`<div class="boxes">${boxes.join('')}</div>`:''}
+        ${timeHtml(c)}
         ${c.note?`<div class="lock">${c.note}</div>`:''}
       </section>
       ${c.extra||''}
@@ -259,5 +299,5 @@
       if(d.ok===false && (c.mode==='student' ? !r.cleared_at : has)) set.add(String(q)); }
     return set;
   }
-  window.RV={ draw, openDefault, stateOf, esc };
+  window.RV={ draw, openDefault, stateOf, esc, fmtDur };
 })();
