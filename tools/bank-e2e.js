@@ -165,6 +165,7 @@ function rpc(fn, p) {
   sub.checked = {}; sub.check_done = null; sub.check_seen_at = null;
   DB.sub = sub;
   DB.qa = [{ id: 1, sub_id: 55, q: '2', who: '학생', name: '김철수', body: 'ㄴ이 왜 틀렸는지 모르겠어요', mine: '3', at: '2026-11-17T06:10:00Z', read_at: null, s: sub }];
+  DB.qa.push({ id: 3, sub_id: 55, q: '1', who: '학생', name: '김철수', body: '맞혔는데 ㄴ의 성분이 궁금해요', mine: '2', at: '2026-11-17T06:00:00Z', read_at: null, s: sub });
   DB.qa.push({ id: 50, sub_id: 70, q: '5', who: '선생님', name: '남주혜', body: '지난 설명 — 보기의 ㄴ은 반모음입니다', mine: '', at: '2026-11-10T06:10:00Z', read_at: null,
     files: [{ name: '풀이.png', size: 10, mime: 'image/png', path: 'r/70/abc.png' }], s: { code: '다른 과제', name: '박영희' } });
   DB.qa.push({ id: 51, sub_id: 71, q: '1', who: '선생님', name: '남주혜', body: '다른 문항 설명', mine: '', at: '2026-11-10T06:10:00Z', read_at: null, s: { code: '다른 과제', name: '박영희' } });
@@ -177,6 +178,9 @@ function rpc(fn, p) {
   ok((await t.inputValue('textarea[data-rin="2"]')).includes('지난 설명'), '불러오기 → 답장 칸에 글');
   ok((await t.textContent('[data-reuse="2"]')).includes('풀이.png'), '지난 첨부도 다시 보낼 목록에');
   ok((await t.locator('#rvq2 .gq .stem').textContent()) === '지문 세트 둘째 문항', '결과 화면 — 문제');
+  ok(await t.locator('[data-rv-bar="1"] .qd.w').count() === 1 && await t.locator('[data-rv-bar="3"] .qd').count() === 0, '맞힌 문항(1번)에 걸린 질문 — 번호 막대에 빨간 점');
+  ok((await t.textContent('.rv2 .lg')).includes('답장 필요한 질문 1번·2번'), '범례에 답장 필요한 질문 번호');
+  ok((await t.locator('#rvq1 .pill.wt').textContent()) === '답장 필요' && await t.locator('#rvq1 .rvthr, #rvq1 textarea').count() > 0, '1번 카드 — 답장 필요 알약 · 처음부터 열림');
   ok(await t.locator('#rvq2 .cn.ok').count() === 1, '선생님 화면 — 정답 동그라미');
   ok((await t.getAttribute('#backList', 'href')).endsWith('hwork_teacher.html?t=' + encodeURIComponent('이현지')), '돌아가기 = 로그인 이름이 골라진 제출 목록');
   ok((await t.locator('#rvq2').textContent()).includes('느낌으로'), '오답하기 기록(이유) 보임');
@@ -239,6 +243,7 @@ function rpc(fn, p) {
   ok(await sp.locator('.hpop').count() === 0, '한 번 본 팝업은 다시 안 뜸');
   await sp.close();
   // 주소 없이 — 답장 기다리는 질문 목록
+  DB.qa = DB.qa.filter(m => m.id !== 3);
   DB.qa.push({ id: 2, sub_id: 56, q: '1', who: '학생', name: '이영희', body: '대기 질문', mine: '2', at: '2026-11-17T05:00:00Z', read_at: null, s: Object.assign({}, sub, { id: 56, name: '이영희' }) });
   const tl = await ctx.newPage(); await tl.goto(U + 'hwork_result.html'); await tl.waitForSelector('.wl');
   ok(await tl.locator('.wl a.row').count() === 1 && (await tl.locator('.wl a.row').getAttribute('href')) === '?sid=56&q=1', '목록 — 마지막 글이 학생인 질문만');

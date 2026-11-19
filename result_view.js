@@ -26,7 +26,11 @@
   .rv2 .sc .p{font-size:14px;color:#8a978f;padding-left:4px}
   .rv2 .strip{flex:1;min-width:240px;display:flex;flex-direction:column;gap:8px}
   .rv2 .rvbar{display:flex;gap:4px}
-  .rv2 .rvbar button{flex:1;min-width:0;height:34px;border:0;border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:'Do Hyeon';font-size:15px;cursor:pointer;padding:0}
+  .rv2 .rvbar button{flex:1;min-width:0;height:34px;border:0;border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:'Do Hyeon';font-size:15px;cursor:pointer;padding:0;position:relative}
+  .rv2 .rvbar .qd{position:absolute;top:-4px;right:-3px;width:11px;height:11px;border-radius:50%;background:#8d83a8;box-shadow:0 0 0 2px #fff}
+  .rv2 .rvbar .qd.w{background:#d9485f}
+  .rv2 .lg i.dot{border-radius:50%;width:9px;height:9px}
+  .rv2 .pill.wt{background:#fbe3e6;color:#b03348}
   .rv2 .lg{display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:#54655c}
   .rv2 .lg span{display:flex;align-items:center;gap:5px}
   .rv2 .lg i{width:10px;height:10px;border-radius:3px;display:inline-block}
@@ -174,10 +178,12 @@
   function filterHit(c, q, f){
     const d=c.detail[q]||{}, r=(c.review||{})[q]||{};
     if(f==='틀린 문항') return d.ok===false;
-    if(f==='질문함') return d.ok===false && !r.cleared_at;
+    if(f==='질문함') return (d.ok===false && !r.cleared_at) || !!qaFlag(c,q);
     return true;
   }
   function msgsOf(c, q){ return (c.qa||[]).filter(m=>String(m.q)===String(q)); }
+  // 질문 표시 — 맞힌 문항에 걸린 질문도 번호 막대에서 보이게 (2026-11-19 원장님). 'wait' = 마지막 글이 학생(답장 필요)
+  function qaFlag(c, q){ const m=msgsOf(c,q); if(!m.some(x=>x.who==='학생')) return ''; return m[m.length-1].who==='학생'?'wait':'done'; }
   function card(c, q){
     const d=c.detail[q]||{}, r=(c.review||{})[q]||{}, s=stateOf(c,q), tries=r.tries||[], h=c.hooks||{};
     const canOpen=true, open=c.ui.open.has(String(q));
@@ -189,7 +195,8 @@
     const hk=chk?`<span class="hk" title="${esc((chk.by||'선생님')+' 선생님 확인 · '+String(chk.at||'').slice(5,16))}">♥ 선생님 확인</span>`:'';
     // 새 답장 알림은 답 줄 아래 한 줄로 — 오른쪽 알약에 두면 좁은 화면에서 '정답 클리어하면 보여요'를 덮었다 (2026-11-17 원장님)
     const nw=newN?`<span class="nwl">${c.mode==='student'?'질문에 답장이 왔습니다':'새 질문이 왔습니다'}${newN>1?' · '+newN+'개':''}</span>`:'';
-    const pills=`<span class="pill" style="background:${s.bg};color:${s.fg}">${esc(s.label)}</span>`;
+    const qf=qaFlag(c,q);
+    const pills=(qf==='wait'?`<span class="pill wt">${c.mode==='student'?'답장 기다림':'답장 필요'}</span>`:'')+`<span class="pill" style="background:${s.bg};color:${s.fg}">${esc(s.label)}</span>`;
     const head=`<div class="qh2 tg" data-rv-tog="${q}"><span class="bd" style="background:${s.nb};color:${s.nf}">${q}</span>
       <div class="an">${d.type==='essay'?'<span>서술형 문항</span>':`<span>${c.mode==='student'?'내 답':'학생 답'} <b class="${d.ok===false?'ng':''}">${mine}</b></span>
         <span>정답 ${key!=null?`<b>${key}</b>`:'<span class="hid">클리어하면 보여요</span>'}</span>
@@ -256,7 +263,9 @@
     const pct=c.total?Math.round(c.got/c.total*100):0;
     const info=[['이름',st.name],['학교',st.school],['학년',st.grade],['담당 강사',st.teacher],['제출일',st.ts]].filter(x=>x[1]);
     const bar=qs.map(q=>{ const s=stateOf(c,q); const bg=s.k==='ok'?'#8fb3a0':s.k==='clr'?'#dcebe3':s.k==='essay'?'#f1f4f1':(s.bar||'#e6def0'); const fg=s.k==='ok'?'#fff':s.k==='clr'?'#4b6157':s.k==='essay'?'#8a978f':(s.barf||'#4a3f63');
-      return `<button type="button" data-rv-bar="${q}" title="${q}번 · ${esc(s.tip)} — 누르면 그 문항으로" style="background:${bg};color:${fg}">${q}</button>`; }).join('');
+      const qf=qaFlag(c,q), qt=qf==='wait'?(c.mode==='student'?' · 질문 답장 기다림':' · 질문 답장 필요'):qf==='done'?' · 질문 답장함':'';
+      return `<button type="button" data-rv-bar="${q}" class="${qf?'hasq':''}" title="${q}번 · ${esc(s.tip)}${qt} — 누르면 그 문항으로" style="background:${bg};color:${fg}">${q}${qf?`<i class="qd${qf==='wait'?' w':''}"></i>`:''}</button>`; }).join('');
+    const qWait=qs.filter(q=>qaFlag(c,q)==='wait'), qDone=qs.filter(q=>qaFlag(c,q)==='done');
     const boxes=[];
     if(wrong.length) boxes.push(`<div class="bx fix"><span class="a">오답하기${c.reviewAt?' · 마침 '+esc(c.reviewAt):''}</span><span class="b">틀린 ${wrong.length}문항 중 <b>${clr.length}문항</b> 클리어${help.length?' · 질문함 '+help.length:''}</span></div>`);
     if(c.time && (c.time.sessions||[]).length) boxes.push(`<div class="bx tm"><span class="a">풀이 시간</span><span class="b"><b>${fmtDur(c.time.act)}</b>${c.time.breaks?` · ${c.time.breaks+1}번에 나눠 풂`:''}${c.time.an?` · 화면 밖 ${c.time.an}회`:''}</span></div>`);
@@ -268,7 +277,7 @@
       <section class="rvcard"><h2><span class="no">1</span>채점 결과</h2>
         <div class="sc"><div class="num">${c.total?`<span class="g">${c.got}</span><span class="t">/ ${c.total}</span><span class="p">${pct}점</span>`:'<span class="p">채점하는 문항이 없습니다.</span>'}</div>
           <div class="strip"><div class="rvbar">${bar}</div>
-            <div class="lg"><span><i style="background:#8fb3a0"></i>1차 정답</span><span><i style="background:#dcebe3"></i>오답하기 클리어</span><span><i style="background:#e6def0"></i>질문함</span>${wrong.some(q=>stateOf(c,q).k==='todo')?'<span><i style="background:#f6e6e9"></i>오답하기 전</span>':''}<span style="color:#8a978f">번호를 누르면 그 문항으로 가요</span></div></div></div>
+            <div class="lg"><span><i style="background:#8fb3a0"></i>1차 정답</span><span><i style="background:#dcebe3"></i>오답하기 클리어</span><span><i style="background:#e6def0"></i>질문함</span>${wrong.some(q=>stateOf(c,q).k==='todo')?'<span><i style="background:#f6e6e9"></i>오답하기 전</span>':''}${qWait.length?`<span><i class="dot" style="background:#d9485f"></i>${c.mode==='student'?'답장 기다리는 질문':'답장 필요한 질문'} ${qWait.map(q=>q+'번').join('·')}</span>`:''}${qDone.length?'<span><i class="dot" style="background:#8d83a8"></i>답장한 질문</span>':''}<span style="color:#8a978f">번호를 누르면 그 문항으로 가요</span></div></div></div>
         ${boxes.length?`<div class="boxes">${boxes.join('')}</div>`:''}
         ${timeHtml(c)}
         ${c.note?`<div class="lock">${c.note}</div>`:''}
@@ -296,7 +305,8 @@
   function openDefault(c){   // 처음 열린 문항 — 아직 클리어하지 못한 오답(학생) / 오답하기 기록·질문이 있는 오답(선생님)
     const n=c.n||Object.keys(c.detail||{}).length, set=new Set();
     for(let q=1;q<=n;q++){ const d=c.detail[q]||{}, r=(c.review||{})[q]||{}, has=(r.tries||[]).length||r.help||msgsOf(c,q).length;
-      if(d.ok===false && (c.mode==='student' ? !r.cleared_at : has)) set.add(String(q)); }
+      if(d.ok===false && (c.mode==='student' ? !r.cleared_at : has)) set.add(String(q));
+      else if(c.mode==='teacher' && qaFlag(c,q)==='wait') set.add(String(q)); }
     return set;
   }
   window.RV={ draw, openDefault, stateOf, esc, fmtDur };
