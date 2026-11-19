@@ -306,8 +306,8 @@
         const BASE = 'id,ts,teacher,code,school,grade,name,got,total,questions';
         let rows;   // 다시 풀기 열(064)이 없는 DB면 옛 열만 다시 읽는다
         // 화면 이탈 열(066)·다시 풀기 열(064)이 없는 DB면 있는 열만 다시 읽는다
-        try{ rows = await sbAllRows('/hwork_submissions?select=' + BASE + ',retry_at,review,review_at,away_n,away_sec,check_done,timelog&order=id.desc'); RETRY_COL = true; AWAY_COL = true; }   // check_done = 과제 검사 완료(리포트 074)
-        catch(eT){ try{ rows = await sbAllRows('/hwork_submissions?select=' + BASE + ',retry_at,review,review_at,away_n,away_sec,check_done&order=id.desc'); RETRY_COL = true; AWAY_COL = true; }   // timelog 열 없음(리포트 078 전)
+        try{ rows = await sbAllRows('/hwork_submissions?select=' + BASE + ',retry_at,review,review_at,away_n,away_sec,check_done,checked,timelog&order=id.desc'); RETRY_COL = true; AWAY_COL = true; }   // check_done = 과제 검사 완료(리포트 074)
+        catch(eT){ try{ rows = await sbAllRows('/hwork_submissions?select=' + BASE + ',retry_at,review,review_at,away_n,away_sec,check_done,checked&order=id.desc'); RETRY_COL = true; AWAY_COL = true; }   // timelog 열 없음(리포트 078 전)
         catch(eC){ try{ rows = await sbAllRows('/hwork_submissions?select=' + BASE + ',retry_at,review,review_at,away_n,away_sec&order=id.desc'); RETRY_COL = true; AWAY_COL = true; }
         catch(e0){ AWAY_COL = false;
           try{ rows = await sbAllRows('/hwork_submissions?select=' + BASE + ',retry_at,review,review_at&order=id.desc'); RETRY_COL = true; }
@@ -316,7 +316,7 @@
           school: r.school, grade: r.grade, name: r.name, got: String(r.got), total: String(r.total),
           qCount: Object.keys(r.questions || {}).length,
           fix: fixSum(r.review, (Number(r.total)||0) - (Number(r.got)||0)), reviewed: !!r.review_at,
-          awayN: Number(r.away_n)||0, awaySec: Number(r.away_sec)||0, done: r.check_done||null, tl: r.timelog||null }));
+          awayN: Number(r.away_n)||0, awaySec: Number(r.away_sec)||0, done: r.check_done||null, checked: r.checked||null, tl: r.timelog||null }));
       }catch(e){ console.warn('수파베이스 목록 실패 — 기존 백엔드(시트)로 폴백', e); }
       if (!list){
         const json=await fetchJSON(API_URL+'?action=responses');
@@ -325,9 +325,13 @@
       }
       // 질문 대화 — 문항마다 마지막 글이 학생이면 '답장 필요' (2026-11-17)
       try{
-        const qa=await sbAllRows('/hwork_qa?select=id,sub_id,q,who&order=id');
-        const by={};
-        qa.forEach(m=>{ const k=m.sub_id+'|'+m.q; by[k]=m.who; });
+        const qa=await sbAllRows('/hwork_qa?select=id,sub_id,q,who,at&order=id');
+        const by={}, ck={};
+        list.forEach(r=>{ if(r._id) ck[r._id]=r.checked||{}; });
+        const kst=iso=>{ const d=new Date(new Date(iso).getTime()+9*3600e3); if(isNaN(d)) return ''; const p=n=>String(n).padStart(2,'0'); return d.getUTCFullYear()+'-'+p(d.getUTCMonth()+1)+'-'+p(d.getUTCDate())+' '+p(d.getUTCHours())+':'+p(d.getUTCMinutes()); };
+        qa.forEach(m=>{ const k=m.sub_id+'|'+m.q; by[k]=m.who;
+          // [잘 고쳤습니다]를 마지막 학생 글 뒤에 눌렀으면 처리로 친다 (2026-11-19 원장님) — result_view.js qaFlag 와 같은 규칙
+          if(m.who==='학생'){ const c=(ck[m.sub_id]||{})[m.q]; if(c && String(c.at||'')>=kst(m.at)) by[k]='선생님'; } });
         const st={};
         Object.keys(by).forEach(k=>{ const [sid,qq]=k.split('|'); const o=st[sid]||(st[sid]={ need:0, ans:0, qs:[] }); if(by[k]==='선생님') o.ans++; else { o.need++; o.qs.push(qq); } });
         list.forEach(r=>{ if(r._id){ const o=st[r._id]; r.qaNeed=o?o.need:0; r.qaAns=o?o.ans:0; r.qaQs=o?o.qs:[]; r.qaOn=true; } });

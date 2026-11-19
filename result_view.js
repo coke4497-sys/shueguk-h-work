@@ -188,7 +188,9 @@
   }
   function msgsOf(c, q){ return (c.qa||[]).filter(m=>String(m.q)===String(q)); }
   // 질문 표시 — 맞힌 문항에 걸린 질문도 번호 막대에서 보이게 (2026-11-19 원장님). 'wait' = 마지막 글이 학생(답장 필요)
-  function qaFlag(c, q){ const m=msgsOf(c,q); if(!m.some(x=>x.who==='학생')) return ''; return m[m.length-1].who==='학생'?'wait':'done'; }
+  // [잘 고쳤습니다]를 마지막 학생 글 뒤에 눌렀으면 답장 없이도 처리로 친다 (2026-11-19 원장님) — 시각은 둘 다 'YYYY-MM-DD HH:MM'(한국)
+  function qaFlag(c, q){ const m=msgsOf(c,q); if(!m.some(x=>x.who==='학생')) return ''; const last=m[m.length-1]; if(last.who!=='학생') return 'done';
+    const ck=(c.checked||{})[q]; return ck&&String(ck.at||'')>=String(last.at||'').slice(0,16)?'done':'wait'; }
   function card(c, q){
     const d=c.detail[q]||{}, r=(c.review||{})[q]||{}, s=stateOf(c,q), tries=r.tries||[], h=c.hooks||{};
     const canOpen=true, open=c.ui.open.has(String(q));

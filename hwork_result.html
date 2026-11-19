@@ -12,7 +12,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&family=Do+Hyeon&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="gbank.css">
 <link rel="stylesheet" href="real.css">
-<script src="result_view.js?v=20261119b"></script>
+<script src="result_view.js?v=20261119c"></script>
 <style>
   *{box-sizing:border-box}
   body{margin:0;background:#e4efea;color:#33443c;font-family:'Gowun Dodum',sans-serif;font-size:15px;line-height:1.55}
@@ -338,9 +338,9 @@ function checkHtml(){
     :'<div class="m">답장이 필요 없는 문항은 카드 안 [잘 고쳤습니다]를 누르거나, 여기서 한 번에 검사를 마치세요. 학생이 다음에 들어오면 하트가 팡팡 터지는 팝업이 떠요.</div>'}
     <div class="row2"><input id="chkNote" maxlength="200" placeholder="학생에게 한마디 (선택) — 예: 오답 이유를 잘 적었어요!" value="${esc(d&&d.note||'')}"><button type="button" onclick="checkAll()">${d?'한마디 바꿔 다시 보내기 ♥':'과제 검사 완료 · 하트 보내기 ♥'}</button></div>
     ${fixedQs().length?`<div class="row2"><button type="button" class="soft" onclick="checkFixed()">클리어한 ${fixedQs().join(', ')}번 모두 잘 고쳤습니다 ♥</button></div>`:''}
-    ${waitQs().length?`<div class="row2 al"><button type="button" class="wait" id="waitBtn" onclick="showWait()">답장 필요한 질문 ${waitQs().length}개만 보기</button><span class="m">${waitQs().join(', ')}번 — 모두 답장하면 아래 답장 알림톡 버튼이 열립니다.</span></div>`:''}
+    ${waitQs().length?`<div class="row2 al"><button type="button" class="wait" id="waitBtn" onclick="showWait()">답장 필요한 질문 ${waitQs().length}개만 보기</button><span class="m">${waitQs().join(', ')}번 — 답장하거나 [잘 고쳤습니다]를 누르면 아래 답장 알림톡 버튼이 열립니다.</span></div>`:''}
     ${lastReplyId()||waitQs().length?`<div class="row2 al"><button type="button" class="alim" id="alimBtn" onclick="alimSendReply()" ${ALIM.ready===false||waitQs().length?'disabled':''}>학생에게 답장 알림톡 보내기</button>
-      <span class="m">${ALIM.ready===false?'알림톡 템플릿이 아직 준비 전이에요(솔라피 심사 중).':waitQs().length?'답장 필요한 질문 '+waitQs().length+'개를 모두 처리하면 보낼 수 있어요.':ALIM.sent?'보냄 · '+esc(ALIM.sent.slice(5,16))+' — 새 답장을 단 뒤에 다시 보낼 수 있어요':'답장을 다 단 뒤 한 번 보내 주세요. 과제마다 한 번, 학생 휴대폰으로 가요.'}</span></div>`:''}
+      <span class="m">${ALIM.ready===false?'알림톡 템플릿이 아직 준비 전이에요(솔라피 심사 중).':waitQs().length?'답장 필요한 질문 '+waitQs().length+'개에 답장하거나 [잘 고쳤습니다]를 누르면 보낼 수 있어요.':ALIM.sent?'보냄 · '+esc(ALIM.sent.slice(5,16))+' — 새 답장을 단 뒤에 다시 보낼 수 있어요':'답장을 다 단 뒤 한 번 보내 주세요. 과제마다 한 번, 학생 휴대폰으로 가요.'}</span></div>`:''}
     ${todoQs().length&&!SUB.review_at?`<div class="row2 al"><button type="button" class="alim todo" id="todoBtn" onclick="alimSend('hwork_todo')" ${ALIM.todo===false?'disabled':''}>과제 미완료 알림톡 보내기</button>
       <span class="m">${ALIM.todo===false?'알림톡 템플릿이 아직 준비 전이에요(솔라피 심사 중).':'아직 오답하기 안 한 문항 '+todoQs().join(', ')+'번 — '+(ALIM.tsent?'오늘 보냄 · '+esc(ALIM.tsent.slice(11,16)):"'선생님이 기다리고 있어요' 알림톡이 학생에게 가요(하루 한 번).")}</span></div>`:''}</section>`;
 }
