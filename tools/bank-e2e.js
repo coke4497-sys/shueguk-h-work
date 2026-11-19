@@ -193,13 +193,14 @@ function rpc(fn, p) {
   ok(r && r.r.who === '선생님' && r.r.name === '이현지' && r.r.sub_id === 55 && r.r.q === '2', '답장 POST — 선생님·이름·제출·문항');
   await t.waitForSelector('#rvq2 .msg.tc');
   // 답장 필요한 질문만 보기 — 다 답해야 답장 알림톡이 열린다
-  ok(await t.locator('#alimBtn[disabled]').count() === 1 && (await t.textContent('.chc')).includes('답장 필요한 질문 1개를 모두 처리하면'), '1번 질문이 남아 있으면 답장 알림톡 잠김');
+  ok(await t.locator('#alimBtn[disabled]').count() === 1 && (await t.textContent('.chc')).includes('답장 필요한 질문 1개에 답장하거나'), '1번 질문이 남아 있으면 답장 알림톡 잠김');
   ok((await t.textContent('[data-rv-flt="답장 필요"]')).includes('1'), '거르기 [답장 필요 1]');
   await t.click('#waitBtn');
   ok(await t.locator('.rv2 .qs > [id^="rvq"]').count() === 1 && await t.locator('#rvq1 textarea[data-rin="1"]').count() === 1, '[답장 필요한 질문만 보기] → 1번 카드만 · 열려 있음');
-  await t.fill('textarea[data-rin="1"]', 'ㄴ은 관형어예요'); await t.click('[data-send="1"]');
+  await t.click('#rvq1 .qchk button'); await t.waitForSelector('#rvq1 .qchk .on, .rv2 .empty');   // 답장 없이 [잘 고쳤습니다]만 눌러도 처리 (2026-11-19)
+  DB.subPatch = [];
   await t.waitForSelector('.rv2 .empty');
-  ok((await t.textContent('.rv2 .empty')).includes('모두 처리했습니다') && await t.locator('#waitBtn').count() === 0, '모두 답하면 빈 안내 · 보기 버튼 사라짐');
+  ok((await t.textContent('.rv2 .empty')).includes('모두 처리했습니다') && await t.locator('#waitBtn').count() === 0, '[잘 고쳤습니다]만 눌러도 처리 — 빈 안내 · 보기 버튼 사라짐');
   await t.click('[data-rv-flt="전체"]'); await t.click('[data-rv-tog="2"]').catch(() => {}); if (!(await t.locator('textarea[data-rin="2"]').count())) await t.click('[data-rv-tog="2"]');
   // 답장 알림톡 — 과제마다 한 번
   await t.waitForSelector('#alimBtn:not([disabled])');
