@@ -106,6 +106,15 @@
   @keyframes hpPop{ 0%{ transform:scale(.6); } 60%{ transform:scale(1.08); } 100%{ transform:scale(1); } }
   @keyframes hpFly{ 0%{ opacity:0; transform:translate(-50%,-50%) scale(.4); } 20%{ opacity:1; } 100%{ opacity:0; transform:translate(calc(-50% + var(--x)), calc(-50% + var(--y))) scale(1.1); } }
   @media (prefers-reduced-motion: reduce){ .hpc,.hst img{ animation:none; } }
+  /* 세트 클리어 팝업 (2026-11-19) */
+  .hpc.clr{ max-width:360px; }
+  .clr .cs{ font-family:'Do Hyeon',sans-serif; font-size:30px; color:#4a4266; line-height:1.1; }
+  .clr .nq{ font-size:14.5px; color:#3d4a43; font-weight:700; margin-top:4px; }
+  .clr .nb{ background:#f3eff8; border-radius:14px; padding:10px 12px; text-align:left; font-size:14px; color:#4a4266; line-height:1.45; word-break:keep-all; }
+  .clr .nb small{ display:block; color:#7a7290; font-size:12px; margin-bottom:2px; }
+  .clr .go{ border:0; border-radius:14px; background:#4a4266; color:#fff; font-size:16px; padding:13px; font-family:inherit; cursor:pointer; text-decoration:none; display:block; }
+  .clr .alt{ border:0; border-radius:14px; background:#e6e2f2; color:#4a4266; font-size:15px; padding:12px; font-family:inherit; cursor:pointer; text-decoration:none; display:block; }
+  .clr .cl{ border:0; background:none; color:#6b736e; font-size:13.5px; padding:6px; font-family:inherit; cursor:pointer; text-decoration:underline; }
   /* 휴대폰 (2026-11-17 원장님 "학생 화면도 휴대폰에서 확인") — 문제 원문이 있는 문항은 번호를 위로 올려 문제 글 폭을 넓힌다 */
   @media (max-width:520px){
     .q{ margin:8px 10px; padding:12px; align-items:flex-start; }
@@ -423,7 +432,10 @@
     const q=new URLSearchParams(location.search), c=(q.get('c')||'').trim();
     if(!c) return null;
     return { teacher:(q.get('t')||'').trim(), code:c, name:(q.get('nm')||'').trim(),
-             school:(q.get('sc')||'').trim(), grade:(q.get('gr')||'').trim(), done:q.get('done')==='1' };
+             school:(q.get('sc')||'').trim(), grade:(q.get('gr')||'').trim(), done:q.get('done')==='1',
+             // 다음에 풀 배정 과제(학생 페이지가 교재 순서로 실어 보냄 — 'teacher\tcode' 줄들, 2026-11-19)
+             next:(q.get('nx')||'').split('\n').map(x=>{ const i=x.indexOf('\t'); return i<0?null:{ t:x.slice(0,i).trim(), c:x.slice(i+1).trim() }; })
+                  .filter(x=>x&&x.c&&x.c!==c) };
   })();
   let meta=null;     // 선택된 H WORK 메타(정답 없음)
   let QS=null;       // 문항 은행 과제의 문제 화면 {items:{q:{html,pid,src}}, passages:{pid:html}} (067 hwork_qs)
@@ -902,6 +914,7 @@
          detail:r.detail||{}, review:null, answers:{}, draft:{}, qa:[], ui:null, time:TL_LAST };
     RS.stage=calcStage();
     rsRemember(); drawReport(); window.scrollTo(0,0); qaLoad();
+    if(RS.stage==='done' || (RS.stage==='legacy' && RS.total>0 && RS.got>=RS.total)) setTimeout(clearShow, 450);
   }
   function fromState(id, key, s){
     RS={ id, key, st:{ teacher:s.teacher, code:s.code, name:s.name, school:'', grade:'' }, got:s.got, total:s.total,
@@ -1046,8 +1059,8 @@
       setReview(q, j.correct ? { tries, cleared_at:'now' } : { tries });
       if(j.correct){ RS.answers[q]=j.ans; delete RS.draft[q]; toast(q+'번 클리어!'); }
       else { RS.draft[q]={ errOpen:(RS.draft[q]||{}).errOpen }; toast('아쉬워요. '+dr.pick+'도 정답이 아닙니다. 그 답을 고른 이유부터 다시 적어 주세요'); }
-      RS.stage=calcStage(); rsRemember();
-      keepScroll(q, drawReport);
+      const was=RS.stage; RS.stage=calcStage(); rsRemember();
+      keepScroll(q, drawReport); if(was!=='done' && RS.stage==='done') setTimeout(clearShow, 450);
     }catch(e){ btn.disabled=false; btn.textContent='재채점'; toast('인터넷 연결을 확인하고 다시 눌러 주세요'); }
   }
   async function sendFlag(q, kind){
@@ -1066,8 +1079,8 @@
       }
       if(kind==='error'){ (RS.draft[q]=RS.draft[q]||{}).errOpen=false; }
       toast(kind==='help'?'선생님께 도움 요청을 남겼어요':'문항 오류 신고를 남겼어요');
-      RS.stage=calcStage(); rsRemember();
-      keepScroll(q, drawReport);
+      const was=RS.stage; RS.stage=calcStage(); rsRemember();
+      keepScroll(q, drawReport); if(was!=='done' && RS.stage==='done') setTimeout(clearShow, 450);
     }catch(e){ toast('인터넷 연결을 확인하고 다시 눌러 주세요'); }
   }
   /* 이어 하기 — 이 기기에 남은 미완료 과제 */
@@ -1221,6 +1234,48 @@
     box.querySelector('.hok').onclick=async()=>{ box.remove(); RS.checkSeen=latest;
       try{ await sbRpc('hwork_check_seen', { p:{ id:RS.id, key:RS.key } }); }catch(e){} };
   }
+  /* 세트 클리어 팝업 (2026-11-19 원장님 "한 세트를 완성한 후 다음 세트로 넘어가도록 유도 — 클리어하면 하트 팡팡,
+   * 응원 메시지, 교재 다음 챕터에 도전할까요? 다른 H WORK 선택") — 오답하기까지 끝난 순간(또는 한 번에 모두 맞힘) 한 번.
+   * 다음 과제 = 학생 페이지가 실어 보낸 nx 의 첫 과제(교재 순서, 아직 안 낸 배정 과제). 같은 제출은 다시 띄우지 않는다. */
+  const CLR_KEY='hw_clear_seen';
+  function clearSeen(){ try{ return JSON.parse(localStorage.getItem(CLR_KEY)||'[]')||[]; }catch(e){ return []; } }
+  function meUrl(){ let u=''; try{ u=sessionStorage.getItem('shueguk_me')||localStorage.getItem('shueguk_me')||''; }catch(e){}
+    return /\/shueguk-report\/s\.html\?/.test(u)?u.replace(/#.*$/,''):''; }
+  function nextHref(n, rest){
+    const q=new URLSearchParams({ c:n.c, t:n.t||'', nm:FX.name||'', sc:FX.school||'', gr:FX.grade||'' });
+    if(rest.length) q.set('nx', rest.map(x=>(x.t||'')+'\t'+x.c).join('\n'));
+    return location.pathname+'?'+q.toString();
+  }
+  function clearShow(){
+    if(!RS || document.querySelector('.hpop')) return;
+    if(RS.id){ const seen=clearSeen(); if(seen.includes(RS.id)) return;
+      try{ localStorage.setItem(CLR_KEY, JSON.stringify([RS.id].concat(seen).slice(0,60))); }catch(e){} }
+    const wq=Object.keys(RS.detail||{}).filter(q=>RS.detail[q]&&RS.detail[q].ok===false).map(Number);
+    const handed=wq.filter(q=>{ const r=rvOf(q); return !r.cleared_at&&(r.help||r.error); }).length;
+    const first=!wq.length;
+    const CH=first
+      ? ['한 번에 모두 맞혔어요! 실력이 차곡차곡 쌓이고 있어요.','완벽해요! 이 기세 그대로 다음 세트도 가 볼까요?']
+      : ['틀린 문항을 끝까지 다시 풀어 냈어요. 이게 진짜 실력이 돼요!','오답까지 해낸 지금이 가장 많이 자란 순간이에요.','끝까지 해낸 노력이 실력으로 쌓이고 있어요. 멋져요!'];
+    const cheer=CH[Math.floor(Math.random()*CH.length)];
+    const nx=(FX&&FX.next)||[], n=nx[0]||null, me=meUrl();
+    const st=RS.st||{};
+    const box=document.createElement('div'); box.className='hpop'; box.setAttribute('role','dialog');
+    box.innerHTML=`<div class="hpc clr"><div class="hst"><img src="https://coke4497-sys.github.io/shueguk-report/assets/sk-cheer-hearts.png" alt=""></div>
+      <div class="ht">H WORK 클리어! <span class="hh">♥</span></div>
+      <div><div class="cs">${Number(RS.got)||0} / ${Number(RS.total)||0}</div>
+        <div class="nq">${first?'첫 제출에 모두 정답':'오답 '+wq.length+'문항 '+(handed?'오답하기 마침':'모두 클리어')}</div></div>
+      <div class="hs">${cheer}</div>
+      ${handed?`<div class="hw">선생님께 넘긴 ${handed}문항은 수업 시간에 함께 확인해요.</div>`:''}
+      ${n?`<div class="hw" style="font-weight:700;">교재 다음 챕터에 도전할까요?</div>
+        <div class="nb"><small>다음 H WORK${n.t?' · '+escapeHtml(n.t):''}</small>${escapeHtml(n.c)}</div>
+        <a class="go" id="clrNext" href="${escapeHtml(nextHref(n, nx.slice(1)))}">다음 챕터 도전하기</a>`
+        : `<div class="hw">배정된 H WORK을 모두 냈어요. 정말 수고했어요!</div>`}
+      ${me?`<a class="alt" id="clrList" href="${escapeHtml(me+'#hw')}">다른 H WORK 고르기</a>`:''}
+      <button type="button" class="cl">결과 다시 보기</button></div>`;
+    document.body.appendChild(box);
+    heartBurst(box.querySelector('.hst')); setTimeout(()=>heartBurst(box.querySelector('.hst')), 650);
+    box.querySelector('.cl').onclick=()=>box.remove();
+  }
   function heartBurst(host){
     if(matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     const C=['#f28bb0','#f7b6c9','#e86a93','#ffd0dc','#c9b6f2'];
@@ -1237,7 +1292,7 @@
       if(!j.ok){ toast(j.error||'기록하지 못했어요'); if(b){ b.disabled=false; b.textContent='이해했어요'; } return; }
       RS.review=RS.review||{}; RS.review[q]=j.review||Object.assign({}, RS.review[q]||{}, { understood_at:j.at });
       if(j.ans!=null){ RS.answers=RS.answers||{}; RS.answers[q]=j.ans; if(RS.detail[q]) RS.detail[q].ans=j.ans; }
-      RS.stage=calcStage();
+      const was=RS.stage; RS.stage=calcStage(); if(was!=='done' && RS.stage==='done') setTimeout(clearShow, 450);
       toast(j.cleared?q+'번 클리어! 정답이 열렸어요':'좋아요. 이해했다고 기록했어요');
       keepScroll(q, drawReport);
     }catch(e){ toast('인터넷 연결을 확인하고 다시 눌러 주세요'); if(b){ b.disabled=false; b.textContent='이해했어요'; } }
@@ -1255,7 +1310,7 @@
       const d=RS.detail[q]||{}, r=rvOf(q);
       if(d.ok===false && d.type!=='essay' && !r.cleared_at && !r.help){   // 오답하기를 '선생님께 넘김'으로
         try{ const f=await sbRpc('hwork_flag', { p:{ id:RS.id, key:RS.key, q:String(q), kind:'help', text:text.slice(0,300) } });
-             if(f.ok){ setReview(q, { help:{ at:f.at, text } }); RS.stage=calcStage(); rsRemember(); } }catch(e){}
+             if(f.ok){ setReview(q, { help:{ at:f.at, text } }); const was=RS.stage; RS.stage=calcStage(); rsRemember(); if(was!=='done' && RS.stage==='done') setTimeout(clearShow, 900); } }catch(e){}
       }
       toast('선생님께 보냈어요');
       keepScroll(q, drawReport);
