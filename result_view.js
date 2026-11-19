@@ -61,6 +61,10 @@
   .rv2 .flt{display:flex;gap:4px;background:#f1f4f1;border-radius:999px;padding:4px}
   .rv2 .flt button{border:0;cursor:pointer;padding:7px 12px;border-radius:999px;font-size:13px;background:transparent;color:#54655c;font-family:inherit}
   .rv2 .flt button.on{background:#fff;color:#4a3f63}
+  .rv2 .flt button.wt{color:#b03348}
+  .rv2 .flt button.wt b{font-family:'Do Hyeon';font-weight:400;background:#d9485f;color:#fff;border-radius:999px;padding:0 6px;margin-left:4px;font-size:12px}
+  .rv2 .flt button.wt.on{background:#fbe3e6}
+  .rv2 .flt{flex-wrap:wrap}
   .rv2 .qs{display:flex;flex-direction:column;gap:8px}
   .rv2 .qc{border:1px solid #e3e8e4;border-radius:16px;overflow:hidden;scroll-margin-top:12px}
   .rv2 .qc.un{border-color:#ecd9dd}
@@ -178,6 +182,7 @@
   function filterHit(c, q, f){
     const d=c.detail[q]||{}, r=(c.review||{})[q]||{};
     if(f==='틀린 문항') return d.ok===false;
+    if(f==='답장 필요') return qaFlag(c,q)==='wait';
     if(f==='질문함') return (d.ok===false && !r.cleared_at) || !!qaFlag(c,q);
     return true;
   }
@@ -277,21 +282,21 @@
       <section class="rvcard"><h2><span class="no">1</span>채점 결과</h2>
         <div class="sc"><div class="num">${c.total?`<span class="g">${c.got}</span><span class="t">/ ${c.total}</span><span class="p">${pct}점</span>`:'<span class="p">채점하는 문항이 없습니다.</span>'}</div>
           <div class="strip"><div class="rvbar">${bar}</div>
-            <div class="lg"><span><i style="background:#8fb3a0"></i>1차 정답</span><span><i style="background:#dcebe3"></i>오답하기 클리어</span><span><i style="background:#e6def0"></i>질문함</span>${wrong.some(q=>stateOf(c,q).k==='todo')?'<span><i style="background:#f6e6e9"></i>오답하기 전</span>':''}${qWait.length?`<span><i class="dot" style="background:#d9485f"></i>${c.mode==='student'?'답장 기다리는 질문':'답장 필요한 질문'} ${qWait.map(q=>q+'번').join('·')}</span>`:''}${qDone.length?'<span><i class="dot" style="background:#8d83a8"></i>답장한 질문</span>':''}<span style="color:#8a978f">번호를 누르면 그 문항으로 가요</span></div></div></div>
+            <div class="lg"><span><i style="background:#8fb3a0"></i>1차 정답</span><span><i style="background:#dcebe3"></i>오답하기 클리어</span><span><i style="background:#e6def0"></i>질문함</span>${wrong.some(q=>stateOf(c,q).k==='todo')?'<span><i style="background:#f6e6e9"></i>오답하기 전</span>':''}${qWait.length?`<span data-rv-flt="답장 필요" style="cursor:pointer;color:#b03348"><i class="dot" style="background:#d9485f"></i>${c.mode==='student'?'답장 기다리는 질문':'답장 필요한 질문'} ${qWait.map(q=>q+'번').join('·')}</span>`:''}${qDone.length?'<span><i class="dot" style="background:#8d83a8"></i>답장한 질문</span>':''}<span style="color:#8a978f">번호를 누르면 그 문항으로 가요</span></div></div></div>
         ${boxes.length?`<div class="boxes">${boxes.join('')}</div>`:''}
         ${timeHtml(c)}
         ${c.note?`<div class="lock">${c.note}</div>`:''}
       </section>
       ${c.extra||''}
       <section class="rvcard" style="gap:14px"><div class="h2row"><h2><span class="no">2</span>문항별 채점</h2>
-        <div class="flt">${['전체','틀린 문항','질문함'].map(f=>`<button type="button" data-rv-flt="${f}" class="${c.ui.filter===f?'on':''}">${f}</button>`).join('')}</div></div>
-        <div class="qs">${list.length?list.map(q=>card(c,q)).join(''):'<div class="empty">여기에 해당하는 문항이 없습니다.</div>'}</div>
+        <div class="flt">${['전체','틀린 문항','질문함'].concat(c.mode==='teacher'?['답장 필요']:[]).map(f=>`<button type="button" data-rv-flt="${f}" class="${c.ui.filter===f?'on':''}${f==='답장 필요'?' wt':''}">${f}${f==='답장 필요'?`<b>${qWait.length}</b>`:''}</button>`).join('')}</div></div>
+        <div class="qs">${list.length?list.map(q=>card(c,q)).join(''):`<div class="empty">${c.ui.filter==='답장 필요'?'답장할 질문을 모두 처리했습니다. 이제 학생에게 답장 알림톡을 보낼 수 있어요.':'여기에 해당하는 문항이 없습니다.'}</div>`}</div>
       </section></div>`;
     ringFix(el);
     if(!el._rvBound){ el._rvBound=true;
       el.addEventListener('click', e=>{
         const cx=el._rv; if(!cx) return;
-        const f=e.target.closest('[data-rv-flt]'); if(f){ cx.ui.filter=f.dataset.rvFlt; draw(el,cx); return; }
+        const f=e.target.closest('[data-rv-flt]'); if(f){ setFilter(el, f.dataset.rvFlt); return; }
         const b=e.target.closest('[data-rv-bar]'); if(b){ const q=b.dataset.rvBar; cx.ui.filter='전체'; cx.ui.open.add(q); draw(el,cx); const t=document.getElementById('rvq'+q); if(t) t.scrollIntoView({ behavior:'smooth', block:'start' }); if(cx.hooks&&cx.hooks.opened) cx.hooks.opened(q); return; }
         const g=e.target.closest('[data-rv-tog]'); if(g && !e.target.closest('button,textarea,input,a,summary,select')){ const q=g.dataset.rvTog;
           const top=g.getBoundingClientRect().top;
@@ -309,5 +314,7 @@
       else if(c.mode==='teacher' && qaFlag(c,q)==='wait') set.add(String(q)); }
     return set;
   }
-  window.RV={ draw, openDefault, stateOf, esc, fmtDur };
+  function waitQs(c){ const n=c.n||Object.keys(c.detail||{}).length, a=[]; for(let q=1;q<=n;q++) if(qaFlag(c,q)==='wait') a.push(q); return a; }
+  function setFilter(el, f){ const c=el._rv; if(!c) return; c.ui.filter=f; if(f==='답장 필요') waitQs(c).forEach(q=>c.ui.open.add(String(q))); draw(el,c); }
+  window.RV={ draw, openDefault, stateOf, esc, fmtDur, qaFlag, waitQs, setFilter };
 })();
