@@ -164,6 +164,12 @@ function rpc(fn, p) {
   ok(hr && hr.code === 'T세트' && hr.qno === '3' && hr.text === '보기 표현이 이상해요' && hr.name === '박보검' && hr.school === '무원고등학교' && hr.mine === '가', '수정 요청함으로 hworkReport 보냄');
   ok(fl && fl.p.kind === 'error' && fl.p.text === '보기 표현이 이상해요' && fl.p.q === '3', 'hwork_flag 오류 신고 본문');
   ok((await p.textContent('#rvq3 .err')).includes('보기 표현이 이상해요'), '신고 표시');
+  // 세트 클리어 팝업 (2026-11-19) — 오답하기를 마친 순간 한 번
+  ok(await p.locator('.hpop .hpc.clr').isVisible() && (await p.textContent('.hpop')).includes('H WORK 클리어') && (await p.textContent('.hpop')).includes('선생님께 넘긴 1문항'), '오답하기를 마치면 클리어 팝업');
+  ok(await p.locator('.hpop .hb').count() > 0, '클리어 팝업 하트 팡팡');
+  ok(await p.locator('#clrNext').count() === 0 && (await p.textContent('.hpop')).includes('모두 냈어요'), '다음 과제가 없으면 다음 챕터 버튼 없음');
+  await p.click('.hpop .cl'); await p.waitForTimeout(150);
+  ok(await p.locator('.hpop').count() === 0, '[결과 다시 보기]로 닫힘');
   if (SHOT) await p.screenshot({ path: SHOT + '/retry-2.png', fullPage: true });
 
   // 새로고침 → 이어 하기 (3번은 넘겨서 이미 끝 → 이어 하기 기록 없음)
@@ -200,6 +206,22 @@ function rpc(fn, p) {
   await p2.selectOption('#schoolSel', '무원고등학교'); await p2.selectOption('#gradeSel', '고2'); await p2.fill('#name', '정해인');
   await p2.click('#submit'); await p2.waitForTimeout(600);
   ok(await p2.locator('#retryBox').count() === 0 && /4\s*\/ 4/.test(await p2.textContent('#report')), '다 맞히면 다시 풀기 없음');
+  ok(await p2.locator('.hpop').count() === 0, '같은 제출은 클리어 팝업을 다시 띄우지 않음');
+
+  // 학생 페이지에서 연 과제(nx 있음) — 한 번에 다 맞히면 클리어 팝업 · 다음 챕터 · 다른 H WORK 고르기
+  const p3 = await ctx.newPage(); p3.on('dialog', d => d.accept());
+  await p3.goto('http://localhost:' + PORT + '/hwork.html?c=' + encodeURIComponent('T세트') + '&t=' + encodeURIComponent('이수경') + '&nm=' + encodeURIComponent('송강')
+    + '&sc=' + encodeURIComponent('무원고등학교') + '&gr=' + encodeURIComponent('고2') + '&nx=' + encodeURIComponent('이수경\tN세트\n이수경\tM세트'));
+  await p3.evaluate(() => { localStorage.removeItem('hw_clear_seen'); localStorage.setItem('shueguk_me', 'https://coke4497-sys.github.io/shueguk-report/s.html?key=abc'); });
+  await p3.waitForTimeout(700); await p3.click('.dnd-go');
+  await p3.click('#q1 .choices button:nth-child(3)'); await p3.fill('#q3 input', '나');
+  await p3.click('#q4 .ox button:nth-child(1)'); await p3.click('#q5 .choices button:nth-child(2)');
+  await p3.click('#submit'); await p3.waitForTimeout(900);
+  ok(await p3.locator('.hpop .hpc.clr').isVisible() && (await p3.textContent('.hpop')).includes('첫 제출에 모두 정답'), '한 번에 다 맞히면 클리어 팝업');
+  ok((await p3.textContent('.hpop')).includes('교재 다음 챕터에 도전할까요?') && (await p3.textContent('.hpop .nb')).includes('N세트'), '다음 챕터 = nx 첫 과제');
+  const nh = new URL(await p3.getAttribute('#clrNext', 'href'), 'http://x').searchParams;
+  ok(nh.get('c') === 'N세트' && nh.get('t') === '이수경' && nh.get('nm') === '송강' && nh.get('gr') === '고2' && nh.get('nx') === '이수경\tM세트', '다음 챕터 주소(학생 정보 · 남은 nx)');
+  ok((await p3.getAttribute('#clrList', 'href')) === 'https://coke4497-sys.github.io/shueguk-report/s.html?key=abc#hw', '다른 H WORK 고르기 = 학생 페이지 H WORK 목록');
 
   // ── 교사 화면 ──
   const tp = await b.newPage({ viewport: { width: 1100, height: 900 } });
