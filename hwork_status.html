@@ -289,7 +289,7 @@ function splitCode(code){
 }
 function shortGrade(g){ return normGrade(g) || tr(g); }
 function shortSchool(s){ return tr(s).replace(/(고등학교|중학교)$/, function(x){ return x.charAt(0); }); }
-function md(s){ var m = String(s||'').match(/\d{4}-(\d{2})-(\d{2})/); return m ? (+m[1])+'/'+(+m[2]) : ''; }
+function md(s){ var m = String(s||'').match(/\d{4}-(\d{2})-(\d{2})/); if (m) return (+m[1])+'/'+(+m[2]); var t = Date.parse(String(s||'')); if (!s || isNaN(t)) return ''; var x = new Date(t + 9*3600000); return (x.getUTCMonth()+1)+'/'+x.getUTCDate(); }
 
 /* 1000줄씩 끝까지 */
 function sbAll(path){
