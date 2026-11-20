@@ -148,3 +148,6 @@
 
 ## 문항 은행 과제도 선생님 화면 '해설 보기' (2026-11-20 원장님 "질문에 답을 할때 해설지 보이는 버튼이 사라짐")
 - hwork_result.html 은 교재 해설(hwork_src_items expl·wrong)만 읽어서 Shuefit 문법(data.bank) 과제에는 해설 칸이 없었다(옛 질문함은 gbank good·bad 를 보였다). 이제 gbank_items 의 good·bad 를 함께 읽어 문항 카드마다 접이식 '해설 보기'(`explHtml` x.bank — good·bad 는 우리가 만든 HTML 이라 그대로). SHUEGUK REAL 내신 기출은 원본에 해설이 없어 칸이 없다(정답만). 검증 bank-e2e(82).
+
+## 채점·질문 확인 목록 — 최근 제출순 (2026-11-20 원장님 "질문 답변 리스트에서 제출 시간 최근부터 확인 리스트가 필요해요")
+- hwork_teacher.html 상태 거르기 줄 오른쪽 알약 **[상태별][최근 제출순]**(`SORT`·`setSort`, 이 기기 localStorage `hw_t_sort`). 최근 제출순은 상태 묶음 머리 없이 제출 시각 내림차순(`subMs`, 같으면 제출 번호). 상태 거르기([답장 필요] 등)와 함께 쓸 수 있다. 검증 hwork-retry-e2e(85).

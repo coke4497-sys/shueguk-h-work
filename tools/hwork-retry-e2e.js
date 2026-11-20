@@ -265,6 +265,11 @@ function rpc(fn, p) {
   await tp.click('.stchip.need'); await tp.waitForTimeout(150);
   ok(await tp.locator('#listBody tr.r').count() === 1 && await tp.locator('#listBody tr.sep').count() === 0, '[답장 필요] 거르기');
   await tp.click('.stchip >> nth=0'); await tp.waitForTimeout(150);
+  await tp.click('.sortsw button:has-text("최근 제출순")'); await tp.waitForTimeout(150);
+  const subTimes = await tp.$$eval('#listBody tr.r', trs => trs.map(t => t.querySelector('.date').getAttribute('title')));
+  ok(await tp.locator('#listBody tr.sep').count() === 0 && await tp.locator('.sortsw button.on').textContent() === '최근 제출순' && subTimes.length > 1, '최근 제출순 — 상태 묶음 없이 ' + JSON.stringify(subTimes));
+  ok(await tp.evaluate(() => localStorage.getItem('hw_t_sort')) === 'recent', '보기 순서 기억');
+  await tp.click('.sortsw button:has-text("상태별")'); await tp.waitForTimeout(150);
   if (SHOT) await tp.screenshot({ path: SHOT + '/teacher-list.png', fullPage: true });
   // 수업에서 처리 — 남은 질문마다 짧은 답장
   await tp.evaluate(() => { window.shuegukTeacherName = async () => '이수경'; });
