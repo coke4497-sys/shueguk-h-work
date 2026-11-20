@@ -178,6 +178,7 @@ function rpc(fn, p) {
   ok((await t.inputValue('textarea[data-rin="2"]')).includes('지난 설명'), '불러오기 → 답장 칸에 글');
   ok((await t.textContent('[data-reuse="2"]')).includes('풀이.png'), '지난 첨부도 다시 보낼 목록에');
   ok((await t.locator('#rvq2 .gq .stem').textContent()) === '지문 세트 둘째 문항', '결과 화면 — 문제');
+  ok((await t.locator('#rvq2 details.expl summary').textContent()) === '해설 보기' && (await t.locator('#rvq2 details.expl').textContent()).length > 6, '문항 은행 과제 — 선생님 화면 해설 보기(gbank good·bad)');
   ok(await t.locator('[data-rv-bar="1"] .qd.w').count() === 1 && await t.locator('[data-rv-bar="3"] .qd').count() === 0, '맞힌 문항(1번)에 걸린 질문 — 번호 막대에 빨간 점');
   ok((await t.textContent('.rv2 .lg')).includes('답장 필요한 질문 1번·2번'), '범례에 답장 필요한 질문 번호');
   ok((await t.locator('#rvq1 .pill.wt').textContent()) === '답장 필요' && await t.locator('#rvq1 .rvthr, #rvq1 textarea').count() > 0, '1번 카드 — 답장 필요 알약 · 처음부터 열림');

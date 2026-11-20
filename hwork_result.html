@@ -184,6 +184,7 @@ async function myName(){   // 답장 이름 = 허브에 로그인한 선생님(t
 const EXPL={};
 function wrongLines(t){ return String(t||'').split(/(?=[①②③④⑤])/).map(x=>x.trim()).filter(Boolean); }
 function explHtml(q){ const x=EXPL[q]; if(!x) return '';
+  if(x.bank) return `<details class="expl"><summary>해설 보기</summary>${x.good?`<div>${x.good}</div>`:''}${(Array.isArray(x.bad)?x.bad:[]).map(w=>`<div>${w}</div>`).join('')}</details>`;   // 문항 은행 해설(gbank good·bad — 우리가 만든 HTML)
   return `<details class="expl"><summary>교재 해설 보기</summary>${x.expl?`<div>${esc(x.expl)}</div>`:''}${wrongLines(x.wrong).map(w=>`<div>${esc(w)}</div>`).join('')}</details>`; }
 async function loadQs(s){
   try{
@@ -192,9 +193,9 @@ async function loadQs(s){
     Object.keys(d.items||{}).forEach(n=>{ const a=d.items[n]&&d.items[n].ans; if(a!=null&&a!=='') ANS[n]=Array.isArray(a)?a.join(', '):String(a); });
     if(d.bank && typeof d.bank==='object'){
       STYLE='gq'; BANK=d.bank; const ids=[...new Set(Object.values(d.bank))];
-      const g=ids.length?await sb('/gbank_items?select=id,html,pid,ans&id=in.('+ids.join(',')+')'):[];
+      const g=ids.length?await sb('/gbank_items?select=id,html,pid,ans,good,bad&id=in.('+ids.join(',')+')'):[];
       const by={}; g.forEach(x=>by[x.id]=x);
-      Object.keys(d.bank).forEach(n=>{ const x=by[d.bank[n]]; if(x&&ANS[n]==null) ANS[n]=String(x.ans); if(x) QS[n]={ html:x.html.replace(new RegExp('<span class="cn" data-d="'+x.ans+'">'),'<span class="cn ok" data-d="'+x.ans+'">'), pid:x.pid }; });
+      Object.keys(d.bank).forEach(n=>{ const x=by[d.bank[n]]; if(x&&ANS[n]==null) ANS[n]=String(x.ans); if(x&&(x.good||(x.bad&&x.bad.length))) EXPL[n]={ bank:1, good:x.good||'', bad:x.bad||[] }; if(x) QS[n]={ html:x.html.replace(new RegExp('<span class="cn" data-d="'+x.ans+'">'),'<span class="cn ok" data-d="'+x.ans+'">'), pid:x.pid }; });
       const pids=[...new Set(g.map(x=>x.pid).filter(Boolean))];
       if(pids.length){ (await sb('/gbank_passages?select=pid,html&pid=in.('+pids.map(p=>'"'+p+'"').join(',')+')')).forEach(p=>QP[p.pid]=p.html); }
     }else{
