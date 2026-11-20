@@ -78,7 +78,7 @@ const S = { id: 55, key: 'ffffffffffffffffffffffffffffffff', review: {}, msgs: [
 function rpc(fn, p) {
   if (fn === 'hwork_list') return { ok: true, list: [{ teacher: '이현지', code: '[모의고사 문법] 음운 1회', due: '', closed: false }] };
   if (fn === 'hwork_meta') return { ok: true, meta: { teacher: '이현지', code: '[모의고사 문법] 음운 1회', count: 3, schools: ['화정고'], items: { '1': { type: 'choice5' }, '2': { type: 'choice5' }, '3': { type: 'choice5' } }, due: '', closed: false, bank: true } };
-  if (fn === 'hwork_qs' && RS_MODE) return { ok: true, style: 'real', items: { '1': { html: RQ(1), pid: 'wb-P1', src: 'A고' }, '2': { html: RQ(2), pid: 'wb-P1', src: 'B고' }, '3': { html: RQ(3), pid: '', src: 'C고' } }, passages: { 'wb-P1': '<div class="psg">교재 지문 글 나랏 말ᄊᆞ미</div>' } };
+  if (fn === 'hwork_qs' && RS_MODE) return { ok: true, style: 'real', items: { '1': { html: RQ(1), pid: 'wb-P1', src: 'A고' }, '2': { html: RQ(2), pid: 'wb-P1', src: 'B고' }, '3': { html: RQ(3).replace('<div class="qb">', '<div class="qb"><div class="errq">※ 오류 문항입니다. 풀지 말고 넘어가세요.</div>'), pid: '', src: 'C고' } }, passages: { 'wb-P1': '<div class="psg">교재 지문 글 나랏 말ᄊᆞ미</div>' } };
   if (fn === 'hwork_qs') { const it = {}, ps = {}; for (const k in BANK) { const g = ITEMS.find(x => x.id === BANK[k]); it[k] = { html: g.html, pid: g.pid, src: g.src }; if (g.pid) ps[g.pid] = PAS.find(x => x.pid === g.pid).html; } return { ok: true, items: it, passages: ps }; }
   if (fn === 'hwork_submit') {
     const d = {}; let got = 0; for (const q in KEY) { const okv = String(p.answers[q]) === String(KEY[q]); if (okv) got++; d[q] = { type: 'choice5', mine: String(p.answers[q] || ''), ok: okv }; if (okv) d[q].ans = String(KEY[q]); }
@@ -275,7 +275,7 @@ function rpc(fn, p) {
   RS_MODE = true; S.review = {}; S.msgs = [];
   const rctx = await b.newContext({ viewport: { width: 390, height: 844 } });
   await rctx.route('**/*', rt => { const r = rt.request(), u = r.url(); if (u.startsWith(U)) return rt.continue(); return fake(rt, u, r.method(), r.postData()); });
-  const rs = await rctx.newPage(); rs.on('dialog', d => d.accept()); const rerr = []; rs.on('pageerror', e => rerr.push(e.message));
+  const rs = await rctx.newPage(); const rdlg = []; rs.on('dialog', d => { rdlg.push(d.message()); d.accept(); }); const rerr = []; rs.on('pageerror', e => rerr.push(e.message));
   await rs.goto(U + 'hwork.html?c=' + encodeURIComponent('[모의고사 문법] 음운 1회') + '&t=' + encodeURIComponent('이현지') + '&nm=' + encodeURIComponent('김철수') + '&sc=' + encodeURIComponent('화정고') + '&gr=' + encodeURIComponent('고1'));
   await rs.waitForSelector('#dndBox'); await rs.click('.dnd-go');
   ok(await rs.locator('#qwrap .gqp .rq').count() === 1 && (await rs.locator('#qwrap .gqp .prng').textContent()) === '[1~2]', '교재 — 지문 한 번 [1~2]');
@@ -286,6 +286,7 @@ function rpc(fn, p) {
   if (SHOT) await rs.screenshot({ path: path.join(SHOT, 'real-student-solve.png'), fullPage: true });
   ok(await rs.evaluate(() => document.documentElement.scrollWidth <= 391), '교재 학생 풀이 화면 — 휴대폰 가로 넘침 없음 (' + await rs.evaluate(() => document.documentElement.scrollWidth) + ')');
   await rs.click('#submit'); await rs.waitForSelector('#rvq2');
+  ok(rdlg.some(m => m.includes('3번은 오류 문항이라 어떤 답이든 정답으로 처리됩니다')), '교재 — 제출할 때 오류 문항(3번) 안내');
   ok(await rs.evaluate(() => document.documentElement.scrollWidth <= 391), '교재 학생 결과 화면 — 휴대폰 가로 넘침 없음');
   if (SHOT) await rs.screenshot({ path: path.join(SHOT, 'real-student-result.png'), fullPage: true });
   ok((await rs.locator('#rvq2 .hid').textContent()).includes('클리어'), '교재 — 틀린 문항 정답 잠김');

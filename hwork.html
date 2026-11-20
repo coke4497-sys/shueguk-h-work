@@ -763,6 +763,7 @@
     if(!QS || !pidOf(q) || pidOf(q-1)===pidOf(q)) return null;
     const d=document.createElement('div'); d.className='gqp'; d.innerHTML=pasHtml(q); return d;
   }
+  function errQs(){ const out=[]; const it=QS&&QS.items; if(!it) return out; for(const k in it){ if(it[k]&&/class="errq"/.test(it[k].html||'')) out.push(+k); } return out.sort((a,b)=>a-b); }
   function qHtml(q){ const it=QS&&QS.items&&QS.items[q]; return it?`<div class="${qCls()}">${it.html}</div>`:''; }
   function makeQ(q,type){
     const div=document.createElement('div');
@@ -847,9 +848,13 @@
     const qw=document.getElementById('qwrap');
     if(qw && qw.style.display==='none' && TL.sessions.length && !TL.on){ toast('[다시 풀기]를 누른 뒤 제출해 주세요'); return; }
     if(qw && qw.style.display==='none'){ toast('먼저 [방해 금지를 켰어요]를 눌러 문제를 열어 주세요'); document.getElementById('dndBox').scrollIntoView({behavior:'smooth',block:'center'}); return; }
+    // 교재에 '오류 문항'으로 표시된 문항(2026-11-20 원장님) — 모두 정답 처리라 풀지 않아도 되고, 제출 때 알린다.
+    const errs=errQs();
     const missing=[];
-    for(let q=1;q<=meta.count;q++) if(picks[q]==null) missing.push(q);
-    if(missing.length && !confirm(`미응답 ${missing.length}문항이 있습니다 (${missing.slice(0,5).join(', ')}${missing.length>5?'…':''}).\n그대로 제출할까요?`)) return;
+    for(let q=1;q<=meta.count;q++) if(picks[q]==null && errs.indexOf(q)<0) missing.push(q);
+    const errNote = errs.length ? `${errs.join(', ')}번은 오류 문항이라 어떤 답이든 정답으로 처리됩니다.` : '';
+    if(missing.length){ if(!confirm(`미응답 ${missing.length}문항이 있습니다 (${missing.slice(0,5).join(', ')}${missing.length>5?'…':''}).${errNote?'\n'+errNote:''}\n그대로 제출할까요?`)) return; }
+    else if(errNote && !confirm(errNote+'\n제출할까요?')) return;
 
     if(TL.cur) tlFlush(Date.now());
     const tsum=tlSum(); if(tsum.sessions.length) tsum.sessions[tsum.sessions.length-1].end='submit';
