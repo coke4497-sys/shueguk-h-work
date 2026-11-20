@@ -232,7 +232,7 @@ function rpc(fn, p) {
     { id: 42, ts: '2026-11-11 15:10', teacher: '이수경', code: 'T세트', school: '무원고등학교', grade: '고2', name: '정해인', got: 1, total: 4, questions: {},
       retry_got: null, retry_at: null, review_at: null, detail: grade({ '1': '1', '3': '가', '4': 'O' }).detail, review: null } ];
   sub[0].away_n = 3; sub[0].away_sec = 130; sub[0].check_done = { at: '2026-11-17 21:11', by: '이수경', note: '' }; sub[0].ts = '2026-11-12 15:00';
-  let oldDb = false, awayOld = false; const QAPOST = [];
+  let oldDb = false, awayOld = false; const QAPOST = [], PATCHES = [];
   await tp.context().route('**/*', async rt => {
     const u = rt.request().url();
     if (u.startsWith('http://localhost:' + PORT)) return rt.continue();
@@ -241,7 +241,8 @@ function rpc(fn, p) {
       const q = new URL(u).searchParams; const cols = (q.get('select') || '').split(',');
       if (oldDb && cols.some(c => c.startsWith('retry') || c.startsWith('review'))) return rt.fulfill({ status: 400, json: { message: 'column does not exist' } });
       if ((oldDb || awayOld) && cols.some(c => c.startsWith('away'))) return rt.fulfill({ status: 400, json: { message: 'column does not exist' } });
-      let rows = sub; const id = q.get('id'); if (id) rows = rows.filter(r => 'eq.' + r.id === id);
+      if (rt.request().method() === 'PATCH') { PATCHES.push({ id: q.get('id'), body: JSON.parse(rt.request().postData()) }); return rt.fulfill({ status: 204, body: '' }); }
+      let rows = sub; const id = q.get('id'); if (id) rows = rows.filter(r => 'eq.' + r.id === id || (id.startsWith('in.(') && id.slice(4, -1).split(',').includes(String(r.id))));
       if (q.get('offset') && q.get('offset') !== '0') rows = [];
       return rt.fulfill({ json: rows.map(r => { if (cols[0] === '*') return r; const o = {}; cols.forEach(c => o[c] = r[c] === undefined ? null : r[c]); return o; }) });
     }
@@ -278,6 +279,17 @@ function rpc(fn, p) {
   ok(QAPOST.length === 1 && QAPOST[0][0].sub_id === 42 && QAPOST[0][0].q === '2' && QAPOST[0][0].who === '선생님' && QAPOST[0][0].name === '이수경' && QAPOST[0][0].body.includes('수업 시간에'), '수업에서 처리: 답장 한 줄 POST');
   ok(await tp.locator('#listBody tr.needr').count() === 0 && (await tp.textContent('#listBody tr:has-text("정해인")')).includes('모두 답함'), '수업에서 처리 뒤 답장 필요에서 빠짐');
   ok((await tp.textContent('#listTbl thead')).includes('상태') && !(await tp.textContent('#listTbl thead')).includes('강사'), '첫 열 = 상태');
+  // 검사 대기 한꺼번에 (2026-11-20)
+  sub.push({ id: 43, ts: '2026-11-13 10:00', teacher: '이수경', code: 'T세트', school: '무원고등학교', grade: '고2', name: '송강', got: 4, total: 4, questions: {}, retry_got: 4, retry_at: null, review_at: null, detail: { '1': { ok: true }, '2': { ok: true }, '3': { ok: true }, '4': { ok: true } }, review: null, checked: { '2': { at: '2026-11-13 11:00', by: '김현지' } } });
+  await tp.reload(); await tp.waitForTimeout(700);
+  await tp.evaluate(() => { window.shuegukTeacherName = async () => '이수경'; });
+  ok((await tp.textContent('.bulkchk')).includes('검사 대기 1건'), '[검사 대기 1건 한 번에 검사 완료] 버튼');
+  tp.once('dialog', d => d.accept());
+  await tp.click('.bulkchk'); await tp.waitForTimeout(500);
+  const pb = PATCHES.find(x => x.id === 'eq.43');
+  ok(pb && pb.body.check_done.by === '이수경' && Object.keys(pb.body.checked).length === 4 && pb.body.checked['2'].by === '김현지' && pb.body.checked['1'].by === '이수경' && PATCHES.length === 1, '검사 대기 줄만 PATCH · 이미 확인한 문항은 그대로 · 나머지는 내 이름');
+  ok(await tp.locator('.bulkchk').count() === 0 && (await tp.textContent('#listBody tr:has-text("송강")')).includes('♥ 검사 완료'), '누른 뒤 검사 완료로 바뀌고 버튼 사라짐');
+  sub.pop();
   ok((await tp.textContent('#listBody')).includes('오답 2/2 ✓') && !(await tp.textContent('#listBody')).includes('도움 1') && (await tp.textContent('#listBody')).includes('신고 1'), '교사 목록: 오답 2/2 ✓ · 신고 (도움 꼬리표 없음)');
   ok((await tp.locator('#listBody tr:has-text("정해인") .rtag').count()) === 0, '오답하기 안 한 학생은 표시 없음');
   ok((await tp.textContent('#listBody tr:has-text("박보검")')).includes('이탈 3회 · 2분 10초'), '교사 목록: 화면 이탈 3회 · 2분 10초');
