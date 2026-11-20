@@ -192,6 +192,19 @@ function rpc(fn, p) {
   const r = DB.calls.find(c => c.fn === 'qa-post');
   ok(r && r.r.who === '선생님' && r.r.name === '이현지' && r.r.sub_id === 55 && r.r.q === '2', '답장 POST — 선생님·이름·제출·문항');
   await t.waitForSelector('#rvq2 .msg.tc');
+  // 답장 수정·지우기 (2026-11-20)
+  ok(await t.locator('#rvq2 .msg.tc [data-edit]').count() >= 1 && await t.locator('#rvq2 .msg.st [data-edit]').count() === 0, '선생님 답장에만 [수정][지우기]');
+  const eid = await t.getAttribute('#rvq2 .msg.tc [data-edit] >> nth=-1', 'data-edit');
+  await t.click('[data-edit="' + eid + '"]'); await t.waitForSelector('textarea[data-edt="' + eid + '"]');
+  ok((await t.inputValue('textarea[data-edt="' + eid + '"]')).includes('둘째 문장'), '[수정] → 지금 글이 든 고치기 칸');
+  await t.fill('textarea[data-edt="' + eid + '"]', '고친 답장입니다'); await t.click('[data-edsave="' + eid + '"]');
+  await t.waitForFunction(() => document.getElementById('toast').textContent.includes('답장을 고쳤어요'));
+  const ep = DB.patches.find(x => x.includes('id=eq.' + eid));
+  ok(!!ep, '수정 PATCH — 그 답장 id');
+  const before = DB.deletes.length;
+  await t.click('[data-qdel="' + eid + '"]');
+  await t.waitForFunction(() => document.getElementById('toast').textContent.includes('답장을 지웠어요'));
+  ok(DB.deletes.length === before + 1 && DB.deletes[before].includes('id=eq.' + eid), '지우기 — 확인 뒤 DELETE');
   // 답장 필요한 질문만 보기 — 다 답해야 답장 알림톡이 열린다
   ok(await t.locator('#alimBtn[disabled]').count() === 1 && (await t.textContent('.chc')).includes('답장 필요한 질문 1개에 답장하거나'), '1번 질문이 남아 있으면 답장 알림톡 잠김');
   ok((await t.textContent('[data-rv-flt="답장 필요"]')).includes('1'), '거르기 [답장 필요 1]');

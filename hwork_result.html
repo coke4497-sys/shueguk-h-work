@@ -12,7 +12,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&family=Do+Hyeon&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="gbank.css">
 <link rel="stylesheet" href="real.css">
-<script src="result_view.js?v=20261119c"></script>
+<script src="result_view.js?v=20261120a"></script>
 <style>
   *{box-sizing:border-box}
   body{margin:0;background:#e4efea;color:#33443c;font-family:'Gowun Dodum',sans-serif;font-size:15px;line-height:1.55}
@@ -256,9 +256,9 @@ document.addEventListener('click', e=>{
   if(x){ const [q,i]=x.dataset.ru.split('|'); (REUSE[q]||[]).splice(Number(i),1); const el=document.querySelector('[data-reuse="'+q+'"]'); if(el) el.outerHTML=reuseHtml(q); }
 });
 async function loadQa(){
-  try{ QA=await sb('/hwork_qa?select=id,q,who,name,body,mine,at,read_at,files:hwork_reply_files(id,name,size,mime,path)&sub_id=eq.'+SUB.id+'&order=id'); }
+  try{ QA=await sb('/hwork_qa?select=id,q,who,name,body,mine,at,read_at,edited_at,files:hwork_reply_files(id,name,size,mime,path)&sub_id=eq.'+SUB.id+'&order=id'); }
   catch(e){ QA=await sb('/hwork_qa?select=id,q,who,name,body,mine,at,read_at&sub_id=eq.'+SUB.id+'&order=id').catch(()=>[]); }
-  QA.forEach(m=>{ m.read=!!m.read_at; m.at=kst(m.at); });
+  QA.forEach(m=>{ m.read=!!m.read_at; m.at=kst(m.at); if(m.edited_at) m.edited=kst(m.edited_at); });
 }
 function nowKst(){ return kst(new Date().toISOString()); }
 /* 선생님 확인 · 과제 검사 완료 (리포트 074) — 학생 화면에 ♥ 표시, 다음에 들어오면 하트 팝업 */
@@ -428,6 +428,49 @@ async function reply(q){
   }catch(e){ toast('보내지 못했어요. 다시 눌러 주세요'); btn.disabled=false; btn.textContent='답장 보내기'; }
 }
 document.addEventListener('click', e=>{ const b=e.target.closest&&e.target.closest('[data-send]'); if(b) reply(b.dataset.send); });
+/* 답장 수정·지우기 (2026-11-20 원장님 — 잘못 붙여 넣은 답장을 고치거나 지움, 리포트 089).
+   고치면 학생 화면에 다시 '새' 표시가 붙고(read_at 비움), 지우면 그 문항이 다시 '답장 필요'가 되며 슈톡 할 일도 '대기'로 돌아간다(트리거). */
+const EDIT={};   // 고치는 중인 답장 id → 쓰던 글
+function msgEditHtml(m){
+  if(m.who!=='선생님' || !(m.id in EDIT)) return null;
+  return `<textarea class="edt" data-edt="${m.id}" maxlength="5000">${esc(EDIT[m.id])}</textarea>`;
+}
+function msgToolsHtml(m){
+  if(m.who!=='선생님') return '';
+  const ed=m.edited?`<span class="ed">수정됨 ${esc(String(m.edited).slice(5,16))}</span>`:'';
+  if(m.id in EDIT) return `<div class="mt"><button type="button" data-edsave="${m.id}">저장</button><button type="button" data-edcancel="${m.id}">취소</button></div>`;
+  return `<div class="mt">${ed}<button type="button" data-edit="${m.id}">수정</button><button type="button" class="del" data-qdel="${m.id}">지우기</button></div>`;
+}
+document.addEventListener('input', e=>{ const t=e.target; if(t&&t.dataset&&t.dataset.edt) EDIT[t.dataset.edt]=t.value; });
+document.addEventListener('click', async e=>{
+  const g=k=>e.target.closest&&e.target.closest('['+k+']'); let b;
+  if((b=g('data-edit'))){ const m=QA.find(x=>String(x.id)===b.dataset.edit); if(!m) return;
+    EDIT[m.id]=m.body===FILE_ONLY?'':m.body; draw();
+    const t=document.querySelector('textarea[data-edt="'+m.id+'"]'); if(t){ t.focus(); t.setSelectionRange(t.value.length,t.value.length); } return; }
+  if((b=g('data-edcancel'))){ delete EDIT[b.dataset.edcancel]; draw(); return; }
+  if((b=g('data-edsave'))){ const id=b.dataset.edsave, m=QA.find(x=>String(x.id)===id); if(!m) return;
+    let body=String(EDIT[id]||'').trim();
+    if(!body){ if((m.files||[]).length) body=FILE_ONLY; else { toast('글을 비우려면 [지우기]를 눌러 주세요'); return; } }
+    if(body===m.body){ delete EDIT[id]; draw(); return; }
+    b.disabled=true; b.textContent='저장 중…';
+    try{
+      await sb('/hwork_qa?id=eq.'+id+'&who=eq.'+enc('선생님'),{ method:'PATCH', headers:{ Prefer:'return=minimal' }, body:JSON.stringify({ body, edited_at:new Date().toISOString(), read_at:null }) });
+      delete EDIT[id]; toast('답장을 고쳤어요');
+      if(window.shuegukActivity) shuegukActivity('H WORK', '답장 수정', SUB.name+' '+m.q+'번', SUB.code, false);
+      await loadQa(); draw();
+    }catch(err){ toast('고치지 못했어요. 다시 눌러 주세요'); b.disabled=false; b.textContent='저장'; }
+    return; }
+  if((b=g('data-qdel'))){ const id=b.dataset.qdel, m=QA.find(x=>String(x.id)===id); if(!m) return;
+    if(!confirm(m.q+'번 문항에 보낸 이 답장을 지울까요?\n학생 화면에서도 사라지고, 되돌릴 수 없습니다.')) return;
+    b.disabled=true;
+    try{
+      await sb('/hwork_qa?id=eq.'+id+'&who=eq.'+enc('선생님'),{ method:'DELETE', headers:{ Prefer:'return=minimal' } });
+      delete EDIT[id]; toast('답장을 지웠어요');
+      if(window.shuegukActivity) shuegukActivity('H WORK', '답장 지움', SUB.name+' '+m.q+'번', SUB.code, false);
+      await loadQa(); loadPrev(); draw();
+    }catch(err){ toast('지우지 못했어요. 다시 눌러 주세요'); b.disabled=false; }
+  }
+});
 async function markRead(q){
   const mine=QA.filter(m=>String(m.q)===String(q)&&m.who==='학생'&&!m.read), ids=mine.map(m=>m.id); if(!ids.length) return;
   mine.forEach(m=>{ m.read=true; });
@@ -491,6 +534,8 @@ function draw(){
         composer:q=>(('checked' in SUB)?`<div class="qchk">${(SUB.checked||{})[q]?`<span class="on">♥ ${esc(SUB.checked[q].by)} 선생님 확인 · ${esc(String(SUB.checked[q].at).slice(5,16))}</span><button type="button" class="un" onclick="checkQ('${q}',false)">확인 취소</button>`:`<button type="button" onclick="checkQ('${q}',true)">잘 고쳤습니다 ♥</button>`}</div>`:'')+`<div class="cmp"><span class="lab">학생에게 답장</span>${prevHtml(q)}<textarea data-rin="${q}" maxlength="5000" placeholder="답장을 적어 주세요. 학생 화면 이 문항에 바로 보입니다. 사진은 Ctrl+V 로 붙여 넣어도 돼요.">${esc(keep[q]||'')}</textarea>${reuseHtml(q)}${attHtml(q)}<button type="button" class="go" data-send="${q}">답장 보내기</button></div>`,
         expl:q=>explHtml(q),
         files:f=>fsHtml(f),
+        msgEdit:m=>msgEditHtml(m),
+        msgTools:m=>msgToolsHtml(m),
         opened:q=>markRead(q),
         after:()=>fThumbs()
       } };

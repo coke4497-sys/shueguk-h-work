@@ -5,6 +5,7 @@
  *   mode 'student'|'teacher', st {name,school,grade,teacher,code,ts}, got, total, n, detail, review, answers(학생: 클리어한 정답),
  *   away {n,sec}|null, time {first,last,span,act,an,as,breaks,sessions:[{s,e,act,an,as,end}]}|null(2026-11-18 풀이 시간 기록), reviewAt, qa [{id,q,who,name,body,mine,at,files,read}],
  *   hooks: qhtml(q)→{pas,html}|null · fixForm(q)→html(학생) · composer(q)→html · expl(q)→html · files(files)→html · after()
+ *          msgEdit(m)→html|null(본문 대신 — 선생님 답장 고치기 칸) · msgTools(m)→html(말풍선 아래 [수정][지우기])
  *   ui {filter, open:Set} 는 RV 가 지킨다. 문항 번호 막대를 누르면 그 카드로 가서 연다. */
 (function(){
   const CSS = `
@@ -120,6 +121,11 @@
   .rv2 .msg.tc{align-self:flex-end;background:#f3eff8;color:#2b3a33}
   .rv2 .msg .w{display:block;font-size:12px;color:#4b6157;padding-bottom:2px}
   .rv2 .msg.tc .w{color:#4a3f63}
+  .rv2 .msg .mt{display:flex;gap:6px;justify-content:flex-end;margin-top:6px;white-space:normal}
+  .rv2 .msg .mt button{border:0;background:#fff;color:#4a3f63;border-radius:999px;padding:3px 10px;font-size:12px;font-family:inherit;cursor:pointer}
+  .rv2 .msg .mt button.del{color:#a8434f}
+  .rv2 .msg .ed{font-size:11px;color:#7a6f8f;margin-left:4px}
+  .rv2 .msg textarea.edt{display:block;width:100%;min-height:150px;box-sizing:border-box;border:1px solid #d6c9e4;border-radius:10px;padding:8px 10px;font:inherit;font-size:14px;line-height:1.5;background:#fff;resize:vertical;white-space:pre-wrap}
   .rv2 .msg .w .nw{display:inline-block;background:#a8434f;color:#fff;border-radius:999px;font-size:10.5px;padding:0 6px;margin-left:4px}
   .rv2 .cmp{display:flex;flex-direction:column;gap:6px;padding:10px 12px;border-radius:12px;background:#fafbf9;border:1px solid #e3e8e4}
   .rv2 .cmp .lab{font-size:12.5px;color:#4b6157}
@@ -227,7 +233,7 @@
       // 학생이 답장을 보고 '이해했어요'를 누른 때 — 그 뒤에 다시 질문이 없으면 대화 끝에 한 줄
       const und=(c.review||{})[q]&&c.review[q].understood_at;
       const undHtml=und && (!last || String(last.at||'').slice(0,16)<=String(und)) ? `<div class="und">✓ ${c.mode==='student'?'답장을 보고':'학생이 답장을 보고'} '이해했어요'를 눌렀습니다 · ${esc(String(und).slice(5,16))}</div>` : '';
-      if(msgs.length) parts.push(`<div class="rvthr">${msgs.map(m=>`<div class="msg ${m.who==='선생님'?'tc':'st'}"><span class="w">${m.who==='선생님'?esc(m.name||'선생님')+' 선생님':(c.mode==='student'?'내 질문':'학생 질문')} · ${esc(String(m.at||'').slice(5,16))}${m.who==='학생'&&m.mine?' · 그때 답 '+esc(m.mine):''}${(c.mode==='student'?m.who==='선생님':m.who==='학생')&&!m.read?'<span class="nw">새</span>':''}</span>${m.body==='(첨부 파일)'&&(m.files||[]).length?'':esc(m.body)}${h.files?h.files(m.files||[], m):''}</div>`).join('')}</div>`);
+      if(msgs.length) parts.push(`<div class="rvthr">${msgs.map(m=>`<div class="msg ${m.who==='선생님'?'tc':'st'}"><span class="w">${m.who==='선생님'?esc(m.name||'선생님')+' 선생님':(c.mode==='student'?'내 질문':'학생 질문')} · ${esc(String(m.at||'').slice(5,16))}${m.who==='학생'&&m.mine?' · 그때 답 '+esc(m.mine):''}${(c.mode==='student'?m.who==='선생님':m.who==='학생')&&!m.read?'<span class="nw">새</span>':''}</span>${h.msgEdit&&h.msgEdit(m)!=null?h.msgEdit(m):(m.body==='(첨부 파일)'&&(m.files||[]).length?'':esc(m.body))}${h.files?h.files(m.files||[], m):''}${h.msgTools?h.msgTools(m):''}</div>`).join('')}</div>`);
       if(undHtml) parts.push(undHtml);
       if(h.composer) { const x=h.composer(q); if(x) parts.push(x); }
       body=`<div class="in">${parts.join('')}</div>`;
