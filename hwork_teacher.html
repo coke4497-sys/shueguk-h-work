@@ -166,6 +166,9 @@
   .qsub.need{ color:#C0392B; font-weight:700; }
   tr.r.needr td{ background:#FFF4EF; }
   tr.r.needr:hover td{ background:#FDE8DF; }
+  .sortsw{ display:inline-flex; margin-left:auto; background:#F2F5F3; border-radius:999px; padding:3px; gap:2px; }
+  .sortsw button{ border:0; background:none; border-radius:999px; padding:5px 12px; font:inherit; font-size:13px; color:#65726B; cursor:pointer; }
+  .sortsw button.on{ background:#EDE4F4; color:#5A4A6A; font-weight:700; }
   tr.sep td{ background:#F6F8F7; color:#65726B; font-size:12.5px; font-weight:700; text-align:left; padding:8px 12px; cursor:default; }
   .rtag.dn{ background:#FBE4EA; color:#B0476A; }
   .rtag.hp{ background:#F7E2DE; color:#8A4A40; }
@@ -380,10 +383,12 @@
     base.forEach(r=>{ if(cnt[r.st]!=null) cnt[r.st]++; });
     if(ST_F!=='all' && !cnt[ST_F]) ST_F='all';
     document.getElementById('stchips').innerHTML=[['all','전체'],['need','답장 필요'],['ing','오답하기 중'],['wait','검사 대기'],['done','검사 완료']]
-      .map(([k,l])=>`<button class="stchip${k==='need'?' need':''}${ST_F===k?' on':''}" onclick="setStF('${k}')">${l}<b>${cnt[k]}</b></button>`).join('');
+      .map(([k,l])=>`<button class="stchip${k==='need'?' need':''}${ST_F===k?' on':''}" onclick="setStF('${k}')">${l}<b>${cnt[k]}</b></button>`).join('')
+      +`<span class="sortsw"><button class="${SORT==='st'?'on':''}" onclick="setSort('st')">상태별</button><button class="${SORT==='recent'?'on':''}" onclick="setSort('recent')">최근 제출순</button></span>`;
     // 답장 필요 → 오답하기 중 → 검사 대기 → 검사 완료 → 그 밖, 같은 상태 안은 최근 제출 먼저
     const ORD={ need:0, ing:1, wait:2, done:3, sub:4 };
-    const rows=base.filter(r=>ST_F==='all'||r.st===ST_F).sort((a,b)=>(ORD[a.st]-ORD[b.st]) || (Number(b._id||0)-Number(a._id||0)));
+    const recent=(a,b)=>(subMs(b)-subMs(a)) || (Number(b._id||0)-Number(a._id||0));
+    const rows=base.filter(r=>ST_F==='all'||r.st===ST_F).sort(SORT==='recent' ? recent : (a,b)=>(ORD[a.st]-ORD[b.st]) || recent(a,b));
     CUR=rows;
 
     // 요약
@@ -402,7 +407,7 @@
     let prev='';
     body.innerHTML=rows.map((r,i)=>{
       let sep='';
-      if(ST_F==='all' && r.st!==prev){ prev=r.st; sep=`<tr class="sep"><td colspan="7">${SEP[r.st]}</td></tr>`; }
+      if(ST_F==='all' && SORT==='st' && r.st!==prev){ prev=r.st; sep=`<tr class="sep"><td colspan="7">${SEP[r.st]}</td></tr>`; }
       return sep+`<tr class="r${r.st==='need'?' needr':''}${r.done?' chkd':''}" onclick="openReportAt(${i})"${r.done?` title="${escapeHtml((r.done.by||'')+' 선생님 · '+String(r.done.at||'').slice(5,16)+' 과제 검사 완료')}"`:''}>
       <td class="stc">${stPill(r)}${qaSub(r)}${r.st==='need'?`<button class="inclass" onclick="event.stopPropagation();inClass(${i})" title="답장 칸에 '수업 시간에 직접 설명했어요.'를 남겨 답장 필요에서 뺍니다">수업에서 처리</button>`:''}</td>
       <td class="tt">${titleHtml(r.code)}</td>
@@ -416,6 +421,10 @@
   /* 줄 상태 (2026-11-17) — need 답장 필요 · ing 오답하기 중 · wait 검사 대기 · done 검사 완료 · sub 그 밖 */
   let ST_F='all';
   function setStF(k){ ST_F=k; applyFilter(); }
+  /* 줄 순서 (2026-11-20 원장님 "제출 시간 최근부터 확인 리스트") — 상태별(답장 필요 먼저) / 최근 제출순(상태 상관없이 제출 시각 내림차순). 이 기기에 기억 */
+  let SORT=(function(){ try{ return localStorage.getItem('hw_t_sort')==='recent'?'recent':'st'; }catch(e){ return 'st'; } })();
+  function setSort(k){ SORT=k; try{ localStorage.setItem('hw_t_sort',k); }catch(e){} applyFilter(); }
+  function subMs(r){ const t=Date.parse(String(r.submittedAt||'').replace(' ','T')); return isNaN(t)?0:t; }
   function stOf(r){
     if(r.qaNeed>0) return 'need';
     if(r.done) return 'done';
