@@ -71,6 +71,7 @@
   .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#2C2F2D;color:#fff;padding:9px 18px;border-radius:999px;font-size:14px;opacity:0;transition:.2s;pointer-events:none;z-index:50}
   .toast.show{opacity:1}
 </style>
+<script src="hw-teacher.js?v=20261121"></script><!-- 선생님별 H WORK (?t=) -->
 </head>
 <body class="teacher">
 <div class="top"><a id="backList" href="https://coke4497-sys.github.io/shueguk-h-work/hwork_teacher.html">← H WORK 제출 확인</a><a href="https://coke4497-sys.github.io/shueguk-hub/messenger.html">슈톡</a></div>
@@ -548,7 +549,7 @@ function draw(){
   Object.keys(keep).forEach(q=>{ const t=document.querySelector('textarea[data-rin="'+q+'"]'); if(t) t.value=keep[q]; });
 }
 async function boot(){
-  myName().then(n=>{ if(n) document.getElementById('backList').href='https://coke4497-sys.github.io/shueguk-h-work/hwork_teacher.html?t='+enc(n); });
+  if(!(window.HWT && HWT.t)) myName().then(n=>{ if(n) document.getElementById('backList').href='https://coke4497-sys.github.io/shueguk-h-work/hwork_teacher.html?t='+enc(n); });
   if(!SID || !/^\d{1,18}$/.test(SID)) return waitList();
   try{ SUB=(await sb('/hwork_submissions?select=*&id=eq.'+SID))[0]; }catch(e){}
   if(!SUB){ $('view').innerHTML='<div class="wl"><p>제출 기록을 찾지 못했습니다.</p></div>'; return; }
@@ -566,9 +567,9 @@ async function waitList(){
   let rows=[];
   try{ rows=await sb('/hwork_qa?select=sub_id,q,who,body,at,s:hwork_submissions(name,school,grade,code,teacher)&order=id.desc&limit=2000'); }catch(e){}
   const seen=new Set(), wait=[];
-  rows.forEach(r=>{ const k=r.sub_id+'|'+r.q; if(seen.has(k)) return; seen.add(k); if(r.who==='학생'&&r.s) wait.push(r); });
+  rows.forEach(r=>{ const k=r.sub_id+'|'+r.q; if(seen.has(k)) return; seen.add(k); if(r.who==='학생'&&r.s&&(!window.HWT||HWT.mine(r.s.teacher))) wait.push(r); });
   $('view').innerHTML=`<div class="wl"><h1>답장을 기다리는 H WORK 질문</h1><p>학생 질문은 슈톡 업무 카드로 알려 드려요. 줄을 누르면 그 학생의 채점 결과 화면에서 바로 답할 수 있어요.</p>
-    ${wait.length?wait.map(r=>`<a class="row" href="?sid=${r.sub_id}&q=${enc(r.q)}"><b>${esc(r.s.name)}</b> · ${esc(r.q)}번<small>${esc(r.s.code)} · ${esc(r.s.teacher)} · ${esc(kst(r.at))}</small>${esc(r.body)}</a>`).join(''):'<p>답장을 기다리는 질문이 없습니다.</p>'}</div>`;
+    ${wait.length?wait.map(r=>`<a class="row" href="?sid=${r.sub_id}&q=${enc(r.q)}${window.HWT&&HWT.t?'&t='+enc(HWT.t):''}"><b>${esc(r.s.name)}</b> · ${esc(r.q)}번<small>${esc(r.s.code)} · ${esc(r.s.teacher)} · ${esc(kst(r.at))}</small>${esc(r.body)}</a>`).join(''):'<p>답장을 기다리는 질문이 없습니다.</p>'}</div>`;
 }
 boot();
 </script>

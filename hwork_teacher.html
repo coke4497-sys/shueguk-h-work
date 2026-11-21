@@ -182,6 +182,7 @@
   @media print{ .tomenu{ display:none; } }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="hw-teacher.js?v=20261121"></script><!-- 선생님별 H WORK (?t=) -->
 </head>
 <body>
 
@@ -346,6 +347,7 @@
         let want=new URLSearchParams(location.search).get('t')||'';
         if(!want){ try{ want=window.shuegukTeacherName?((await shuegukTeacherName())||''):''; }catch(e){} }
         const sel=document.getElementById('fTeacher'); if(want && [...sel.options].some(o=>o.value===want)) sel.value=want; }
+      if(window.HWT) HWT.lock(document.getElementById('fTeacher'));   // 선생님 카드로 열면 그 선생님만 (2026-11-21)
       fillSel('fCode',    uniq(ALL.map(r=>r.code)),    '전체 제목');
       fillSel('fSchool',  uniq(ALL.map(r=>r.school)),  '전체 학교');
       fillSel('fGrade',   uniq(ALL.map(r=>r.grade)),   '전체 학년');
@@ -556,7 +558,7 @@
     const r = CUR && CUR[i];
     if (!r) return;
     /* 원본 제출(_id)은 학생과 같은 채점 결과 화면(hwork_result.html)에서 — 질문 답장·리테스트도 거기서 (2026-11-17) */
-    if (r._id){ window.open('hwork_result.html?sid=' + r._id, '_blank'); return; }
+    if (r._id){ window.open((window.HWT?HWT.url:String)('hwork_result.html?sid=' + r._id), '_blank'); return; }
     toast('불러오는 중…');
     try{ renderReport(await reportOf(r)); }
     catch(err){ toast('조회 실패 · 다시 시도해 주세요'); }
