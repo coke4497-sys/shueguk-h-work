@@ -183,6 +183,7 @@
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="hw-teacher.js?v=20261121b"></script><!-- 선생님별 H WORK (?t=) -->
+<script src="class-done.js?v=20261121a"></script><!-- 수업에서 처리 · 완료 -->
 </head>
 <body>
 
@@ -413,7 +414,7 @@
       let sep='';
       if(ST_F==='all' && SORT==='st' && r.st!==prev){ prev=r.st; sep=`<tr class="sep"><td colspan="7">${SEP[r.st]}</td></tr>`; }
       return sep+`<tr class="r${r.st==='need'?' needr':''}${r.done?' chkd':''}" onclick="openReportAt(${i})"${r.done?` title="${escapeHtml((r.done.by||'')+' 선생님 · '+String(r.done.at||'').slice(5,16)+' 과제 검사 완료')}"`:''}>
-      <td class="stc">${stPill(r)}${qaSub(r)}${r.st==='need'?`<button class="inclass" onclick="event.stopPropagation();inClass(${i})" title="답장 칸에 '수업 시간에 직접 설명했어요.'를 남겨 답장 필요에서 뺍니다">수업에서 처리</button>`:''}</td>
+      <td class="stc">${stPill(r)}${qaSub(r)}${r.st==='need'?`<button class="inclass" onclick="event.stopPropagation();inClass(${i})" title="학생 오답하기 없이 질문한 문항을 클리어로 바꾸고 '수업 시간에 직접 설명했어요.' 답장을 남깁니다">수업에서 처리 · 완료</button>`:''}</td>
       <td class="tt">${titleHtml(r.code)}</td>
       <td class="nm">${escapeHtml(r.name||'')}</td>
       <td class="sc">${escapeHtml(r.got)} / ${escapeHtml(r.total)}${retryTag(r)}</td>
@@ -478,14 +479,17 @@
     const r=CUR&&CUR[i]; if(!r||!r._id||!(r.qaQs||[]).length) return;
     let who=''; try{ who=window.shuegukTeacherName?((await shuegukTeacherName())||''):''; }catch(e){}
     if(!who){ toast('허브에 로그인한 선생님 이름을 찾지 못했어요. 다시 로그인해 주세요.'); return; }
-    if(!confirm(r.name+' 학생의 질문 '+r.qaQs.length+'개('+r.qaQs.join('·')+'번)를 수업에서 처리한 것으로 할까요?\n학생에게 「'+INCLASS_TXT+'」 답장이 남습니다.')) return;
+    if(!confirm(r.name+' 학생의 질문 '+r.qaQs.length+'개('+r.qaQs.join('·')+'번)를 수업에서 처리한 것으로 할까요?\n학생이 오답하기를 따로 하지 않아도 그 문항이 클리어되고, 「'+INCLASS_TXT+'」 답장이 남습니다.')) return;
     try{
-      const t=await sbAuth();
-      const res=await fetch(SB_URL+'/rest/v1/hwork_qa',{ method:'POST', headers:{ apikey:SB_KEY, Authorization:'Bearer '+t, 'Content-Type':'application/json', Prefer:'return=minimal' },
-        body:JSON.stringify(r.qaQs.map(q=>({ sub_id:r._id, q:String(q), who:'선생님', name:who, body:INCLASS_TXT }))) });
-      if(!res.ok) throw new Error('sb '+res.status);
-      r.qaAns=(r.qaAns||0)+r.qaQs.length; r.qaNeed=0; r.qaQs=[];
-      toast('수업에서 처리한 것으로 남겼어요.'); applyFilter();
+      const t=await sbAuth(), H={ apikey:SB_KEY, Authorization:'Bearer '+t, 'Content-Type':'application/json' };
+      const req=async(path, o)=>{ o=Object.assign({}, o||{}); o.headers=Object.assign({}, H, o.headers||{});
+        const res=await fetch(SB_URL+'/rest/v1'+path, o); if(!res.ok) throw new Error('sb '+res.status); const x=await res.text(); return x?JSON.parse(x):null; };
+      // class-done.js — 문항 클리어(via 'class')·선생님 확인·남은 질문 답장 (2026-11-21 원장님)
+      const out=await HWCLASS.run(req, r._id, r.qaQs, who);
+      r.qaAns=(r.qaAns||0)+out.replied.length; r.qaNeed=0; r.qaQs=[];
+      if(out.patch.review) r.review=out.patch.review; if(out.patch.review_at){ r.reviewed=true; r.reviewAt=out.patch.review_at; }
+      if(window.shuegukActivity) shuegukActivity('H WORK', '수업에서 처리', r.name, r.code, false);
+      toast('수업에서 처리했어요. 그 문항은 클리어로 바뀌었습니다.'); applyFilter();
     }catch(e){ toast('저장하지 못했어요. 다시 눌러 주세요.'); }
   }
   function qaSub(r){

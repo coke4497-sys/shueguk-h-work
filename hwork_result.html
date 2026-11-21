@@ -12,7 +12,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&family=Do+Hyeon&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="gbank.css">
 <link rel="stylesheet" href="real.css">
-<script src="result_view.js?v=20261120a"></script>
+<script src="result_view.js?v=20261121a"></script>
 <style>
   *{box-sizing:border-box}
   body{margin:0;background:#e4efea;color:#33443c;font-family:'Gowun Dodum',sans-serif;font-size:15px;line-height:1.55}
@@ -53,6 +53,11 @@
   .qchk{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
   .qchk button{border:0;border-radius:999px;background:#fdf0f4;color:#b0476a;padding:8px 14px;font-size:13.5px;font-family:inherit;cursor:pointer}
   .qchk .on{font-size:13px;color:#b0476a}
+  .qchk button.cls{background:#ede4f4;color:#5a4a6a}
+  .wl .wrow{position:relative;margin-bottom:8px}
+  .wl .wrow a.row{margin-bottom:0;padding-right:150px}
+  .wl .wrow .cls{position:absolute;right:12px;top:50%;transform:translateY(-50%);border:0;border-radius:999px;background:#ede4f4;color:#5a4a6a;padding:9px 14px;font-size:13px;font-family:inherit;cursor:pointer}
+  @media (max-width:560px){ .wl .wrow a.row{padding-right:16px;padding-bottom:52px} .wl .wrow .cls{top:auto;bottom:10px;transform:none} }
   .qchk .un{background:transparent;color:#8a978f;text-decoration:underline;padding:4px 2px;font-size:12.5px}
   textarea[data-rin]{min-height:150px!important;max-height:60vh;overflow:auto}
   .wl{max-width:780px;margin:0 auto;padding:16px 18px 60px}
@@ -72,6 +77,7 @@
   .toast.show{opacity:1}
 </style>
 <script src="hw-teacher.js?v=20261121b"></script><!-- 선생님별 H WORK (?t=) -->
+<script src="class-done.js?v=20261121a"></script><!-- 수업에서 처리 · 완료 -->
 </head>
 <body class="teacher">
 <div class="top"><a id="backList" href="https://coke4497-sys.github.io/shueguk-h-work/hwork_teacher.html">← H WORK 제출 확인</a><a href="https://coke4497-sys.github.io/shueguk-hub/messenger.html">슈톡</a></div>
@@ -523,6 +529,37 @@ document.addEventListener('click', async e=>{
     await loadRt(); draw();
   }
 });
+/* 수업에서 처리 · 완료 (2026-11-21 원장님) — class-done.js. 1차 오답인데 클리어 전이거나, 마지막 글이 학생 질문인 문항에 보인다. */
+function classNeed(q){
+  const d=(SUB.detail||{})[q]||{}, r=(SUB.review||{})[q]||{};
+  const wrongOpen=d.ok===false && d.type!=='essay' && !r.cleared_at;
+  const qs=QA.filter(m=>String(m.q)===String(q)), ask=qs.length && qs[qs.length-1].who==='학생';
+  return wrongOpen || ask;
+}
+async function classQ(q){
+  if(!window.HWCLASS){ toast('화면을 새로고침해 주세요'); return; }
+  const by=await myName(); if(!by){ toast('허브 로그인 이름을 찾지 못했어요. 다시 로그인해 주세요'); return; }
+  if(!confirm(SUB.name+' 학생의 '+q+'번을 수업에서 처리한 것으로 할까요?\n학생이 오답하기를 따로 하지 않아도 이 문항이 클리어되고 정답이 보입니다.\n질문이 있으면 학생에게 「'+HWCLASS.TXT+'」 답장이 남습니다.')) return;
+  try{
+    const r=await HWCLASS.run(sb, SUB.id, [q], by);
+    Object.assign(SUB, r.patch); CTX.review=SUB.review; CTX.checked=SUB.checked; CTX.reviewAt=SUB.review_at||'';
+    if(r.replied.length) await loadQa();
+    toast(q+'번을 수업에서 처리했어요');
+    if(window.shuegukActivity) shuegukActivity('H WORK', '수업에서 처리', SUB.name+' '+q+'번', SUB.code, false);
+    draw();
+  }catch(e){ toast('저장하지 못했어요. 다시 눌러 주세요'); }
+}
+async function classRow(btn){
+  if(!window.HWCLASS) return;
+  const by=await myName(); if(!by){ toast('허브 로그인 이름을 찾지 못했어요. 다시 로그인해 주세요'); return; }
+  const sid=btn.dataset.sid, q=btn.dataset.q;
+  if(!confirm(btn.dataset.nm+' 학생의 '+q+'번 질문을 수업에서 처리한 것으로 할까요?\n학생이 오답하기를 따로 하지 않아도 이 문항이 클리어되고, 「'+HWCLASS.TXT+'」 답장이 남습니다.')) return;
+  btn.disabled=true; btn.textContent='저장 중…';
+  try{ await HWCLASS.run(sb, sid, [q], by); btn.closest('.wrow').remove(); toast(q+'번을 수업에서 처리했어요');
+    if(window.shuegukActivity) shuegukActivity('H WORK', '수업에서 처리', btn.dataset.nm+' '+q+'번', '', false);
+    if(!document.querySelector('.wl .wrow')){ const p=document.createElement('p'); p.textContent='답장을 기다리는 질문이 없습니다.'; document.querySelector('.wl').appendChild(p); }
+  }catch(e){ btn.disabled=false; btn.textContent='수업에서 처리 · 완료'; toast('저장하지 못했어요. 다시 눌러 주세요'); }
+}
 function draw(){
   const keep={};   // 다시 그릴 때 쓰던 답장 글은 그대로
   document.querySelectorAll('textarea[data-rin]').forEach(t=>{ keep[t.dataset.rin]=t.value; });
@@ -533,7 +570,7 @@ function draw(){
       away:Number(SUB.away_n)>0?{ n:Number(SUB.away_n), sec:Number(SUB.away_sec)||0 }:null, time:SUB.timelog||null, reviewAt:SUB.review_at||'', qa:QA,
       hooks:{
         qhtml:q=>{ const x=QS[q]; if(!x) return null; return { pas:x.pid&&QP[x.pid]?`<div class="${STYLE}">${QP[x.pid]}</div>`:'', html:`<div class="${STYLE}">${x.html}</div>` }; },
-        composer:q=>(('checked' in SUB)?`<div class="qchk">${(SUB.checked||{})[q]?`<span class="on">♥ ${esc(SUB.checked[q].by)} 선생님 확인 · ${esc(String(SUB.checked[q].at).slice(5,16))}</span><button type="button" class="un" onclick="checkQ('${q}',false)">확인 취소</button>`:`<button type="button" onclick="checkQ('${q}',true)">잘 고쳤습니다 ♥</button>`}</div>`:'')+`<div class="cmp"><span class="lab">학생에게 답장</span>${prevHtml(q)}<textarea data-rin="${q}" maxlength="5000" placeholder="답장을 적어 주세요. 학생 화면 이 문항에 바로 보입니다. 사진은 Ctrl+V 로 붙여 넣어도 돼요.">${esc(keep[q]||'')}</textarea>${reuseHtml(q)}${attHtml(q)}<button type="button" class="go" data-send="${q}">답장 보내기</button></div>`,
+        composer:q=>(('checked' in SUB)?`<div class="qchk">${(SUB.checked||{})[q]?`<span class="on">♥ ${esc(SUB.checked[q].by)} 선생님 확인 · ${esc(String(SUB.checked[q].at).slice(5,16))}</span><button type="button" class="un" onclick="checkQ('${q}',false)">확인 취소</button>`:`<button type="button" onclick="checkQ('${q}',true)">잘 고쳤습니다 ♥</button>`}${classNeed(q)?`<button type="button" class="cls" onclick="classQ('${q}')" title="학생 오답하기 없이 이 문항을 클리어로 바꾸고, 질문이 있으면 「수업 시간에 직접 설명했어요.」 답장을 남깁니다">수업에서 처리 · 완료</button>`:''}</div>`:'')+`<div class="cmp"><span class="lab">학생에게 답장</span>${prevHtml(q)}<textarea data-rin="${q}" maxlength="5000" placeholder="답장을 적어 주세요. 학생 화면 이 문항에 바로 보입니다. 사진은 Ctrl+V 로 붙여 넣어도 돼요.">${esc(keep[q]||'')}</textarea>${reuseHtml(q)}${attHtml(q)}<button type="button" class="go" data-send="${q}">답장 보내기</button></div>`,
         expl:q=>explHtml(q),
         files:f=>fsHtml(f),
         msgEdit:m=>msgEditHtml(m),
@@ -568,8 +605,8 @@ async function waitList(){
   try{ rows=await sb('/hwork_qa?select=sub_id,q,who,body,at,s:hwork_submissions(name,school,grade,code,teacher)&order=id.desc&limit=2000'); }catch(e){}
   const seen=new Set(), wait=[];
   rows.forEach(r=>{ const k=r.sub_id+'|'+r.q; if(seen.has(k)) return; seen.add(k); if(r.who==='학생'&&r.s&&(!window.HWT||HWT.mine(r.s.teacher))) wait.push(r); });
-  $('view').innerHTML=`<div class="wl"><h1>답장을 기다리는 H WORK 질문</h1><p>학생 질문은 슈톡 업무 카드로 알려 드려요. 줄을 누르면 그 학생의 채점 결과 화면에서 바로 답할 수 있어요.</p>
-    ${wait.length?wait.map(r=>`<a class="row" href="?sid=${r.sub_id}&q=${enc(r.q)}${window.HWT&&HWT.t?'&t='+enc(HWT.t):''}"><b>${esc(r.s.name)}</b> · ${esc(r.q)}번<small>${esc(r.s.code)} · ${esc(r.s.teacher)} · ${esc(kst(r.at))}</small>${esc(r.body)}</a>`).join(''):'<p>답장을 기다리는 질문이 없습니다.</p>'}</div>`;
+  $('view').innerHTML=`<div class="wl"><h1>답장을 기다리는 H WORK 질문</h1><p>학생 질문은 슈톡 업무 카드로 알려 드려요. 줄을 누르면 그 학생의 채점 결과 화면에서 바로 답할 수 있어요. 수업 시간에 직접 설명했다면 [수업에서 처리 · 완료]를 누르세요. 학생이 오답하기를 따로 하지 않아도 그 문항이 클리어됩니다.</p>
+    ${wait.length?wait.map(r=>`<div class="wrow"><a class="row" href="?sid=${r.sub_id}&q=${enc(r.q)}${window.HWT&&HWT.t?'&t='+enc(HWT.t):''}"><b>${esc(r.s.name)}</b> · ${esc(r.q)}번<small>${esc(r.s.code)} · ${esc(r.s.teacher)} · ${esc(kst(r.at))}</small>${esc(r.body)}</a><button type="button" class="cls" data-sid="${r.sub_id}" data-q="${esc(r.q)}" data-nm="${esc(r.s.name)}" onclick="classRow(this)">수업에서 처리 · 완료</button></div>`).join(''):'<p>답장을 기다리는 질문이 없습니다.</p>'}</div>`;
 }
 boot();
 </script>
