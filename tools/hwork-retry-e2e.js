@@ -254,10 +254,10 @@ function rpc(fn, p) {
     return rt.fulfill({ json: { ok: true, list: [] } });
   });
   await tp.goto('http://localhost:' + PORT + '/hwork_teacher.html?t=' + encodeURIComponent('이수경')); await tp.waitForTimeout(700);
-  ok((await tp.getAttribute('a.tomenu', 'href') || '').endsWith('shueguk-hub/hwork.html'), '상위 메뉴(H WORK 메뉴)로 가는 링크');
+  ok((await tp.getAttribute('a.tomenu', 'href') || '').includes('shueguk-hub/hwork.html?t=' + encodeURIComponent('이수경')), '상위 메뉴(그 선생님의 H WORK 메뉴)로 가는 링크');
   ok((await tp.inputValue('#fTeacher')) === '이수경', '주소 ?t= 로 열면 그 강사가 골라진 목록 (결과 화면 돌아가기)');
   ok(await tp.locator('#listBody tr.chkd:has-text("박보검")').count() === 1 && await tp.locator('#listBody tr.chkd:has-text("정해인")').count() === 0 && (await tp.textContent('#listBody tr:has-text("박보검")')).includes('♥ 검사 완료'), '과제 검사 완료한 줄만 색 · ♥ 검사 완료');
-  await tp.selectOption('#fTeacher', '이수경'); await tp.waitForTimeout(200);
+  ok(await tp.isDisabled('#fTeacher') && (await tp.textContent('.hwt-badge')).includes('이수경 선생님의 H WORK'), '선생님 카드로 열면 강사 칸 고정 (2026-11-21)');
   // 목록 가독성 — 답장 필요 맨 위·상태 알약·거르기·제목 두 줄 (2026-11-17)
   ok((await tp.textContent('#listBody tr.r >> nth=0')).includes('정해인') && (await tp.textContent('#listBody tr:has-text("정해인") .stp')).includes('답장 필요 1') && await tp.locator('#listBody tr.needr').count() === 1, '답장 필요한 제출이 맨 위 · 답장 필요 1');
   ok((await tp.textContent('#listBody tr:has-text("박보검")')).includes('질문 1 · 모두 답함'), '답장을 다 한 제출: 질문 1 · 모두 답함');
