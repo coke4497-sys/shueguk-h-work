@@ -86,6 +86,7 @@
   #print .quick b{color:#3d675d;font-weight:normal;margin-right:1mm}
   #print .xans{margin-top:1.4mm;font-size:8.3pt;background:#eef6f3;border-radius:1mm;padding:1.2mm 2mm;color:#24443d}
 </style>
+<script src="hw-teacher.js?v=20261121b"></script><!-- 선생님별 H WORK (?t=) -->
 </head>
 <body class="teacher">
 <div class="wrap">
@@ -232,7 +233,8 @@ async function boot(){
   try{ HWS=await sbAll('/hwork_homeworks?select=teacher,code&order=teacher'); }catch(e){ $('hList').innerHTML='<div class="empty">과제를 불러오지 못했습니다.</div>'; return; }
   const ts=[...new Set(HWS.map(h=>h.teacher).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ko'));
   $('tSel').innerHTML='<option value="">강사를 고르세요</option>'+ts.map(t=>`<option>${esc(t)}</option>`).join('');
-  if(ME && ts.includes(ME)){ $('tSel').value=ME; loadTeacher(); }
+  if(window.HWT && HWT.lock($('tSel'))) loadTeacher();   // 선생님 카드로 열면 그 선생님으로 고정 (2026-11-21)
+  else if(ME && ts.includes(ME)){ $('tSel').value=ME; loadTeacher(); }
   loadMade();
 }
 async function loadTeacher(){

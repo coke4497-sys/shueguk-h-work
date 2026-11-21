@@ -78,7 +78,7 @@ const S = { id: 55, key: 'ffffffffffffffffffffffffffffffff', review: {}, msgs: [
 function rpc(fn, p) {
   if (fn === 'hwork_list') return { ok: true, list: [{ teacher: '이현지', code: '[모의고사 문법] 음운 1회', due: '', closed: false }] };
   if (fn === 'hwork_meta') return { ok: true, meta: { teacher: '이현지', code: '[모의고사 문법] 음운 1회', count: 3, schools: ['화정고'], items: { '1': { type: 'choice5' }, '2': { type: 'choice5' }, '3': { type: 'choice5' } }, due: '', closed: false, bank: true } };
-  if (fn === 'hwork_qs' && RS_MODE) return { ok: true, style: 'real', items: { '1': { html: RQ(1), pid: 'wb-P1', src: 'A고' }, '2': { html: RQ(2), pid: 'wb-P1', src: 'B고' }, '3': { html: RQ(3), pid: '', src: 'C고' } }, passages: { 'wb-P1': '<div class="psg">교재 지문 글 나랏 말ᄊᆞ미</div>' } };
+  if (fn === 'hwork_qs' && RS_MODE) return { ok: true, style: 'real', items: { '1': { html: RQ(1), pid: 'wb-P1', src: 'A고' }, '2': { html: RQ(2), pid: 'wb-P1', src: 'B고' }, '3': { html: RQ(3).replace('<div class="qb">', '<div class="qb"><div class="errq">※ 오류 문항입니다. 풀지 말고 넘어가세요.</div>'), pid: '', src: 'C고' } }, passages: { 'wb-P1': '<div class="psg">교재 지문 글 나랏 말ᄊᆞ미</div>' } };
   if (fn === 'hwork_qs') { const it = {}, ps = {}; for (const k in BANK) { const g = ITEMS.find(x => x.id === BANK[k]); it[k] = { html: g.html, pid: g.pid, src: g.src }; if (g.pid) ps[g.pid] = PAS.find(x => x.pid === g.pid).html; } return { ok: true, items: it, passages: ps }; }
   if (fn === 'hwork_submit') {
     const d = {}; let got = 0; for (const q in KEY) { const okv = String(p.answers[q]) === String(KEY[q]); if (okv) got++; d[q] = { type: 'choice5', mine: String(p.answers[q] || ''), ok: okv }; if (okv) d[q].ans = String(KEY[q]); }
@@ -117,6 +117,15 @@ function rpc(fn, p) {
   const serr = []; s.on('pageerror', e => serr.push(e.message));
   await s.goto(U + 'hwork.html?c=' + encodeURIComponent('[모의고사 문법] 음운 1회') + '&t=' + encodeURIComponent('이현지') + '&nm=' + encodeURIComponent('김철수') + '&sc=' + encodeURIComponent('화정고') + '&gr=' + encodeURIComponent('고1'));
   await s.waitForSelector('#dndBox'); await s.click('.dnd-go');
+  // 빠른 제출이 기본 — 문제·지문은 숨고 답 칸만 (2026-11-21)
+  ok(await s.locator('#qmode button.on').getAttribute('data-qm') === 'fast', '처음엔 빠른 제출');
+  ok(await s.locator('#q1 .gq .stem').isHidden() && await s.locator('#qwrap .gqp').isHidden() && await s.locator('#q1 .choices').isVisible(), '빠른 제출 — 문제·지문 숨김, 답 칸은 보임');
+  ok(!(await s.locator('#q1').getAttribute('class')).includes('bank'), '빠른 제출 — 카드는 답안표 모양');
+  await s.click('#q1 .choices button:nth-child(4)');
+  await s.click('#qmode [data-qm="paper"]');
+  ok(await s.locator('#q1 .choices button:nth-child(4)').evaluate(e => e.classList.contains('sel')), '문제지 입력으로 바꿔도 고른 답 그대로');
+  await s.click('#q1 .choices button:nth-child(4)');
+  ok(await s.evaluate(() => localStorage.getItem('hw_qmode')) === 'paper', '고른 방식을 이 기기에 기억');
   ok(await s.locator('#qwrap .gqp').count() === 1, '지문 한 번');
   ok((await s.locator('#qwrap .gqp .prng').textContent()) === '[1~2]', '지문 범위 [1~2]');
   ok(await s.locator('#q1 .gq .stem').isVisible(), '문항 1 문제 글이 보임');
@@ -165,6 +174,7 @@ function rpc(fn, p) {
   sub.checked = {}; sub.check_done = null; sub.check_seen_at = null;
   DB.sub = sub;
   DB.qa = [{ id: 1, sub_id: 55, q: '2', who: '학생', name: '김철수', body: 'ㄴ이 왜 틀렸는지 모르겠어요', mine: '3', at: '2026-11-17T06:10:00Z', read_at: null, s: sub }];
+  DB.qa.push({ id: 3, sub_id: 55, q: '1', who: '학생', name: '김철수', body: '맞혔는데 ㄴ의 성분이 궁금해요', mine: '2', at: '2026-11-17T06:00:00Z', read_at: null, s: sub });
   DB.qa.push({ id: 50, sub_id: 70, q: '5', who: '선생님', name: '남주혜', body: '지난 설명 — 보기의 ㄴ은 반모음입니다', mine: '', at: '2026-11-10T06:10:00Z', read_at: null,
     files: [{ name: '풀이.png', size: 10, mime: 'image/png', path: 'r/70/abc.png' }], s: { code: '다른 과제', name: '박영희' } });
   DB.qa.push({ id: 51, sub_id: 71, q: '1', who: '선생님', name: '남주혜', body: '다른 문항 설명', mine: '', at: '2026-11-10T06:10:00Z', read_at: null, s: { code: '다른 과제', name: '박영희' } });
@@ -177,6 +187,10 @@ function rpc(fn, p) {
   ok((await t.inputValue('textarea[data-rin="2"]')).includes('지난 설명'), '불러오기 → 답장 칸에 글');
   ok((await t.textContent('[data-reuse="2"]')).includes('풀이.png'), '지난 첨부도 다시 보낼 목록에');
   ok((await t.locator('#rvq2 .gq .stem').textContent()) === '지문 세트 둘째 문항', '결과 화면 — 문제');
+  ok((await t.locator('#rvq2 details.expl summary').textContent()) === '해설 보기' && (await t.locator('#rvq2 details.expl').textContent()).length > 6, '문항 은행 과제 — 선생님 화면 해설 보기(gbank good·bad)');
+  ok(await t.locator('[data-rv-bar="1"] .qd.w').count() === 1 && await t.locator('[data-rv-bar="3"] .qd').count() === 0, '맞힌 문항(1번)에 걸린 질문 — 번호 막대에 빨간 점');
+  ok((await t.textContent('.rv2 .lg')).includes('답장 필요한 질문 1번·2번'), '범례에 답장 필요한 질문 번호');
+  ok((await t.locator('#rvq1 .pill.wt').textContent()) === '답장 필요' && await t.locator('#rvq1 .rvthr, #rvq1 textarea').count() > 0, '1번 카드 — 답장 필요 알약 · 처음부터 열림');
   ok(await t.locator('#rvq2 .cn.ok').count() === 1, '선생님 화면 — 정답 동그라미');
   ok((await t.getAttribute('#backList', 'href')).endsWith('hwork_teacher.html?t=' + encodeURIComponent('이현지')), '돌아가기 = 로그인 이름이 골라진 제출 목록');
   ok((await t.locator('#rvq2').textContent()).includes('느낌으로'), '오답하기 기록(이유) 보임');
@@ -188,6 +202,29 @@ function rpc(fn, p) {
   const r = DB.calls.find(c => c.fn === 'qa-post');
   ok(r && r.r.who === '선생님' && r.r.name === '이현지' && r.r.sub_id === 55 && r.r.q === '2', '답장 POST — 선생님·이름·제출·문항');
   await t.waitForSelector('#rvq2 .msg.tc');
+  // 답장 수정·지우기 (2026-11-20)
+  ok(await t.locator('#rvq2 .msg.tc [data-edit]').count() >= 1 && await t.locator('#rvq2 .msg.st [data-edit]').count() === 0, '선생님 답장에만 [수정][지우기]');
+  const eid = await t.getAttribute('#rvq2 .msg.tc [data-edit] >> nth=-1', 'data-edit');
+  await t.click('[data-edit="' + eid + '"]'); await t.waitForSelector('textarea[data-edt="' + eid + '"]');
+  ok((await t.inputValue('textarea[data-edt="' + eid + '"]')).includes('둘째 문장'), '[수정] → 지금 글이 든 고치기 칸');
+  await t.fill('textarea[data-edt="' + eid + '"]', '고친 답장입니다'); await t.click('[data-edsave="' + eid + '"]');
+  await t.waitForFunction(() => document.getElementById('toast').textContent.includes('답장을 고쳤어요'));
+  const ep = DB.patches.find(x => x.includes('id=eq.' + eid));
+  ok(!!ep, '수정 PATCH — 그 답장 id');
+  const before = DB.deletes.length;
+  await t.click('[data-qdel="' + eid + '"]');
+  await t.waitForFunction(() => document.getElementById('toast').textContent.includes('답장을 지웠어요'));
+  ok(DB.deletes.length === before + 1 && DB.deletes[before].includes('id=eq.' + eid), '지우기 — 확인 뒤 DELETE');
+  // 답장 필요한 질문만 보기 — 다 답해야 답장 알림톡이 열린다
+  ok(await t.locator('#alimBtn[disabled]').count() === 1 && (await t.textContent('.chc')).includes('답장 필요한 질문 1개에 답장하거나'), '1번 질문이 남아 있으면 답장 알림톡 잠김');
+  ok((await t.textContent('[data-rv-flt="답장 필요"]')).includes('1'), '거르기 [답장 필요 1]');
+  await t.click('#waitBtn');
+  ok(await t.locator('.rv2 .qs > [id^="rvq"]').count() === 1 && await t.locator('#rvq1 textarea[data-rin="1"]').count() === 1, '[답장 필요한 질문만 보기] → 1번 카드만 · 열려 있음');
+  await t.click('#rvq1 .qchk button'); await t.waitForSelector('#rvq1 .qchk .on, .rv2 .empty');   // 답장 없이 [잘 고쳤습니다]만 눌러도 처리 (2026-11-19)
+  DB.subPatch = [];
+  await t.waitForSelector('.rv2 .empty');
+  ok((await t.textContent('.rv2 .empty')).includes('모두 처리했습니다') && await t.locator('#waitBtn').count() === 0, '[잘 고쳤습니다]만 눌러도 처리 — 빈 안내 · 보기 버튼 사라짐');
+  await t.click('[data-rv-flt="전체"]'); await t.click('[data-rv-tog="2"]').catch(() => {}); if (!(await t.locator('textarea[data-rin="2"]').count())) await t.click('[data-rv-tog="2"]');
   // 답장 알림톡 — 과제마다 한 번
   await t.waitForSelector('#alimBtn:not([disabled])');
   await t.click('#alimBtn'); await t.waitForFunction(() => document.getElementById('toast').textContent.includes('알림톡을 보냈어요'));
@@ -239,6 +276,7 @@ function rpc(fn, p) {
   ok(await sp.locator('.hpop').count() === 0, '한 번 본 팝업은 다시 안 뜸');
   await sp.close();
   // 주소 없이 — 답장 기다리는 질문 목록
+  DB.qa = DB.qa.filter(m => m.id !== 3);
   DB.qa.push({ id: 2, sub_id: 56, q: '1', who: '학생', name: '이영희', body: '대기 질문', mine: '2', at: '2026-11-17T05:00:00Z', read_at: null, s: Object.assign({}, sub, { id: 56, name: '이영희' }) });
   const tl = await ctx.newPage(); await tl.goto(U + 'hwork_result.html'); await tl.waitForSelector('.wl');
   ok(await tl.locator('.wl a.row').count() === 1 && (await tl.locator('.wl a.row').getAttribute('href')) === '?sid=56&q=1', '목록 — 마지막 글이 학생인 질문만');
@@ -247,9 +285,10 @@ function rpc(fn, p) {
   RS_MODE = true; S.review = {}; S.msgs = [];
   const rctx = await b.newContext({ viewport: { width: 390, height: 844 } });
   await rctx.route('**/*', rt => { const r = rt.request(), u = r.url(); if (u.startsWith(U)) return rt.continue(); return fake(rt, u, r.method(), r.postData()); });
-  const rs = await rctx.newPage(); rs.on('dialog', d => d.accept()); const rerr = []; rs.on('pageerror', e => rerr.push(e.message));
+  const rs = await rctx.newPage(); const rdlg = []; rs.on('dialog', d => { rdlg.push(d.message()); d.accept(); }); const rerr = []; rs.on('pageerror', e => rerr.push(e.message));
   await rs.goto(U + 'hwork.html?c=' + encodeURIComponent('[모의고사 문법] 음운 1회') + '&t=' + encodeURIComponent('이현지') + '&nm=' + encodeURIComponent('김철수') + '&sc=' + encodeURIComponent('화정고') + '&gr=' + encodeURIComponent('고1'));
   await rs.waitForSelector('#dndBox'); await rs.click('.dnd-go');
+  if (await rs.locator('#qmode [data-qm="paper"]').count()) await rs.click('#qmode [data-qm="paper"]');
   ok(await rs.locator('#qwrap .gqp .rq').count() === 1 && (await rs.locator('#qwrap .gqp .prng').textContent()) === '[1~2]', '교재 — 지문 한 번 [1~2]');
   ok(await rs.locator('#q1 .rq .stem').isVisible() && await rs.locator('#q1 .gq').count() === 0, '교재 — 문제가 교재 모양(.rq)');
   ok(await rs.locator('#q1 .rq .bogi .bl').isVisible(), '교재 — 〈보기〉 상자');
@@ -258,6 +297,7 @@ function rpc(fn, p) {
   if (SHOT) await rs.screenshot({ path: path.join(SHOT, 'real-student-solve.png'), fullPage: true });
   ok(await rs.evaluate(() => document.documentElement.scrollWidth <= 391), '교재 학생 풀이 화면 — 휴대폰 가로 넘침 없음 (' + await rs.evaluate(() => document.documentElement.scrollWidth) + ')');
   await rs.click('#submit'); await rs.waitForSelector('#rvq2');
+  ok(rdlg.some(m => m.includes('3번은 오류 문항이라 어떤 답이든 정답으로 처리됩니다')), '교재 — 제출할 때 오류 문항(3번) 안내');
   ok(await rs.evaluate(() => document.documentElement.scrollWidth <= 391), '교재 학생 결과 화면 — 휴대폰 가로 넘침 없음');
   if (SHOT) await rs.screenshot({ path: path.join(SHOT, 'real-student-result.png'), fullPage: true });
   ok((await rs.locator('#rvq2 .hid').textContent()).includes('클리어'), '교재 — 틀린 문항 정답 잠김');

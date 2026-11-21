@@ -166,6 +166,10 @@
   .qsub.need{ color:#C0392B; font-weight:700; }
   tr.r.needr td{ background:#FFF4EF; }
   tr.r.needr:hover td{ background:#FDE8DF; }
+  .bulkchk{ border:0; background:#FCE4EC; color:#A33A5E; border-radius:999px; padding:6px 14px; font:inherit; font-size:13px; font-weight:700; cursor:pointer; }
+  .sortsw{ display:inline-flex; margin-left:auto; background:#F2F5F3; border-radius:999px; padding:3px; gap:2px; }
+  .sortsw button{ border:0; background:none; border-radius:999px; padding:5px 12px; font:inherit; font-size:13px; color:#65726B; cursor:pointer; }
+  .sortsw button.on{ background:#EDE4F4; color:#5A4A6A; font-weight:700; }
   tr.sep td{ background:#F6F8F7; color:#65726B; font-size:12.5px; font-weight:700; text-align:left; padding:8px 12px; cursor:default; }
   .rtag.dn{ background:#FBE4EA; color:#B0476A; }
   .rtag.hp{ background:#F7E2DE; color:#8A4A40; }
@@ -178,6 +182,7 @@
   @media print{ .tomenu{ display:none; } }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="hw-teacher.js?v=20261121b"></script><!-- 선생님별 H WORK (?t=) -->
 </head>
 <body>
 
@@ -306,8 +311,8 @@
         const BASE = 'id,ts,teacher,code,school,grade,name,got,total,questions';
         let rows;   // 다시 풀기 열(064)이 없는 DB면 옛 열만 다시 읽는다
         // 화면 이탈 열(066)·다시 풀기 열(064)이 없는 DB면 있는 열만 다시 읽는다
-        try{ rows = await sbAllRows('/hwork_submissions?select=' + BASE + ',retry_at,review,review_at,away_n,away_sec,check_done,timelog&order=id.desc'); RETRY_COL = true; AWAY_COL = true; }   // check_done = 과제 검사 완료(리포트 074)
-        catch(eT){ try{ rows = await sbAllRows('/hwork_submissions?select=' + BASE + ',retry_at,review,review_at,away_n,away_sec,check_done&order=id.desc'); RETRY_COL = true; AWAY_COL = true; }   // timelog 열 없음(리포트 078 전)
+        try{ rows = await sbAllRows('/hwork_submissions?select=' + BASE + ',retry_at,review,review_at,away_n,away_sec,check_done,checked,timelog&order=id.desc'); RETRY_COL = true; AWAY_COL = true; }   // check_done = 과제 검사 완료(리포트 074)
+        catch(eT){ try{ rows = await sbAllRows('/hwork_submissions?select=' + BASE + ',retry_at,review,review_at,away_n,away_sec,check_done,checked&order=id.desc'); RETRY_COL = true; AWAY_COL = true; }   // timelog 열 없음(리포트 078 전)
         catch(eC){ try{ rows = await sbAllRows('/hwork_submissions?select=' + BASE + ',retry_at,review,review_at,away_n,away_sec&order=id.desc'); RETRY_COL = true; AWAY_COL = true; }
         catch(e0){ AWAY_COL = false;
           try{ rows = await sbAllRows('/hwork_submissions?select=' + BASE + ',retry_at,review,review_at&order=id.desc'); RETRY_COL = true; }
@@ -316,7 +321,7 @@
           school: r.school, grade: r.grade, name: r.name, got: String(r.got), total: String(r.total),
           qCount: Object.keys(r.questions || {}).length,
           fix: fixSum(r.review, (Number(r.total)||0) - (Number(r.got)||0)), reviewed: !!r.review_at,
-          awayN: Number(r.away_n)||0, awaySec: Number(r.away_sec)||0, done: r.check_done||null, tl: r.timelog||null }));
+          awayN: Number(r.away_n)||0, awaySec: Number(r.away_sec)||0, done: r.check_done||null, checked: r.checked||null, tl: r.timelog||null }));
       }catch(e){ console.warn('수파베이스 목록 실패 — 기존 백엔드(시트)로 폴백', e); }
       if (!list){
         const json=await fetchJSON(API_URL+'?action=responses');
@@ -325,9 +330,13 @@
       }
       // 질문 대화 — 문항마다 마지막 글이 학생이면 '답장 필요' (2026-11-17)
       try{
-        const qa=await sbAllRows('/hwork_qa?select=id,sub_id,q,who&order=id');
-        const by={};
-        qa.forEach(m=>{ const k=m.sub_id+'|'+m.q; by[k]=m.who; });
+        const qa=await sbAllRows('/hwork_qa?select=id,sub_id,q,who,at&order=id');
+        const by={}, ck={};
+        list.forEach(r=>{ if(r._id) ck[r._id]=r.checked||{}; });
+        const kst=iso=>{ const d=new Date(new Date(iso).getTime()+9*3600e3); if(isNaN(d)) return ''; const p=n=>String(n).padStart(2,'0'); return d.getUTCFullYear()+'-'+p(d.getUTCMonth()+1)+'-'+p(d.getUTCDate())+' '+p(d.getUTCHours())+':'+p(d.getUTCMinutes()); };
+        qa.forEach(m=>{ const k=m.sub_id+'|'+m.q; by[k]=m.who;
+          // [잘 고쳤습니다]를 마지막 학생 글 뒤에 눌렀으면 처리로 친다 (2026-11-19 원장님) — result_view.js qaFlag 와 같은 규칙
+          if(m.who==='학생'){ const c=(ck[m.sub_id]||{})[m.q]; if(c && String(c.at||'')>=kst(m.at)) by[k]='선생님'; } });
         const st={};
         Object.keys(by).forEach(k=>{ const [sid,qq]=k.split('|'); const o=st[sid]||(st[sid]={ need:0, ans:0, qs:[] }); if(by[k]==='선생님') o.ans++; else { o.need++; o.qs.push(qq); } });
         list.forEach(r=>{ if(r._id){ const o=st[r._id]; r.qaNeed=o?o.need:0; r.qaAns=o?o.ans:0; r.qaQs=o?o.qs:[]; r.qaOn=true; } });
@@ -338,6 +347,7 @@
         let want=new URLSearchParams(location.search).get('t')||'';
         if(!want){ try{ want=window.shuegukTeacherName?((await shuegukTeacherName())||''):''; }catch(e){} }
         const sel=document.getElementById('fTeacher'); if(want && [...sel.options].some(o=>o.value===want)) sel.value=want; }
+      if(window.HWT) HWT.lock(document.getElementById('fTeacher'));   // 선생님 카드로 열면 그 선생님만 (2026-11-21)
       fillSel('fCode',    uniq(ALL.map(r=>r.code)),    '전체 제목');
       fillSel('fSchool',  uniq(ALL.map(r=>r.school)),  '전체 학교');
       fillSel('fGrade',   uniq(ALL.map(r=>r.grade)),   '전체 학년');
@@ -371,15 +381,18 @@
     const base=ALL.filter(r=>
       (r.teacher===t) && (!c||r.code===c) && (!s||r.school===s) && (!g||r.grade===g) &&
       (!q||(r.name||'').includes(q)) );
-    base.forEach(r=>{ r.st=stOf(r); });
+    base.forEach(r=>{ r.st=stOf(r); }); LAST_BASE=base;
     const cnt={ all:base.length, need:0, ing:0, wait:0, done:0 };
     base.forEach(r=>{ if(cnt[r.st]!=null) cnt[r.st]++; });
     if(ST_F!=='all' && !cnt[ST_F]) ST_F='all';
     document.getElementById('stchips').innerHTML=[['all','전체'],['need','답장 필요'],['ing','오답하기 중'],['wait','검사 대기'],['done','검사 완료']]
-      .map(([k,l])=>`<button class="stchip${k==='need'?' need':''}${ST_F===k?' on':''}" onclick="setStF('${k}')">${l}<b>${cnt[k]}</b></button>`).join('');
+      .map(([k,l])=>`<button class="stchip${k==='need'?' need':''}${ST_F===k?' on':''}" onclick="setStF('${k}')">${l}<b>${cnt[k]}</b></button>`).join('')
+      +(cnt.wait?`<button class="bulkchk" onclick="bulkCheck()" title="오답하기를 끝낸 제출을 모두 과제 검사 완료로 — 학생에게 하트가 갑니다">검사 대기 ${cnt.wait}건 한 번에 검사 완료 ♥</button>`:'')
+      +`<span class="sortsw"><button class="${SORT==='st'?'on':''}" onclick="setSort('st')">상태별</button><button class="${SORT==='recent'?'on':''}" onclick="setSort('recent')">최근 제출순</button></span>`;
     // 답장 필요 → 오답하기 중 → 검사 대기 → 검사 완료 → 그 밖, 같은 상태 안은 최근 제출 먼저
     const ORD={ need:0, ing:1, wait:2, done:3, sub:4 };
-    const rows=base.filter(r=>ST_F==='all'||r.st===ST_F).sort((a,b)=>(ORD[a.st]-ORD[b.st]) || (Number(b._id||0)-Number(a._id||0)));
+    const recent=(a,b)=>(subMs(b)-subMs(a)) || (Number(b._id||0)-Number(a._id||0));
+    const rows=base.filter(r=>ST_F==='all'||r.st===ST_F).sort(SORT==='recent' ? recent : (a,b)=>(ORD[a.st]-ORD[b.st]) || recent(a,b));
     CUR=rows;
 
     // 요약
@@ -398,7 +411,7 @@
     let prev='';
     body.innerHTML=rows.map((r,i)=>{
       let sep='';
-      if(ST_F==='all' && r.st!==prev){ prev=r.st; sep=`<tr class="sep"><td colspan="7">${SEP[r.st]}</td></tr>`; }
+      if(ST_F==='all' && SORT==='st' && r.st!==prev){ prev=r.st; sep=`<tr class="sep"><td colspan="7">${SEP[r.st]}</td></tr>`; }
       return sep+`<tr class="r${r.st==='need'?' needr':''}${r.done?' chkd':''}" onclick="openReportAt(${i})"${r.done?` title="${escapeHtml((r.done.by||'')+' 선생님 · '+String(r.done.at||'').slice(5,16)+' 과제 검사 완료')}"`:''}>
       <td class="stc">${stPill(r)}${qaSub(r)}${r.st==='need'?`<button class="inclass" onclick="event.stopPropagation();inClass(${i})" title="답장 칸에 '수업 시간에 직접 설명했어요.'를 남겨 답장 필요에서 뺍니다">수업에서 처리</button>`:''}</td>
       <td class="tt">${titleHtml(r.code)}</td>
@@ -410,8 +423,12 @@
   }
 
   /* 줄 상태 (2026-11-17) — need 답장 필요 · ing 오답하기 중 · wait 검사 대기 · done 검사 완료 · sub 그 밖 */
-  let ST_F='all';
+  let ST_F='all', LAST_BASE=[];
   function setStF(k){ ST_F=k; applyFilter(); }
+  /* 줄 순서 (2026-11-20 원장님 "제출 시간 최근부터 확인 리스트") — 상태별(답장 필요 먼저) / 최근 제출순(상태 상관없이 제출 시각 내림차순). 이 기기에 기억 */
+  let SORT=(function(){ try{ return localStorage.getItem('hw_t_sort')==='recent'?'recent':'st'; }catch(e){ return 'st'; } })();
+  function setSort(k){ SORT=k; try{ localStorage.setItem('hw_t_sort',k); }catch(e){} applyFilter(); }
+  function subMs(r){ const t=Date.parse(String(r.submittedAt||'').replace(' ','T')); return isNaN(t)?0:t; }
   function stOf(r){
     if(r.qaNeed>0) return 'need';
     if(r.done) return 'done';
@@ -431,6 +448,32 @@
   /* 수업에서 처리 (2026-11-17 원장님 "이 두 리스트는 수업에서 처리했어요") — 남은 질문마다 짧은 답장을 남긴다.
      학생 화면에는 이 답장이 보이고([이해했어요]로 클리어), 072 트리거가 슈톡 할 일을 완료로 바꾼다. */
   const INCLASS_TXT='수업 시간에 직접 설명했어요.';
+  /* 검사 대기 한꺼번에 (2026-11-20 원장님 "검사대기 리스트에 한번에 검사 버튼 필요") — 결과 화면 [과제 검사 완료]와 같은 값:
+   * 확인 안 한 문항을 모두 checked 로 + check_done {at,by,note:''}. 지금 거르기(강사·과제·학교·학년·이름) 안의 검사 대기 줄만. */
+  async function bulkCheck(){
+    const rows=(LAST_BASE||[]).filter(r=>r.st==='wait'&&r._id); if(!rows.length) return;
+    let by=''; try{ by=window.shuegukTeacherName?((await shuegukTeacherName())||''):''; }catch(e){}
+    if(!by){ toast('허브에 로그인한 선생님 이름을 찾지 못했어요. 다시 로그인해 주세요.'); return; }
+    if(!confirm('검사 대기 '+rows.length+'건을 모두 과제 검사 완료로 할까요?\n'+rows.slice(0,8).map(r=>'· '+r.name+' — '+String(r.code||'').replace(/^SHUEGUK REAL 내신 기출 /,'')).join('\n')+(rows.length>8?'\n· 그 밖에 '+(rows.length-8)+'건':'')+'\n\n학생 화면에 ♥ 선생님 확인 표시와 하트 팝업이 갑니다. ('+by+' 선생님 이름으로)')) return;
+    const d=new Date(Date.now()+9*3600e3), p2=n=>String(n).padStart(2,'0');
+    const at=d.getUTCFullYear()+'-'+p2(d.getUTCMonth()+1)+'-'+p2(d.getUTCDate())+' '+p2(d.getUTCHours())+':'+p2(d.getUTCMinutes());
+    let ok=0, fail=0;
+    try{
+      const t=await sbAuth(), H={ apikey:SB_KEY, Authorization:'Bearer '+t, 'Content-Type':'application/json' };
+      const det=await (await fetch(SB_URL+'/rest/v1/hwork_submissions?select=id,detail,checked&id=in.('+rows.map(r=>r._id).join(',')+')',{ headers:H })).json();
+      const by_id={}; (det||[]).forEach(x=>by_id[x.id]=x);
+      for(const r of rows){
+        const x=by_id[r._id]; if(!x){ fail++; continue; }
+        const c=Object.assign({}, x.checked||{}); Object.keys(x.detail||{}).forEach(q=>{ if(!c[q]) c[q]={ at, by }; });
+        const done={ at, by, note:'' };
+        const res=await fetch(SB_URL+'/rest/v1/hwork_submissions?id=eq.'+r._id,{ method:'PATCH', headers:Object.assign({ Prefer:'return=minimal' },H), body:JSON.stringify({ checked:c, check_done:done }) });
+        if(res.ok){ ok++; r.checked=c; r.done=done; } else fail++;
+      }
+    }catch(e){ fail=rows.length-ok; }
+    if(ok && window.shuegukActivity) shuegukActivity('H WORK', '과제 검사 완료 한꺼번에', ok+'건', '', false);
+    toast(fail?('검사 완료 '+ok+'건 · 저장 못 한 '+fail+'건은 다시 눌러 주세요.'):('검사 대기 '+ok+'건을 모두 검사 완료로 했어요 ♥'));
+    applyFilter();
+  }
   async function inClass(i){
     const r=CUR&&CUR[i]; if(!r||!r._id||!(r.qaQs||[]).length) return;
     let who=''; try{ who=window.shuegukTeacherName?((await shuegukTeacherName())||''):''; }catch(e){}
@@ -515,7 +558,7 @@
     const r = CUR && CUR[i];
     if (!r) return;
     /* 원본 제출(_id)은 학생과 같은 채점 결과 화면(hwork_result.html)에서 — 질문 답장·리테스트도 거기서 (2026-11-17) */
-    if (r._id){ window.open('hwork_result.html?sid=' + r._id, '_blank'); return; }
+    if (r._id){ window.open((window.HWT?HWT.url:String)('hwork_result.html?sid=' + r._id), '_blank'); return; }
     toast('불러오는 중…');
     try{ renderReport(await reportOf(r)); }
     catch(err){ toast('조회 실패 · 다시 시도해 주세요'); }

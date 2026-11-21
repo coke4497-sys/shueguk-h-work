@@ -94,6 +94,7 @@
   /* 잠금 */
   @media (prefers-reduced-motion:reduce){*{transition:none !important;}}
 </style>
+<script src="hw-teacher.js?v=20261121b"></script><!-- 선생님별 H WORK (?t=) -->
 </head>
 <body>
 
@@ -348,6 +349,7 @@
       var teachers = uniq(HW.map(function(h){ return h.teacher; }));
       var sel = document.getElementById('teacherSel');
       sel.innerHTML = '<option value="">담당 강사 선택</option>' + teachers.map(function(t){ return '<option value="'+esc(t)+'">'+esc(t)+'</option>'; }).join('');
+      if (window.HWT && HWT.lock(sel)) onTeacher();   // 허브 H WORK 메뉴의 선생님 카드로 열면 그 선생님으로 고정 (2026-11-21)
     }).catch(function(){ document.getElementById('teacherSel').innerHTML='<option value="">연결 실패</option>'; });
   }
   function loadRoster(){
@@ -645,7 +647,7 @@
       HW_MANAGE = { list:list, aMap:aMap, sMap:sMap };
       if(!list.length){ body.innerHTML = '<div style="text-align:center;color:#8B928C;font-size:13.5px;padding:14px;">출제된 과제가 없어요.</div>'; return; }
       var byT = {};
-      list.forEach(function(h,i){ (byT[h.teacher] = byT[h.teacher] || []).push(i); });
+      list.forEach(function(h,i){ if (window.HWT && !HWT.mine(h.teacher)) return; (byT[h.teacher] = byT[h.teacher] || []).push(i); });
       var html = '';
       Object.keys(byT).sort(function(a,b){ return a.localeCompare(b,'ko'); }).forEach(function(t){
         html += '<div class="grp-title">'+esc(t)+'</div>';

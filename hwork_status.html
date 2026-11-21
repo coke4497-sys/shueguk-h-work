@@ -83,6 +83,7 @@
     .upd{width:100%;margin-left:0;}
   }
 </style>
+<script src="hw-teacher.js?v=20261121b"></script><!-- 선생님별 H WORK (?t=) -->
 </head>
 <body>
 <main class="wrap">
@@ -200,7 +201,7 @@
  * 과제 순서는 s.html hwBookKey 와 같은 교재 순서. */
 var SB_REST = "https://bangdbhqpphqqdwcledg.supabase.co/rest/v1";
 var TOOL = "H WORK";
-var LEFT_RE = /^(퇴원|n|no|off|x|중단|비재원)$/i;
+var LEFT_RE = /^(퇴원|n|no|off|x|중단|비재원|졸업)$/i;
 function tr(v){ return String(v == null ? '' : v).trim(); }
 function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function baseName(s){ return tr(s).replace(/[A-Za-z]$/, ''); }
@@ -335,6 +336,7 @@ function build(asg, subs, stus){
   var byItem = {}, order = [];
   asg.forEach(function(a){
     var item = tr(a.item); if (!item) return;
+    if (window.HWT && HWT.t){ var ii = item.indexOf(' / '); if (!HWT.mine(ii >= 0 ? item.slice(0, ii) : '')) return; }   // 선생님 카드로 열면 그 선생님 과제만 (2026-11-21)
     if (!byItem[item]) { byItem[item] = []; order.push(item); }
     byItem[item].push(a);
   });

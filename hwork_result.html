@@ -12,7 +12,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&family=Do+Hyeon&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="gbank.css">
 <link rel="stylesheet" href="real.css">
-<script src="result_view.js?v=20261118a"></script>
+<script src="result_view.js?v=20261120a"></script>
 <style>
   *{box-sizing:border-box}
   body{margin:0;background:#e4efea;color:#33443c;font-family:'Gowun Dodum',sans-serif;font-size:15px;line-height:1.55}
@@ -45,6 +45,7 @@
   .chc button{border:0;border-radius:12px;background:#e86a93;color:#fff;padding:11px 16px;font-size:14.5px;font-family:inherit;cursor:pointer}
   .chc button.soft{background:#fdf0f4;color:#b0476a}
   .chc button.alim{background:#f7e3a0;color:#5f4a12}
+  .chc button.wait{background:#fbe3e6;color:#b03348}
   .chc button.alim.todo{background:#f6e6e9;color:#a8434f}
   .chc button:disabled{opacity:.5;cursor:default}
   .chc .row2.al{align-items:center}
@@ -70,6 +71,7 @@
   .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#2C2F2D;color:#fff;padding:9px 18px;border-radius:999px;font-size:14px;opacity:0;transition:.2s;pointer-events:none;z-index:50}
   .toast.show{opacity:1}
 </style>
+<script src="hw-teacher.js?v=20261121b"></script><!-- 선생님별 H WORK (?t=) -->
 </head>
 <body class="teacher">
 <div class="top"><a id="backList" href="https://coke4497-sys.github.io/shueguk-h-work/hwork_teacher.html">← H WORK 제출 확인</a><a href="https://coke4497-sys.github.io/shueguk-hub/messenger.html">슈톡</a></div>
@@ -183,6 +185,7 @@ async function myName(){   // 답장 이름 = 허브에 로그인한 선생님(t
 const EXPL={};
 function wrongLines(t){ return String(t||'').split(/(?=[①②③④⑤])/).map(x=>x.trim()).filter(Boolean); }
 function explHtml(q){ const x=EXPL[q]; if(!x) return '';
+  if(x.bank) return `<details class="expl"><summary>해설 보기</summary>${x.good?`<div>${x.good}</div>`:''}${(Array.isArray(x.bad)?x.bad:[]).map(w=>`<div>${w}</div>`).join('')}</details>`;   // 문항 은행 해설(gbank good·bad — 우리가 만든 HTML)
   return `<details class="expl"><summary>교재 해설 보기</summary>${x.expl?`<div>${esc(x.expl)}</div>`:''}${wrongLines(x.wrong).map(w=>`<div>${esc(w)}</div>`).join('')}</details>`; }
 async function loadQs(s){
   try{
@@ -191,9 +194,9 @@ async function loadQs(s){
     Object.keys(d.items||{}).forEach(n=>{ const a=d.items[n]&&d.items[n].ans; if(a!=null&&a!=='') ANS[n]=Array.isArray(a)?a.join(', '):String(a); });
     if(d.bank && typeof d.bank==='object'){
       STYLE='gq'; BANK=d.bank; const ids=[...new Set(Object.values(d.bank))];
-      const g=ids.length?await sb('/gbank_items?select=id,html,pid,ans&id=in.('+ids.join(',')+')'):[];
+      const g=ids.length?await sb('/gbank_items?select=id,html,pid,ans,good,bad&id=in.('+ids.join(',')+')'):[];
       const by={}; g.forEach(x=>by[x.id]=x);
-      Object.keys(d.bank).forEach(n=>{ const x=by[d.bank[n]]; if(x&&ANS[n]==null) ANS[n]=String(x.ans); if(x) QS[n]={ html:x.html.replace(new RegExp('<span class="cn" data-d="'+x.ans+'">'),'<span class="cn ok" data-d="'+x.ans+'">'), pid:x.pid }; });
+      Object.keys(d.bank).forEach(n=>{ const x=by[d.bank[n]]; if(x&&ANS[n]==null) ANS[n]=String(x.ans); if(x&&(x.good||(x.bad&&x.bad.length))) EXPL[n]={ bank:1, good:x.good||'', bad:x.bad||[] }; if(x) QS[n]={ html:x.html.replace(new RegExp('<span class="cn" data-d="'+x.ans+'">'),'<span class="cn ok" data-d="'+x.ans+'">'), pid:x.pid }; });
       const pids=[...new Set(g.map(x=>x.pid).filter(Boolean))];
       if(pids.length){ (await sb('/gbank_passages?select=pid,html&pid=in.('+pids.map(p=>'"'+p+'"').join(',')+')')).forEach(p=>QP[p.pid]=p.html); }
     }else{
@@ -255,9 +258,9 @@ document.addEventListener('click', e=>{
   if(x){ const [q,i]=x.dataset.ru.split('|'); (REUSE[q]||[]).splice(Number(i),1); const el=document.querySelector('[data-reuse="'+q+'"]'); if(el) el.outerHTML=reuseHtml(q); }
 });
 async function loadQa(){
-  try{ QA=await sb('/hwork_qa?select=id,q,who,name,body,mine,at,read_at,files:hwork_reply_files(id,name,size,mime,path)&sub_id=eq.'+SUB.id+'&order=id'); }
+  try{ QA=await sb('/hwork_qa?select=id,q,who,name,body,mine,at,read_at,edited_at,files:hwork_reply_files(id,name,size,mime,path)&sub_id=eq.'+SUB.id+'&order=id'); }
   catch(e){ QA=await sb('/hwork_qa?select=id,q,who,name,body,mine,at,read_at&sub_id=eq.'+SUB.id+'&order=id').catch(()=>[]); }
-  QA.forEach(m=>{ m.read=!!m.read_at; m.at=kst(m.at); });
+  QA.forEach(m=>{ m.read=!!m.read_at; m.at=kst(m.at); if(m.edited_at) m.edited=kst(m.edited_at); });
 }
 function nowKst(){ return kst(new Date().toISOString()); }
 /* 선생님 확인 · 과제 검사 완료 (리포트 074) — 학생 화면에 ♥ 표시, 다음에 들어오면 하트 팝업 */
@@ -298,12 +301,15 @@ async function alimReady(){
   catch(e){ ALIM.ready=false; ALIM.todo=false; }
   draw();
 }
+function waitQs(){ return CTX?RV.waitQs(CTX):[]; }   // 마지막 글이 학생인 질문 — 다 답해야 답장 알림톡이 열린다 (2026-11-19 원장님)
+function showWait(){ RV.setFilter($('view'), '답장 필요'); const t=document.querySelector('.rv2 .flt'); if(t) t.scrollIntoView({ behavior:'smooth', block:'start' }); }
 function lastReplyId(){ return QA.filter(m=>m.who==='선생님').reduce((a,m)=>Math.max(a,Number(m.id)||0),0); }
 /* 과제 미완료 — 1차 오답 중 클리어·선생님께 넘김(도움·신고) 아닌 문항이 남았을 때 */
 function todoQs(){ const rv=SUB.review||{};
   return Object.keys(SUB.detail||{}).filter(q=>{ const d=SUB.detail[q]||{}, r=rv[q]||{}; return d.ok===false && d.type!=='essay' && !(r.cleared_at||r.help||r.error); }).sort((a,b)=>a-b); }
 async function alimSend(kind){   // kind: hwork_reply(답장 안내 — 과제마다 마지막 답장 기준 한 번) · hwork_todo(과제 미완료 — 하루 한 번)
   const reply=kind==='hwork_reply', last=lastReplyId();
+  if(reply && waitQs().length){ toast('답장 필요한 질문 '+waitQs().join(', ')+'번을 먼저 처리해 주세요'); return; }
   if(reply && !last){ toast('먼저 답장을 보내 주세요'); return; }
   const b=document.getElementById(reply?'alimBtn':'todoBtn'); const label=b?b.textContent:''; if(b){ b.disabled=true; b.textContent='보내는 중…'; }
   try{
@@ -334,8 +340,9 @@ function checkHtml(){
     :'<div class="m">답장이 필요 없는 문항은 카드 안 [잘 고쳤습니다]를 누르거나, 여기서 한 번에 검사를 마치세요. 학생이 다음에 들어오면 하트가 팡팡 터지는 팝업이 떠요.</div>'}
     <div class="row2"><input id="chkNote" maxlength="200" placeholder="학생에게 한마디 (선택) — 예: 오답 이유를 잘 적었어요!" value="${esc(d&&d.note||'')}"><button type="button" onclick="checkAll()">${d?'한마디 바꿔 다시 보내기 ♥':'과제 검사 완료 · 하트 보내기 ♥'}</button></div>
     ${fixedQs().length?`<div class="row2"><button type="button" class="soft" onclick="checkFixed()">클리어한 ${fixedQs().join(', ')}번 모두 잘 고쳤습니다 ♥</button></div>`:''}
-    ${lastReplyId()?`<div class="row2 al"><button type="button" class="alim" id="alimBtn" onclick="alimSendReply()" ${ALIM.ready===false?'disabled':''}>학생에게 답장 알림톡 보내기</button>
-      <span class="m">${ALIM.ready===false?'알림톡 템플릿이 아직 준비 전이에요(솔라피 심사 중).':ALIM.sent?'보냄 · '+esc(ALIM.sent.slice(5,16))+' — 새 답장을 단 뒤에 다시 보낼 수 있어요':'답장을 다 단 뒤 한 번 보내 주세요. 과제마다 한 번, 학생 휴대폰으로 가요.'}</span></div>`:''}
+    ${waitQs().length?`<div class="row2 al"><button type="button" class="wait" id="waitBtn" onclick="showWait()">답장 필요한 질문 ${waitQs().length}개만 보기</button><span class="m">${waitQs().join(', ')}번 — 답장하거나 [잘 고쳤습니다]를 누르면 아래 답장 알림톡 버튼이 열립니다.</span></div>`:''}
+    ${lastReplyId()||waitQs().length?`<div class="row2 al"><button type="button" class="alim" id="alimBtn" onclick="alimSendReply()" ${ALIM.ready===false||waitQs().length?'disabled':''}>학생에게 답장 알림톡 보내기</button>
+      <span class="m">${ALIM.ready===false?'알림톡 템플릿이 아직 준비 전이에요(솔라피 심사 중).':waitQs().length?'답장 필요한 질문 '+waitQs().length+'개에 답장하거나 [잘 고쳤습니다]를 누르면 보낼 수 있어요.':ALIM.sent?'보냄 · '+esc(ALIM.sent.slice(5,16))+' — 새 답장을 단 뒤에 다시 보낼 수 있어요':'답장을 다 단 뒤 한 번 보내 주세요. 과제마다 한 번, 학생 휴대폰으로 가요.'}</span></div>`:''}
     ${todoQs().length&&!SUB.review_at?`<div class="row2 al"><button type="button" class="alim todo" id="todoBtn" onclick="alimSend('hwork_todo')" ${ALIM.todo===false?'disabled':''}>과제 미완료 알림톡 보내기</button>
       <span class="m">${ALIM.todo===false?'알림톡 템플릿이 아직 준비 전이에요(솔라피 심사 중).':'아직 오답하기 안 한 문항 '+todoQs().join(', ')+'번 — '+(ALIM.tsent?'오늘 보냄 · '+esc(ALIM.tsent.slice(11,16)):"'선생님이 기다리고 있어요' 알림톡이 학생에게 가요(하루 한 번).")}</span></div>`:''}</section>`;
 }
@@ -423,6 +430,49 @@ async function reply(q){
   }catch(e){ toast('보내지 못했어요. 다시 눌러 주세요'); btn.disabled=false; btn.textContent='답장 보내기'; }
 }
 document.addEventListener('click', e=>{ const b=e.target.closest&&e.target.closest('[data-send]'); if(b) reply(b.dataset.send); });
+/* 답장 수정·지우기 (2026-11-20 원장님 — 잘못 붙여 넣은 답장을 고치거나 지움, 리포트 089).
+   고치면 학생 화면에 다시 '새' 표시가 붙고(read_at 비움), 지우면 그 문항이 다시 '답장 필요'가 되며 슈톡 할 일도 '대기'로 돌아간다(트리거). */
+const EDIT={};   // 고치는 중인 답장 id → 쓰던 글
+function msgEditHtml(m){
+  if(m.who!=='선생님' || !(m.id in EDIT)) return null;
+  return `<textarea class="edt" data-edt="${m.id}" maxlength="5000">${esc(EDIT[m.id])}</textarea>`;
+}
+function msgToolsHtml(m){
+  if(m.who!=='선생님') return '';
+  const ed=m.edited?`<span class="ed">수정됨 ${esc(String(m.edited).slice(5,16))}</span>`:'';
+  if(m.id in EDIT) return `<div class="mt"><button type="button" data-edsave="${m.id}">저장</button><button type="button" data-edcancel="${m.id}">취소</button></div>`;
+  return `<div class="mt">${ed}<button type="button" data-edit="${m.id}">수정</button><button type="button" class="del" data-qdel="${m.id}">지우기</button></div>`;
+}
+document.addEventListener('input', e=>{ const t=e.target; if(t&&t.dataset&&t.dataset.edt) EDIT[t.dataset.edt]=t.value; });
+document.addEventListener('click', async e=>{
+  const g=k=>e.target.closest&&e.target.closest('['+k+']'); let b;
+  if((b=g('data-edit'))){ const m=QA.find(x=>String(x.id)===b.dataset.edit); if(!m) return;
+    EDIT[m.id]=m.body===FILE_ONLY?'':m.body; draw();
+    const t=document.querySelector('textarea[data-edt="'+m.id+'"]'); if(t){ t.focus(); t.setSelectionRange(t.value.length,t.value.length); } return; }
+  if((b=g('data-edcancel'))){ delete EDIT[b.dataset.edcancel]; draw(); return; }
+  if((b=g('data-edsave'))){ const id=b.dataset.edsave, m=QA.find(x=>String(x.id)===id); if(!m) return;
+    let body=String(EDIT[id]||'').trim();
+    if(!body){ if((m.files||[]).length) body=FILE_ONLY; else { toast('글을 비우려면 [지우기]를 눌러 주세요'); return; } }
+    if(body===m.body){ delete EDIT[id]; draw(); return; }
+    b.disabled=true; b.textContent='저장 중…';
+    try{
+      await sb('/hwork_qa?id=eq.'+id+'&who=eq.'+enc('선생님'),{ method:'PATCH', headers:{ Prefer:'return=minimal' }, body:JSON.stringify({ body, edited_at:new Date().toISOString(), read_at:null }) });
+      delete EDIT[id]; toast('답장을 고쳤어요');
+      if(window.shuegukActivity) shuegukActivity('H WORK', '답장 수정', SUB.name+' '+m.q+'번', SUB.code, false);
+      await loadQa(); draw();
+    }catch(err){ toast('고치지 못했어요. 다시 눌러 주세요'); b.disabled=false; b.textContent='저장'; }
+    return; }
+  if((b=g('data-qdel'))){ const id=b.dataset.qdel, m=QA.find(x=>String(x.id)===id); if(!m) return;
+    if(!confirm(m.q+'번 문항에 보낸 이 답장을 지울까요?\n학생 화면에서도 사라지고, 되돌릴 수 없습니다.')) return;
+    b.disabled=true;
+    try{
+      await sb('/hwork_qa?id=eq.'+id+'&who=eq.'+enc('선생님'),{ method:'DELETE', headers:{ Prefer:'return=minimal' } });
+      delete EDIT[id]; toast('답장을 지웠어요');
+      if(window.shuegukActivity) shuegukActivity('H WORK', '답장 지움', SUB.name+' '+m.q+'번', SUB.code, false);
+      await loadQa(); loadPrev(); draw();
+    }catch(err){ toast('지우지 못했어요. 다시 눌러 주세요'); b.disabled=false; }
+  }
+});
 async function markRead(q){
   const mine=QA.filter(m=>String(m.q)===String(q)&&m.who==='학생'&&!m.read), ids=mine.map(m=>m.id); if(!ids.length) return;
   mine.forEach(m=>{ m.read=true; });
@@ -486,6 +536,8 @@ function draw(){
         composer:q=>(('checked' in SUB)?`<div class="qchk">${(SUB.checked||{})[q]?`<span class="on">♥ ${esc(SUB.checked[q].by)} 선생님 확인 · ${esc(String(SUB.checked[q].at).slice(5,16))}</span><button type="button" class="un" onclick="checkQ('${q}',false)">확인 취소</button>`:`<button type="button" onclick="checkQ('${q}',true)">잘 고쳤습니다 ♥</button>`}</div>`:'')+`<div class="cmp"><span class="lab">학생에게 답장</span>${prevHtml(q)}<textarea data-rin="${q}" maxlength="5000" placeholder="답장을 적어 주세요. 학생 화면 이 문항에 바로 보입니다. 사진은 Ctrl+V 로 붙여 넣어도 돼요.">${esc(keep[q]||'')}</textarea>${reuseHtml(q)}${attHtml(q)}<button type="button" class="go" data-send="${q}">답장 보내기</button></div>`,
         expl:q=>explHtml(q),
         files:f=>fsHtml(f),
+        msgEdit:m=>msgEditHtml(m),
+        msgTools:m=>msgToolsHtml(m),
         opened:q=>markRead(q),
         after:()=>fThumbs()
       } };
@@ -497,7 +549,7 @@ function draw(){
   Object.keys(keep).forEach(q=>{ const t=document.querySelector('textarea[data-rin="'+q+'"]'); if(t) t.value=keep[q]; });
 }
 async function boot(){
-  myName().then(n=>{ if(n) document.getElementById('backList').href='https://coke4497-sys.github.io/shueguk-h-work/hwork_teacher.html?t='+enc(n); });
+  if(!(window.HWT && HWT.t)) myName().then(n=>{ if(n) document.getElementById('backList').href='https://coke4497-sys.github.io/shueguk-h-work/hwork_teacher.html?t='+enc(n); });
   if(!SID || !/^\d{1,18}$/.test(SID)) return waitList();
   try{ SUB=(await sb('/hwork_submissions?select=*&id=eq.'+SID))[0]; }catch(e){}
   if(!SUB){ $('view').innerHTML='<div class="wl"><p>제출 기록을 찾지 못했습니다.</p></div>'; return; }
@@ -515,9 +567,9 @@ async function waitList(){
   let rows=[];
   try{ rows=await sb('/hwork_qa?select=sub_id,q,who,body,at,s:hwork_submissions(name,school,grade,code,teacher)&order=id.desc&limit=2000'); }catch(e){}
   const seen=new Set(), wait=[];
-  rows.forEach(r=>{ const k=r.sub_id+'|'+r.q; if(seen.has(k)) return; seen.add(k); if(r.who==='학생'&&r.s) wait.push(r); });
+  rows.forEach(r=>{ const k=r.sub_id+'|'+r.q; if(seen.has(k)) return; seen.add(k); if(r.who==='학생'&&r.s&&(!window.HWT||HWT.mine(r.s.teacher))) wait.push(r); });
   $('view').innerHTML=`<div class="wl"><h1>답장을 기다리는 H WORK 질문</h1><p>학생 질문은 슈톡 업무 카드로 알려 드려요. 줄을 누르면 그 학생의 채점 결과 화면에서 바로 답할 수 있어요.</p>
-    ${wait.length?wait.map(r=>`<a class="row" href="?sid=${r.sub_id}&q=${enc(r.q)}"><b>${esc(r.s.name)}</b> · ${esc(r.q)}번<small>${esc(r.s.code)} · ${esc(r.s.teacher)} · ${esc(kst(r.at))}</small>${esc(r.body)}</a>`).join(''):'<p>답장을 기다리는 질문이 없습니다.</p>'}</div>`;
+    ${wait.length?wait.map(r=>`<a class="row" href="?sid=${r.sub_id}&q=${enc(r.q)}${window.HWT&&HWT.t?'&t='+enc(HWT.t):''}"><b>${esc(r.s.name)}</b> · ${esc(r.q)}번<small>${esc(r.s.code)} · ${esc(r.s.teacher)} · ${esc(kst(r.at))}</small>${esc(r.body)}</a>`).join(''):'<p>답장을 기다리는 질문이 없습니다.</p>'}</div>`;
 }
 boot();
 </script>
