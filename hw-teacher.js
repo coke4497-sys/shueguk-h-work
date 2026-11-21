@@ -5,6 +5,7 @@
 (function(){
   var t = '';
   try { t = (new URLSearchParams(location.search).get('t') || '').trim().slice(0, 40); } catch(e){}
+  var tn = /(선생님|대표님)$/.test(t) ? t : t + ' 선생님';   // '박언호대표님'에는 '선생님'을 붙이지 않는다
   var HUB = 'https://coke4497-sys.github.io/shueguk-hub/hwork.html';
   function withT(url){
     if (!t || !url) return url;
@@ -21,7 +22,7 @@
     b.className = 'hwt-badge';
     b.style.cssText = 'margin-top:6px;font-size:.8rem;color:#6B5B7B;';
     b.innerHTML = '';
-    b.appendChild(document.createTextNode(t + ' 선생님의 H WORK입니다. 다른 선생님은 '));
+    b.appendChild(document.createTextNode(tn + '의 H WORK입니다. 다른 선생님은 '));
     var a = document.createElement('a'); a.href = HUB; a.textContent = 'H WORK 메뉴'; a.style.color = '#6B5B7B';
     b.appendChild(a); b.appendChild(document.createTextNode('에서 고르세요.'));
     el.parentNode.insertBefore(b, el.nextSibling);
@@ -38,7 +39,7 @@
       el.value = t; el.readOnly = true;
     }
     el.disabled = el.tagName === 'SELECT';
-    el.title = t + ' 선생님의 H WORK — 다른 선생님은 H WORK 메뉴에서 고르세요';
+    el.title = tn + '의 H WORK — 다른 선생님은 H WORK 메뉴에서 고르세요';
     badge(el);
     return true;
   }
@@ -54,7 +55,7 @@
     if (tg && !tg.querySelector('.hwt-pill')){
       var p = document.createElement('span'); p.className = 'hwt-pill';
       p.style.cssText = 'display:inline-block;margin-left:8px;padding:2px 10px;border-radius:999px;background:#EDE4F4;color:#6B5B7B;font:600 .78rem "Gowun Dodum",sans-serif;vertical-align:middle;';
-      p.textContent = t + ' 선생님'; tg.appendChild(p);
+      p.textContent = tn; tg.appendChild(p);
     }
     var as = document.querySelectorAll('a[href]');
     for (var i = 0; i < as.length; i++){ var h = as[i].getAttribute('href'); var n = withT(h); if (n !== h) as[i].setAttribute('href', n); }
