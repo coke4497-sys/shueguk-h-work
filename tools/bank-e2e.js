@@ -117,6 +117,15 @@ function rpc(fn, p) {
   const serr = []; s.on('pageerror', e => serr.push(e.message));
   await s.goto(U + 'hwork.html?c=' + encodeURIComponent('[모의고사 문법] 음운 1회') + '&t=' + encodeURIComponent('이현지') + '&nm=' + encodeURIComponent('김철수') + '&sc=' + encodeURIComponent('화정고') + '&gr=' + encodeURIComponent('고1'));
   await s.waitForSelector('#dndBox'); await s.click('.dnd-go');
+  // 빠른 제출이 기본 — 문제·지문은 숨고 답 칸만 (2026-11-21)
+  ok(await s.locator('#qmode button.on').getAttribute('data-qm') === 'fast', '처음엔 빠른 제출');
+  ok(await s.locator('#q1 .gq .stem').isHidden() && await s.locator('#qwrap .gqp').isHidden() && await s.locator('#q1 .choices').isVisible(), '빠른 제출 — 문제·지문 숨김, 답 칸은 보임');
+  ok(!(await s.locator('#q1').getAttribute('class')).includes('bank'), '빠른 제출 — 카드는 답안표 모양');
+  await s.click('#q1 .choices button:nth-child(4)');
+  await s.click('#qmode [data-qm="paper"]');
+  ok(await s.locator('#q1 .choices button:nth-child(4)').evaluate(e => e.classList.contains('sel')), '문제지 입력으로 바꿔도 고른 답 그대로');
+  await s.click('#q1 .choices button:nth-child(4)');
+  ok(await s.evaluate(() => localStorage.getItem('hw_qmode')) === 'paper', '고른 방식을 이 기기에 기억');
   ok(await s.locator('#qwrap .gqp').count() === 1, '지문 한 번');
   ok((await s.locator('#qwrap .gqp .prng').textContent()) === '[1~2]', '지문 범위 [1~2]');
   ok(await s.locator('#q1 .gq .stem').isVisible(), '문항 1 문제 글이 보임');
@@ -279,6 +288,7 @@ function rpc(fn, p) {
   const rs = await rctx.newPage(); const rdlg = []; rs.on('dialog', d => { rdlg.push(d.message()); d.accept(); }); const rerr = []; rs.on('pageerror', e => rerr.push(e.message));
   await rs.goto(U + 'hwork.html?c=' + encodeURIComponent('[모의고사 문법] 음운 1회') + '&t=' + encodeURIComponent('이현지') + '&nm=' + encodeURIComponent('김철수') + '&sc=' + encodeURIComponent('화정고') + '&gr=' + encodeURIComponent('고1'));
   await rs.waitForSelector('#dndBox'); await rs.click('.dnd-go');
+  if (await rs.locator('#qmode [data-qm="paper"]').count()) await rs.click('#qmode [data-qm="paper"]');
   ok(await rs.locator('#qwrap .gqp .rq').count() === 1 && (await rs.locator('#qwrap .gqp .prng').textContent()) === '[1~2]', '교재 — 지문 한 번 [1~2]');
   ok(await rs.locator('#q1 .rq .stem').isVisible() && await rs.locator('#q1 .gq').count() === 0, '교재 — 문제가 교재 모양(.rq)');
   ok(await rs.locator('#q1 .rq .bogi .bl').isVisible(), '교재 — 〈보기〉 상자');
