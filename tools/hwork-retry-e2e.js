@@ -225,6 +225,7 @@ function rpc(fn, p) {
 
   // ── 교사 화면 ──
   const tp = await b.newPage({ viewport: { width: 1100, height: 900 } });
+  await tp.addInitScript(() => { try { localStorage.setItem('shueguk_teacher_session_v2', JSON.stringify({ access_token: 'T', refresh_token: 'R', expires_at: Math.floor(Date.now() / 1000) + 3600 })); } catch (e) {} });   // 허브 개인 로그인(2026-11-22 공용 교사 계정 폐지)
   const R = FIRST;
   const sub = [
     { id: 41, ts: '2026-11-11 15:00', teacher: '이수경', code: 'T세트', school: '무원고등학교', grade: '고2', name: '박보검', got: 2, total: 4, questions: {},

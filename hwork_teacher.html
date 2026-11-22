@@ -237,20 +237,26 @@
   let sbTok = null, sbUntil = 0;
   async function sbAuth(){
     if (sbTok && Date.now() < sbUntil) return sbTok;
-    try {
-      const c = JSON.parse(localStorage.getItem(T_LS) || 'null');
-      if (c && c.t && c.u > Date.now()){ sbTok = c.t; sbUntil = c.u; return sbTok; }
-    } catch(e){}
-    const r = await fetch(SB_URL + '/auth/v1/token?grant_type=password', {
-      method: 'POST',
-      headers: { 'apikey': SB_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: 'teachers@shueguk.internal', password: 'shg_FCePWvnawH44SV8kYB9BHRKi6aag' })
-    });
-    const d = await r.json();
-    if (!d || !d.access_token) throw new Error('teacher auth');
-    sbTok = d.access_token;
-    sbUntil = Date.now() + Math.max(60, (d.expires_in || 3600) - 300) * 1000;
-    try { localStorage.setItem(T_LS, JSON.stringify({ t: sbTok, u: sbUntil })); } catch(e){}
+    // 허브 개인 로그인 (2026-11-22 공용 교사 계정 폐지 — 누가 했는지 남기려고)
+    let ps = null;
+    try { ps = JSON.parse(localStorage.getItem('shueguk_teacher_session_v2') || 'null'); } catch(e){}
+    if (!ps || !ps.access_token) throw new Error('no personal login');
+    const now = Math.floor(Date.now() / 1000);
+    if (ps.refresh_token && Number(ps.expires_at) <= now + 90){
+      try {
+        const r = await fetch(SB_URL + '/auth/v1/token?grant_type=refresh_token', {
+          method: 'POST', headers: { 'apikey': SB_KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refresh_token: ps.refresh_token }) });
+        const d = await r.json();
+        if (d && d.access_token){
+          ps = { access_token: d.access_token, refresh_token: d.refresh_token || ps.refresh_token,
+                 expires_at: Number(d.expires_at || (now + Number(d.expires_in || 3600))), user: d.user || ps.user || null };
+          try { localStorage.setItem('shueguk_teacher_session_v2', JSON.stringify(ps)); } catch(e){}
+        }
+      } catch(e){}
+    }
+    sbTok = ps.access_token;
+    sbUntil = Math.min(Number(ps.expires_at) * 1000 - 90000, Date.now() + 3600000);
     return sbTok;
   }
   async function sbGet(path){
