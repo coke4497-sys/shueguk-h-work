@@ -117,6 +117,15 @@ function rpc(fn, p) {
   const serr = []; s.on('pageerror', e => serr.push(e.message));
   await s.goto(U + 'hwork.html?c=' + encodeURIComponent('[모의고사 문법] 음운 1회') + '&t=' + encodeURIComponent('이현지') + '&nm=' + encodeURIComponent('김철수') + '&sc=' + encodeURIComponent('화정고') + '&gr=' + encodeURIComponent('고1'));
   await s.waitForSelector('#dndBox'); await s.click('.dnd-go');
+  // 빠른 제출이 기본 — 문제·지문은 숨고 답 칸만 (2026-11-21)
+  ok(await s.locator('#qmode button.on').getAttribute('data-qm') === 'fast', '처음엔 빠른 제출');
+  ok(await s.locator('#q1 .gq .stem').isHidden() && await s.locator('#qwrap .gqp').isHidden() && await s.locator('#q1 .choices').isVisible(), '빠른 제출 — 문제·지문 숨김, 답 칸은 보임');
+  ok(!(await s.locator('#q1').getAttribute('class')).includes('bank'), '빠른 제출 — 카드는 답안표 모양');
+  await s.click('#q1 .choices button:nth-child(4)');
+  await s.click('#qmode [data-qm="paper"]');
+  ok(await s.locator('#q1 .choices button:nth-child(4)').evaluate(e => e.classList.contains('sel')), '문제지 입력으로 바꿔도 고른 답 그대로');
+  await s.click('#q1 .choices button:nth-child(4)');
+  ok(await s.evaluate(() => localStorage.getItem('hw_qmode')) === 'paper', '고른 방식을 이 기기에 기억');
   ok(await s.locator('#qwrap .gqp').count() === 1, '지문 한 번');
   ok((await s.locator('#qwrap .gqp .prng').textContent()) === '[1~2]', '지문 범위 [1~2]');
   ok(await s.locator('#q1 .gq .stem').isVisible(), '문항 1 문제 글이 보임');
@@ -271,6 +280,21 @@ function rpc(fn, p) {
   DB.qa.push({ id: 2, sub_id: 56, q: '1', who: '학생', name: '이영희', body: '대기 질문', mine: '2', at: '2026-11-17T05:00:00Z', read_at: null, s: Object.assign({}, sub, { id: 56, name: '이영희' }) });
   const tl = await ctx.newPage(); await tl.goto(U + 'hwork_result.html'); await tl.waitForSelector('.wl');
   ok(await tl.locator('.wl a.row').count() === 1 && (await tl.locator('.wl a.row').getAttribute('href')) === '?sid=56&q=1', '목록 — 마지막 글이 학생인 질문만');
+  // 수업에서 처리 · 완료 (2026-11-21) — 목록에서 바로: 1차 오답이면 클리어(via class)·선생님 확인·답장
+  const keepSub = DB.sub; DB.sub = { id: 56, name: '이영희', code: '음운 1회', detail: { '1': { ok: false, type: 'choice5', mine: '2', ans: '1' }, '2': { ok: false, type: 'choice5', mine: '3', ans: '4' } }, review: {}, review_at: null, checked: {} };
+  DB.subPatch = []; const qaBefore = DB.calls.filter(c => c.fn === 'qa-post').length;
+  await tl.click('.wl .wrow .cls'); await tl.waitForFunction(() => !document.querySelector('.wl .wrow'));
+  const cp = DB.subPatch[0], qp = DB.calls.filter(c => c.fn === 'qa-post').slice(qaBefore);
+  ok(cp && cp.review['1'].cleared_at && cp.review['1'].via === 'class' && cp.review['1'].class_by === '이현지' && cp.checked['1'].by === '이현지' && !cp.review['2'] && !cp.review_at, '목록 [수업에서 처리 · 완료] — 1번만 클리어(via class)·확인, 2번이 남아 review_at 없음');
+  ok(qp.length === 1 && qp[0].r[0].q === '1' && qp[0].r[0].who === '선생님' && qp[0].r[0].body.includes('수업 시간에'), '목록 [수업에서 처리 · 완료] — 「수업 시간에 직접 설명했어요.」 답장');
+  ok((await tl.textContent('.wl')).includes('답장을 기다리는 질문이 없습니다'), '처리한 줄은 목록에서 빠짐');
+  // 결과 화면 카드에서 — 남은 2번도 처리하면 오답하기 끝냄(review_at)
+  DB.subPatch = [];
+  const tc = await ctx.newPage(); await tc.goto(U + 'hwork_result.html?sid=56&q=2'); await tc.waitForSelector('#rvq2 .qchk .cls');
+  await tc.click('#rvq2 .qchk .cls'); await tc.waitForFunction(() => !document.querySelector('#rvq2 .qchk .cls'));
+  const cp2 = DB.subPatch[0];
+  ok(cp2 && cp2.review['2'].via === 'class' && cp2.review['1'].via === 'class' && cp2.review_at && (await tc.textContent('#rvq2')).includes('수업에서 확인'), '결과 화면 카드 [수업에서 처리 · 완료] — 남은 오답이 없으면 review_at · 카드에 「클리어 · 수업에서 확인」');
+  await tc.close(); DB.sub = keepSub;
 
   // ── 4. 이미 낸 교재 과제(SHUEGUK REAL, 068) — 같은 화면이 교재 모양(.rq)으로 ──
   RS_MODE = true; S.review = {}; S.msgs = [];
@@ -279,6 +303,7 @@ function rpc(fn, p) {
   const rs = await rctx.newPage(); const rdlg = []; rs.on('dialog', d => { rdlg.push(d.message()); d.accept(); }); const rerr = []; rs.on('pageerror', e => rerr.push(e.message));
   await rs.goto(U + 'hwork.html?c=' + encodeURIComponent('[모의고사 문법] 음운 1회') + '&t=' + encodeURIComponent('이현지') + '&nm=' + encodeURIComponent('김철수') + '&sc=' + encodeURIComponent('화정고') + '&gr=' + encodeURIComponent('고1'));
   await rs.waitForSelector('#dndBox'); await rs.click('.dnd-go');
+  if (await rs.locator('#qmode [data-qm="paper"]').count()) await rs.click('#qmode [data-qm="paper"]');
   ok(await rs.locator('#qwrap .gqp .rq').count() === 1 && (await rs.locator('#qwrap .gqp .prng').textContent()) === '[1~2]', '교재 — 지문 한 번 [1~2]');
   ok(await rs.locator('#q1 .rq .stem').isVisible() && await rs.locator('#q1 .gq').count() === 0, '교재 — 문제가 교재 모양(.rq)');
   ok(await rs.locator('#q1 .rq .bogi .bl').isVisible(), '교재 — 〈보기〉 상자');

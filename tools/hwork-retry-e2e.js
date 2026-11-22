@@ -250,15 +250,16 @@ function rpc(fn, p) {
     if (u.endsWith('/rest/v1/hwork_qa') && rt.request().method() === 'POST') { QAPOST.push(JSON.parse(rt.request().postData())); return rt.fulfill({ status: 201, body: '' }); }
     if (u.includes('/rest/v1/hwork_qa?select=id,sub_id,q,who')) return rt.fulfill({ json: (q => (q.get('offset') && q.get('offset') !== '0') ? [] : [
       { id: 1, sub_id: 41, q: '3', who: '학생' }, { id: 2, sub_id: 41, q: '3', who: '선생님' }, { id: 3, sub_id: 42, q: '2', who: '학생' }])(new URL(u).searchParams) });
+    if (u.includes('/rest/v1/hwork_qa?select=q,who')) { const sid = new URL(u).searchParams.get('sub_id'); return rt.fulfill({ json: [{ sub_id: 41, q: '3', who: '학생' }, { sub_id: 41, q: '3', who: '선생님' }, { sub_id: 42, q: '2', who: '학생' }].filter(m => 'eq.' + m.sub_id === sid) }); }
     if (/\/rest\/v1\/(hwork_qa|hwork_homeworks|hwork_retests|hwork_src_items|hwork_src_passages|students)/.test(u)) return rt.fulfill({ json: [] });
     if (u.endsWith('.js')) return rt.fulfill({ body: '', contentType: 'text/javascript' });
     return rt.fulfill({ json: { ok: true, list: [] } });
   });
   await tp.goto('http://localhost:' + PORT + '/hwork_teacher.html?t=' + encodeURIComponent('이수경')); await tp.waitForTimeout(700);
-  ok((await tp.getAttribute('a.tomenu', 'href') || '').endsWith('shueguk-hub/hwork.html'), '상위 메뉴(H WORK 메뉴)로 가는 링크');
+  ok((await tp.getAttribute('a.tomenu', 'href') || '').includes('shueguk-hub/hwork.html?t=' + encodeURIComponent('이수경')), '상위 메뉴(그 선생님의 H WORK 메뉴)로 가는 링크');
   ok((await tp.inputValue('#fTeacher')) === '이수경', '주소 ?t= 로 열면 그 강사가 골라진 목록 (결과 화면 돌아가기)');
   ok(await tp.locator('#listBody tr.chkd:has-text("박보검")').count() === 1 && await tp.locator('#listBody tr.chkd:has-text("정해인")').count() === 0 && (await tp.textContent('#listBody tr:has-text("박보검")')).includes('♥ 검사 완료'), '과제 검사 완료한 줄만 색 · ♥ 검사 완료');
-  await tp.selectOption('#fTeacher', '이수경'); await tp.waitForTimeout(200);
+  ok(await tp.isDisabled('#fTeacher') && (await tp.textContent('.hwt-badge')).includes('이수경 선생님의 H WORK'), '선생님 카드로 열면 강사 칸 고정 (2026-11-21)');
   // 목록 가독성 — 답장 필요 맨 위·상태 알약·거르기·제목 두 줄 (2026-11-17)
   ok((await tp.textContent('#listBody tr.r >> nth=0')).includes('정해인') && (await tp.textContent('#listBody tr:has-text("정해인") .stp')).includes('답장 필요 1') && await tp.locator('#listBody tr.needr').count() === 1, '답장 필요한 제출이 맨 위 · 답장 필요 1');
   ok((await tp.textContent('#listBody tr:has-text("박보검")')).includes('질문 1 · 모두 답함'), '답장을 다 한 제출: 질문 1 · 모두 답함');
@@ -279,6 +280,9 @@ function rpc(fn, p) {
   await tp.click('#listBody tr:has-text("정해인") .inclass'); await tp.waitForTimeout(400);
   ok(QAPOST.length === 1 && QAPOST[0][0].sub_id === 42 && QAPOST[0][0].q === '2' && QAPOST[0][0].who === '선생님' && QAPOST[0][0].name === '이수경' && QAPOST[0][0].body.includes('수업 시간에'), '수업에서 처리: 답장 한 줄 POST');
   ok(await tp.locator('#listBody tr.needr').count() === 0 && (await tp.textContent('#listBody tr:has-text("정해인")')).includes('모두 답함'), '수업에서 처리 뒤 답장 필요에서 빠짐');
+  const pc = PATCHES.find(x => x.id === 'eq.42');
+  ok(pc && !pc.body.review['2'] && pc.body.checked['2'].by === '이수경' && !pc.body.review_at, '수업에서 처리: 서술형 2번은 클리어 없이 선생님 확인만 · 남은 오답이 있어 review_at 은 그대로 (2026-11-21)');
+  PATCHES.length = 0;
   ok((await tp.textContent('#listTbl thead')).includes('상태') && !(await tp.textContent('#listTbl thead')).includes('강사'), '첫 열 = 상태');
   // 검사 대기 한꺼번에 (2026-11-20)
   sub.push({ id: 43, ts: '2026-11-13 10:00', teacher: '이수경', code: 'T세트', school: '무원고등학교', grade: '고2', name: '송강', got: 4, total: 4, questions: {}, retry_got: 4, retry_at: null, review_at: null, detail: { '1': { ok: true }, '2': { ok: true }, '3': { ok: true }, '4': { ok: true } }, review: null, checked: { '2': { at: '2026-11-13 11:00', by: '김현지' } } });

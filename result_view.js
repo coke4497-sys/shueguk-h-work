@@ -175,7 +175,7 @@
     const d=c.detail[q]||{}, r=(c.review||{})[q]||{}, tries=r.tries||[];
     if(d.type==='essay') return { k:'essay', label:'서술형 · 예시 답과 비교', bg:'#f1f4f1', fg:'#54655c', nb:'#f1f4f1', nf:'#54655c', bd:'#e3e8e4', tip:'서술형' };
     if(d.ok===true) return { k:'ok', label:'1차 정답', bg:'#dcebe3', fg:'#4b6157', nb:'#8fb3a0', nf:'#fff', bd:'#e3e8e4', tip:'1차 정답' };
-    if(r.cleared_at) return { k:'clr', label:r.via==='qa'?'클리어 · 답장 보고 이해':'클리어 · '+Math.max(1,tries.length)+'번째', bg:'#dcebe3', fg:'#4b6157', nb:'#dcebe3', nf:'#4b6157', bd:'#e3e8e4', tip:'오답하기 클리어' };
+    if(r.cleared_at) return { k:'clr', label:r.via==='qa'?'클리어 · 답장 보고 이해':r.via==='class'?'클리어 · 수업에서 확인':'클리어 · '+Math.max(1,tries.length)+'번째', bg:'#dcebe3', fg:'#4b6157', nb:'#dcebe3', nf:'#4b6157', bd:'#e3e8e4', tip:'오답하기 클리어' };
     if(r.help||(c.qa||[]).some(m=>String(m.q)===String(q)&&m.who==='학생')) return { k:'help', label:'아직 · 질문함', bg:'#e6def0', fg:'#4a3f63', nb:'#f6e6e9', nf:'#a8434f', bd:'#ecd9dd', tip:'질문함', bar:'#e6def0', barf:'#4a3f63' };
     return { k:'todo', label:c.mode==='student'?'오답하기':'아직 · 오답하기', bg:'#f6e6e9', fg:'#a8434f', nb:'#f6e6e9', nf:'#a8434f', bd:'#ecd9dd', tip:'오답하기 전', bar:'#f6e6e9', barf:'#a8434f' };
   }
