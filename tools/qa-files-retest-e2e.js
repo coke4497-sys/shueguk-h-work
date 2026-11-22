@@ -60,6 +60,7 @@ function rpc(fn, p) {
 (async () => {
   const b = await chromium.launch();
   const ctx = await b.newContext({ viewport: { width: 1300, height: 900 } });
+  await ctx.addInitScript(() => { try { localStorage.setItem('shueguk_teacher_session_v2', JSON.stringify({ access_token: 'T', refresh_token: 'R', expires_at: Math.floor(Date.now() / 1000) + 3600 })); } catch (e) {} });   // 허브 개인 로그인(2026-11-22 공용 교사 계정 폐지)
   await ctx.route('**/*', rt => { const r = rt.request(), u = r.url(); if (u.startsWith(U)) return rt.continue(); return fake(rt, u, r.method(), r.postData()); });
   ctx.on('page', pg => pg.on('dialog', d => d.accept()));
   // ── 1. 선생님 채점 결과 화면 — 문항 카드 안 답장·첨부 ──

@@ -10,6 +10,7 @@
 
 ## Code Review Rules
 
+- 교사 페이지·도구에 공용 교사 계정(teachers@shueguk.internal)의 비밀번호나 password 로그인을 다시 넣으면 P1 — 2026-11-22부터 교사 페이지는 허브 개인 로그인(shueguk_teacher_session_v2), 클로드 도구는 클로슈 계정(CLOSHU_TOKEN 에서 만든 비밀번호)으로만 쓴다. 누가 했는지는 DB 트리거(audit_log)가 남긴다.
 - 교사 페이지는 `<head>` 맨 앞에 허브 로그인 게이트 `<script src="https://coke4497-sys.github.io/shueguk-hub/assets/teacher-gate.js"></script>`를 둡니다(2026-10-12). 새 교사 페이지에 빠졌거나, **학생 페이지·공개 안내문에 들어간** 변경은 지적하세요. 게이트가 window.fetch를 바꾸거나 github.io 밖(로컬)에서 켜지게 하는 변경도 지적하세요.
 - **학생 제출의 원본은 수파베이스**(`hwork_list`/`hwork_meta`/`hwork_submit` RPC, 채점 포함). 성공 시 옛 백엔드에 시트 사본 제출을 뒤에서 보내고, RPC 호출 실패 시에만 옛 경로 폴백. **마감 등 판정으로 거절된 제출은 폴백하지 않습니다.** 거절을 폴백으로 넣는 변경은 지적하세요.
 - 과제(출제·마감·삭제)의 원본은 여전히 시트·백엔드입니다(`hwork_homeworks`는 미러).
