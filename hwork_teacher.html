@@ -184,6 +184,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="hw-teacher.js?v=20261121b"></script><!-- 선생님별 H WORK (?t=) -->
 <script src="class-done.js?v=20261121a"></script><!-- 수업에서 처리 · 완료 -->
+<script src="hw-remind.js?v=20261124a"></script><!-- 과제가 남은 친구에게 독려 알림톡 (2026-11-24) -->
 </head>
 <body>
 
@@ -395,7 +396,7 @@
     document.getElementById('stchips').innerHTML=[['all','전체'],['need','답장 필요'],['ing','오답하기 중'],['wait','검사 대기'],['done','검사 완료']]
       .map(([k,l])=>`<button class="stchip${k==='need'?' need':''}${ST_F===k?' on':''}" onclick="setStF('${k}')">${l}<b>${cnt[k]}</b></button>`).join('')
       +(cnt.wait?`<button class="bulkchk" onclick="bulkCheck()" title="오답하기를 끝낸 제출을 모두 과제 검사 완료로 — 학생에게 하트가 갑니다">검사 대기 ${cnt.wait}건 한 번에 검사 완료 ♥</button>`:'')
-      +`<span class="sortsw"><button class="${SORT==='st'?'on':''}" onclick="setSort('st')">상태별</button><button class="${SORT==='recent'?'on':''}" onclick="setSort('recent')">최근 제출순</button></span>`;
+      +`<button class="hrmbtn" onclick="hwRemindOpen()" title="아직 안 낸 과제·오답하기가 남은 친구에게 H WORK 과제 미완료 알림톡을 보냅니다">과제가 남은 친구에게 알림톡</button>`+`<span class="sortsw"><button class="${SORT==='st'?'on':''}" onclick="setSort('st')">상태별</button><button class="${SORT==='recent'?'on':''}" onclick="setSort('recent')">최근 제출순</button></span>`;
     // 답장 필요 → 오답하기 중 → 검사 대기 → 검사 완료 → 그 밖, 같은 상태 안은 최근 제출 먼저
     const ORD={ need:0, ing:1, wait:2, done:3, sub:4 };
     const recent=(a,b)=>(subMs(b)-subMs(a)) || (Number(b._id||0)-Number(a._id||0));
