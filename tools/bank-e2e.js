@@ -333,6 +333,13 @@ function rpc(fn, p) {
   DB.drafts = [{ id: 1, sub_id: 57, q: '2', after_id: 70, kind: '초안', body: '클로슈가 쓴 답장 초안입니다.', note: '' }];
   const tdr = await ctx.newPage(); await tdr.goto(U + 'hwork_result.html?sid=57&q=2'); await tdr.waitForSelector('#rvq2 textarea[data-rin]');
   ok(await tdr.inputValue('#rvq2 textarea[data-rin="2"]') === '클로슈가 쓴 답장 초안입니다.' && (await tdr.textContent('#rvq2 .dft')).includes('클로슈 초안'), '결과 화면 — 마지막 학생 글에 맞는 초안만 답장 칸에 미리 채움 · 안내 줄');
+  // 카드를 접었다 펴면(화면 안에서 다시 그림) 초안이 그대로 — 2026-11-25 원장님 캡처: 초안 안내 줄만 있고 칸이 비어 있었다
+  await tdr.click('#rvq2 [data-rv-tog]'); await tdr.waitForFunction(() => !document.querySelector('#rvq2 textarea[data-rin]'));
+  await tdr.click('#rvq2 [data-rv-tog]'); await tdr.waitForSelector('#rvq2 textarea[data-rin]');
+  ok(await tdr.inputValue('#rvq2 textarea[data-rin="2"]') === '클로슈가 쓴 답장 초안입니다.', '결과 화면 — 카드를 접었다 펴도 초안이 답장 칸에 그대로');
+  await tdr.fill('#rvq2 textarea[data-rin="2"]', '고치는 중');
+  await tdr.click('#rvq2 [data-rv-tog]'); await tdr.click('#rvq2 [data-rv-tog]'); await tdr.waitForSelector('#rvq2 textarea[data-rin]');
+  ok(await tdr.inputValue('#rvq2 textarea[data-rin="2"]') === '고치는 중', '결과 화면 — 고치던 글도 접었다 펴면 그대로');
   await tdr.fill('#rvq2 textarea[data-rin="2"]', '선생님이 고친 답장'); await tdr.click('#rvq2 [data-send="2"]');
   await tdr.waitForFunction(() => !document.querySelector('#rvq2 .dft'));
   const dp = (DB.draftPatch || []).find(x => x.b.used_at);
