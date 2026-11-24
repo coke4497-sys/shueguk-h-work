@@ -284,7 +284,7 @@ function rpc(fn, p) {
   DB.qa = DB.qa.filter(m => m.id !== 3);
   DB.qa.push({ id: 2, sub_id: 56, q: '1', who: '학생', name: '이영희', body: '대기 질문', mine: '2', at: '2026-11-17T05:00:00Z', read_at: null, s: Object.assign({}, sub, { id: 56, name: '이영희' }) });
   const tl = await ctx.newPage(); await tl.goto(U + 'hwork_result.html'); await tl.waitForSelector('.wl');
-  ok(await tl.locator('.wl a.row').count() === 1 && (await tl.locator('.wl a.row').getAttribute('href')) === '?sid=56&q=1', '목록 — 마지막 글이 학생인 질문만');
+  ok(await tl.locator('.wl .wrow').count() === 1 && (await tl.locator('.wl .wrow .row').getAttribute('data-wopen')) === '56|1', '목록 — 마지막 글이 학생인 질문만');
   // 수업에서 처리 · 완료 (2026-11-21) — 목록에서 바로: 1차 오답이면 클리어(via class)·선생님 확인·답장
   const keepSub = DB.sub; DB.sub = { id: 56, name: '이영희', code: '음운 1회', detail: { '1': { ok: false, type: 'choice5', mine: '2', ans: '1' }, '2': { ok: false, type: 'choice5', mine: '3', ans: '4' } }, review: {}, review_at: null, checked: {} };
   DB.subPatch = []; const qaBefore = DB.calls.filter(c => c.fn === 'qa-post').length;
@@ -306,7 +306,31 @@ function rpc(fn, p) {
   DB.drafts = [{ id: 1, sub_id: 57, q: '2', after_id: 70, kind: '초안', body: '클로슈가 쓴 답장 초안입니다.', note: '' }, { id: 2, sub_id: 57, q: '2', after_id: 60, kind: '초안', body: '옛 질문 초안', note: '' }];
   const tw = await ctx.newPage(); await tw.goto(U + 'hwork_result.html'); await tw.waitForSelector('.wl');
   ok((await tw.textContent('.wl')).includes('클로슈 초안 있음'), '질문 목록 — 초안이 있는 질문에 「클로슈 초안 있음」');
+  // 목록에서 줄을 누르면 초안이 든 고치기 칸 → 고쳐 개별 발송
+  await tw.click('.wl [data-wopen="57|2"]'); await tw.waitForSelector('.wl textarea[data-wk="57|2"]');
+  ok(await tw.inputValue('.wl textarea[data-wk="57|2"]') === '클로슈가 쓴 답장 초안입니다.', '목록 — 줄을 누르면 클로슈 초안이 든 칸이 열림');
+  await tw.fill('.wl textarea[data-wk="57|2"]', '목록에서 고친 답장'); const qb = DB.calls.filter(c => c.fn === 'qa-post').length;
+  await tw.click('.wl [data-wsend="57|2"]'); await tw.waitForFunction(() => !document.querySelector('.wl [data-wopen="57|2"]'));
+  const lp = DB.calls.filter(c => c.fn === 'qa-post').slice(qb);
+  ok(lp.length === 1 && lp[0].r.body === '목록에서 고친 답장' && lp[0].r.sub_id === 57 && (DB.draftPatch || []).some(x => x.rest.includes('id=eq.1') && x.b.used_at), '목록 — 개별 보내기: 고친 글이 가고 초안은 쓴 것으로, 줄이 빠짐');
   await tw.close();
+  // 전체 발송 · 전체 답변 생성하기
+  DB.qa.push({ id: 71, sub_id: 58, q: '1', who: '학생', name: '최하나', body: '1번?', mine: '1', at: '2026-11-24T06:00:00Z', read_at: null, s: Object.assign({}, sub, { id: 58, name: '최하나' }) });
+  DB.qa.push({ id: 72, sub_id: 59, q: '3', who: '학생', name: '정두리', body: '3번?', mine: '1', at: '2026-11-24T06:01:00Z', read_at: null, s: Object.assign({}, sub, { id: 59, name: '정두리' }) });
+  DB.drafts = [{ id: 3, sub_id: 58, q: '1', after_id: 71, kind: '초안', body: '하나 답장', note: '' }, { id: 4, sub_id: 59, q: '3', after_id: 72, kind: '확인 필요', body: '참고', note: '정답 의심' }];
+  DB.draftPatch = []; DB.posts = [];
+  const ta = await ctx.newPage(); await ta.goto(U + 'hwork_result.html'); await ta.waitForSelector('#sendAll');
+  ok((await ta.textContent('#sendAll')).includes('초안 1개'), '전체 발송 버튼 — 정답 확인 필요는 세지 않음');
+  const qb2 = DB.calls.filter(c => c.fn === 'qa-post').length;
+  await ta.click('#sendAll'); await ta.waitForFunction(() => !document.querySelector('.wl [data-wopen="58|1"]'));
+  const ap = DB.calls.filter(c => c.fn === 'qa-post').slice(qb2);
+  ok(ap.length === 1 && ap[0].r.body === '하나 답장' && await ta.locator('.wl [data-wopen="59|3"]').count() === 1, '전체 발송 — 초안만 보내고 정답 확인 필요는 남김');
+  await ta.click('#genAll'); await ta.waitForFunction(() => (document.getElementById('wmsg') || {}).textContent.includes('요청했어요'));
+  const gp = DB.posts.find(x => x.action === 'editReqAdd');
+  ok(gp && gp.screen === 'H WORK 답장 초안' && gp.writer === '이현지', '전체 답변 생성하기 — 수정 요청함에 「H WORK 답장 초안」 요청');
+  await ta.close();
+  DB.qa = DB.qa.filter(m => !(m.who === '선생님' && m.sub_id === 57)); DB.draftPatch = [];
+  DB.drafts = [{ id: 1, sub_id: 57, q: '2', after_id: 70, kind: '초안', body: '클로슈가 쓴 답장 초안입니다.', note: '' }];
   const tdr = await ctx.newPage(); await tdr.goto(U + 'hwork_result.html?sid=57&q=2'); await tdr.waitForSelector('#rvq2 textarea[data-rin]');
   ok(await tdr.inputValue('#rvq2 textarea[data-rin="2"]') === '클로슈가 쓴 답장 초안입니다.' && (await tdr.textContent('#rvq2 .dft')).includes('클로슈 초안'), '결과 화면 — 마지막 학생 글에 맞는 초안만 답장 칸에 미리 채움 · 안내 줄');
   await tdr.fill('#rvq2 textarea[data-rin="2"]', '선생님이 고친 답장'); await tdr.click('#rvq2 [data-send="2"]');
