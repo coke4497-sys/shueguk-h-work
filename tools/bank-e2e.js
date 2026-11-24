@@ -60,6 +60,11 @@ function fake(rt, u, method, body) {
   if (rest.startsWith('/hwork_submissions')) { const m = rest.match(/id=eq\.(\d+)/); return rt.fulfill({ json: m && DB.sub && DB.sub.id == m[1] ? [DB.sub] : [] }); }
   if (rest.startsWith('/hwork_retests')) return rt.fulfill({ json: [] });
   if (rest.startsWith('/hwork_reply_files')) { DB.files = (DB.files || []).concat(JSON.parse(body)); return rt.fulfill({ status: 201, body: '' }); }
+  if (rest.startsWith('/hwork_qa_drafts')) {   // 클로슈 답장 초안(리포트 092)
+    if (method === 'PATCH') { DB.draftPatch = (DB.draftPatch || []).concat([{ rest, b: JSON.parse(body) }]); return rt.fulfill({ status: 204, body: '' }); }
+    const m = rest.match(/sub_id=eq\.(\d+)/); const L = (DB.drafts || []).filter(d => !d.used_at && !d.dismissed_at);
+    return rt.fulfill({ json: m ? L.filter(d => d.sub_id == m[1]) : L });
+  }
   if (rest.startsWith('/hwork_qa')) {
     if (method === 'GET') { const m = rest.match(/sub_id=eq\.(\d+)/); return rt.fulfill({ json: m ? DB.qa.filter(x => x.sub_id == m[1]) : DB.qa.slice().sort((a, b) => b.id - a.id) }); }
     if (method === 'POST') { const r = JSON.parse(body); const row = Object.assign({ id: 900 + DB.qa.length, at: new Date().toISOString(), read_at: null, mine: '', s: DB.qa[0].s }, r); DB.qa.push(row); DB.calls.push({ fn: 'qa-post', r }); return rt.fulfill({ status: 201, json: [row] }); }
@@ -295,6 +300,20 @@ function rpc(fn, p) {
   const cp2 = DB.subPatch[0];
   ok(cp2 && cp2.review['2'].via === 'class' && cp2.review['1'].via === 'class' && cp2.review_at && (await tc.textContent('#rvq2')).includes('수업에서 확인'), '결과 화면 카드 [수업에서 처리 · 완료] — 남은 오답이 없으면 review_at · 카드에 「클리어 · 수업에서 확인」');
   await tc.close(); DB.sub = keepSub;
+  // 클로슈 답장 초안(2026-11-24, 리포트 092) — 답장 칸에 미리 채우고, 보내면 쓴 것으로 표시
+  DB.sub = { id: 57, name: '박초안', code: '음운 1회', teacher: '이현지', detail: { '1': { ok: true, type: 'choice5', mine: '2', ans: '2' }, '2': { ok: false, type: 'choice5', mine: '3', ans: '4' } }, review: {}, review_at: null, checked: {} };
+  DB.qa.push({ id: 70, sub_id: 57, q: '2', who: '학생', name: '박초안', body: '2번 왜 틀렸어요?', mine: '3', at: '2026-11-24T05:00:00Z', read_at: null, s: Object.assign({}, sub, { id: 57, name: '박초안' }) });
+  DB.drafts = [{ id: 1, sub_id: 57, q: '2', after_id: 70, kind: '초안', body: '클로슈가 쓴 답장 초안입니다.', note: '' }, { id: 2, sub_id: 57, q: '2', after_id: 60, kind: '초안', body: '옛 질문 초안', note: '' }];
+  const tw = await ctx.newPage(); await tw.goto(U + 'hwork_result.html'); await tw.waitForSelector('.wl');
+  ok((await tw.textContent('.wl')).includes('클로슈 초안 있음'), '질문 목록 — 초안이 있는 질문에 「클로슈 초안 있음」');
+  await tw.close();
+  const tdr = await ctx.newPage(); await tdr.goto(U + 'hwork_result.html?sid=57&q=2'); await tdr.waitForSelector('#rvq2 textarea[data-rin]');
+  ok(await tdr.inputValue('#rvq2 textarea[data-rin="2"]') === '클로슈가 쓴 답장 초안입니다.' && (await tdr.textContent('#rvq2 .dft')).includes('클로슈 초안'), '결과 화면 — 마지막 학생 글에 맞는 초안만 답장 칸에 미리 채움 · 안내 줄');
+  await tdr.fill('#rvq2 textarea[data-rin="2"]', '선생님이 고친 답장'); await tdr.click('#rvq2 [data-send="2"]');
+  await tdr.waitForFunction(() => !document.querySelector('#rvq2 .dft'));
+  const dp = (DB.draftPatch || []).find(x => x.b.used_at);
+  ok(dp && dp.rest.includes('id=eq.1') && dp.b.used_by === '이현지' && DB.calls.filter(c => c.fn === 'qa-post').pop().r.body === '선생님이 고친 답장', '보내면 고친 글이 답장으로 가고 초안은 쓴 것으로(used_at·used_by)');
+  await tdr.close(); DB.sub = keepSub; DB.drafts = [];
 
   // ── 4. 이미 낸 교재 과제(SHUEGUK REAL, 068) — 같은 화면이 교재 모양(.rq)으로 ──
   RS_MODE = true; S.review = {}; S.msgs = [];
