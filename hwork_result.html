@@ -215,7 +215,7 @@ async function sb(path, opts){
   if(!r.ok) throw new Error(path.split('?')[0]+' '+r.status);
   const t=await r.text(); return t?JSON.parse(t):null;
 }
-let ME='', ANS={}, BANK={}, PREV={}, REUSE={}, SUB=null, QA=[], QS={}, QP={}, STYLE='', CTX=null, PEND={}, FBLOB={}, RT=null, DRAFT={}, DFILLED=new Set();
+let ME='', ANS={}, BANK={}, PREV={}, REUSE={}, SUB=null, QA=[], QS={}, QP={}, STYLE='', CTX=null, PEND={}, FBLOB={}, RT=null, DRAFT={}, DFILLED=new Set(), RTXT={};   // RTXT = 문항마다 쓰던 답장 글(카드를 접었다 펴도 남게, 처음엔 클로슈 초안)
 const qp=new URLSearchParams(location.search), SID=qp.get('sid'), OPENQ=qp.get('q');
 async function myName(){   // 답장 이름 = 허브에 로그인한 선생님(teacher-name.js). 묻는 창은 없앴다(2026-11-17 원장님 "로그인한 강사명으로 기록")
   if(ME) return ME;
@@ -439,7 +439,7 @@ document.addEventListener('click', e=>{
   const r=e.target.closest&&e.target.closest('[data-rm]'); if(r){ const [q,i]=r.dataset.rm.split('|'); const f=(PEND[q]||[]).splice(Number(i),1)[0]; if(f&&f._u) URL.revokeObjectURL(f._u); redrawAtt(q); }
 });
 document.addEventListener('change', e=>{ const m=/^attF(.+)$/.exec(e.target.id||''); if(m){ attAdd(m[1], e.target.files); } });
-document.addEventListener('input', e=>{ const t=e.target; if(t.matches&&t.matches('textarea[data-rin]')){ t.style.height='auto'; t.style.height=Math.min(t.scrollHeight+4, innerHeight*0.6)+'px'; } });
+document.addEventListener('input', e=>{ const t=e.target; if(t.matches&&t.matches('textarea[data-rin]')){ RTXT[t.dataset.rin]=t.value; t.style.height='auto'; t.style.height=Math.min(t.scrollHeight+4, innerHeight*0.6)+'px'; } });
 document.addEventListener('paste', e=>{
   const ta=e.target.closest&&e.target.closest('textarea[data-rin]'); if(!ta) return;
   const fs=[...((e.clipboardData&&e.clipboardData.files)||[])]; if(!fs.length) return;
@@ -467,15 +467,21 @@ function draftHtml(q){
     ? `<div class="dft chk"><b>클로슈 · 정답 확인 필요</b> 답장 칸의 글은 참고용입니다. 정답부터 확인해 주세요.<button type="button" onclick="dropDraft('${q}')">초안 지우기</button>${d.note?`<div class="why">${esc(d.note)}</div>`:''}</div>`
     : `<div class="dft"><b>클로슈 초안</b> 보내기 전에 읽고 고쳐 주세요. [답장 보내기]를 눌러야 학생에게 갑니다.<button type="button" onclick="dropDraft('${q}')">초안 지우기</button>${d.note?`<div class="why">${esc(d.note)}</div>`:''}</div>`;
 }
+function rtxt(q, keep){   // 답장 칸에 넣을 글 — 지금 칸 → 쓰던 글 → 클로슈 초안(카드가 RV 안에서 펼쳐져도 채워지게)
+  if(keep && q in keep) return keep[q];
+  if(q in RTXT) return RTXT[q];
+  const d=DRAFT[q]; if(d){ DFILLED.add(q); RTXT[q]=d.body||''; return RTXT[q]; }
+  return '';
+}
 function fillDrafts(){
   Object.keys(DRAFT).forEach(q=>{ if(DFILLED.has(q)) return; const t=document.querySelector('textarea[data-rin="'+q+'"]'); if(!t) return;
-    DFILLED.add(q); if(!t.value.trim()){ t.value=DRAFT[q].body||''; t.style.height='auto'; t.style.height=Math.min(t.scrollHeight+4, innerHeight*0.6)+'px'; } });
+    DFILLED.add(q); if(!t.value.trim() && !(q in RTXT)){ t.value=DRAFT[q].body||''; RTXT[q]=t.value; t.style.height='auto'; t.style.height=Math.min(t.scrollHeight+4, innerHeight*0.6)+'px'; } });
 }
 async function dropDraft(q){
   const d=DRAFT[q]; if(!d) return;
   if(!confirm('클로슈 초안을 지울까요? 답장 칸의 글도 비웁니다.')) return;
   try{ await sb('/hwork_qa_drafts?id=eq.'+d.id,{ method:'PATCH', headers:{ Prefer:'return=minimal' }, body:JSON.stringify({ dismissed_at:new Date().toISOString() }) }); }catch(e){ toast('지우지 못했어요. 다시 눌러 주세요'); return; }
-  delete DRAFT[q]; const t=document.querySelector('textarea[data-rin="'+q+'"]'); if(t) t.value=''; draw(); toast('초안을 지웠어요');
+  delete DRAFT[q]; const t=document.querySelector('textarea[data-rin="'+q+'"]'); if(t) t.value=''; RTXT[q]=''; draw(); toast('초안을 지웠어요');
 }
 async function useDraft(q, name){
   const d=DRAFT[q]; if(!d) return; delete DRAFT[q];
@@ -492,7 +498,7 @@ async function reply(q){
     const r=await sb('/hwork_qa',{ method:'POST', headers:{ Prefer:'return=representation' }, body:JSON.stringify({ sub_id:SUB.id, q:String(q), who:'선생님', name, body }) });
     again.forEach(f=>up.push({ path:f.path, name:f.name, size:f.size, mime:f.mime||'' }));   // 지난 답장 첨부 — 같은 파일을 다시 잇는다(올리지 않음)
     if(up.length) await sb('/hwork_reply_files',{ method:'POST', headers:{ Prefer:'return=minimal' }, body:JSON.stringify(up.map(x=>Object.assign({ sub_id:SUB.id, q:String(q), qa_id:r[0].id, created_by:name }, x))) });
-    (PEND[q]||[]).forEach(x=>x._u&&URL.revokeObjectURL(x._u)); PEND[q]=[]; REUSE[q]=[]; if(ta) ta.value='';
+    (PEND[q]||[]).forEach(x=>x._u&&URL.revokeObjectURL(x._u)); PEND[q]=[]; REUSE[q]=[]; if(ta) ta.value=''; RTXT[q]='';
     await useDraft(q, name);
     loadPrev();
     toast('답장을 보냈어요');
@@ -635,7 +641,7 @@ function draw(){
       away:Number(SUB.away_n)>0?{ n:Number(SUB.away_n), sec:Number(SUB.away_sec)||0 }:null, time:SUB.timelog||null, reviewAt:SUB.review_at||'', qa:QA,
       hooks:{
         qhtml:q=>{ const x=QS[q]; if(!x) return null; return { pas:x.pid&&QP[x.pid]?`<div class="${STYLE}">${QP[x.pid]}</div>`:'', html:`<div class="${STYLE}">${x.html}</div>` }; },
-        composer:q=>(('checked' in SUB)?`<div class="qchk">${(SUB.checked||{})[q]?`<span class="on">♥ ${esc(SUB.checked[q].by)} 선생님 확인 · ${esc(String(SUB.checked[q].at).slice(5,16))}</span><button type="button" class="un" onclick="checkQ('${q}',false)">확인 취소</button>`:`<button type="button" onclick="checkQ('${q}',true)">잘 고쳤습니다 ♥</button>`}${classNeed(q)?`<button type="button" class="cls" onclick="classQ('${q}')" title="학생 오답하기 없이 이 문항을 클리어로 바꾸고, 질문이 있으면 「수업 시간에 직접 설명했어요.」 답장을 남깁니다">수업에서 처리 · 완료</button>`:''}</div>`:'')+`<div class="cmp"><span class="lab">학생에게 답장</span>${draftHtml(q)}${prevHtml(q)}<textarea data-rin="${q}" maxlength="5000" placeholder="답장을 적어 주세요. 학생 화면 이 문항에 바로 보입니다. 사진은 Ctrl+V 로 붙여 넣어도 돼요.">${esc(keep[q]||'')}</textarea>${reuseHtml(q)}${attHtml(q)}<button type="button" class="go" data-send="${q}">답장 보내기</button></div>`,
+        composer:q=>(('checked' in SUB)?`<div class="qchk">${(SUB.checked||{})[q]?`<span class="on">♥ ${esc(SUB.checked[q].by)} 선생님 확인 · ${esc(String(SUB.checked[q].at).slice(5,16))}</span><button type="button" class="un" onclick="checkQ('${q}',false)">확인 취소</button>`:`<button type="button" onclick="checkQ('${q}',true)">잘 고쳤습니다 ♥</button>`}${classNeed(q)?`<button type="button" class="cls" onclick="classQ('${q}')" title="학생 오답하기 없이 이 문항을 클리어로 바꾸고, 질문이 있으면 「수업 시간에 직접 설명했어요.」 답장을 남깁니다">수업에서 처리 · 완료</button>`:''}</div>`:'')+`<div class="cmp"><span class="lab">학생에게 답장</span>${draftHtml(q)}${prevHtml(q)}<textarea data-rin="${q}" maxlength="5000" placeholder="답장을 적어 주세요. 학생 화면 이 문항에 바로 보입니다. 사진은 Ctrl+V 로 붙여 넣어도 돼요.">${esc(rtxt(q, keep))}</textarea>${reuseHtml(q)}${attHtml(q)}<button type="button" class="go" data-send="${q}">답장 보내기</button></div>`,
         expl:q=>explHtml(q),
         files:f=>fsHtml(f),
         msgEdit:m=>msgEditHtml(m),
