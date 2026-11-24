@@ -340,6 +340,8 @@ function rpc(fn, p) {
   await tdr.fill('#rvq2 textarea[data-rin="2"]', '고치는 중');
   await tdr.click('#rvq2 [data-rv-tog]'); await tdr.click('#rvq2 [data-rv-tog]'); await tdr.waitForSelector('#rvq2 textarea[data-rin]');
   ok(await tdr.inputValue('#rvq2 textarea[data-rin="2"]') === '고치는 중', '결과 화면 — 고치던 글도 접었다 펴면 그대로');
+  await tdr.click('[data-rv-bar="1"]'); await tdr.click('[data-rv-bar="2"]'); await tdr.waitForSelector('#rvq2 textarea[data-rin]');
+  ok(await tdr.inputValue('#rvq2 textarea[data-rin="2"]') === '고치는 중', '결과 화면 — 문항 번호(바로가기)로 옮겨 다녀도 쓰던 글이 그대로');
   await tdr.fill('#rvq2 textarea[data-rin="2"]', '선생님이 고친 답장'); await tdr.click('#rvq2 [data-send="2"]');
   await tdr.waitForFunction(() => !document.querySelector('#rvq2 .dft'));
   const dp = (DB.draftPatch || []).find(x => x.b.used_at);
