@@ -179,3 +179,7 @@
 - 버튼 세 곳(연보라 **[수업에서 처리 · 완료]**): hwork_result.html 문항 카드(`classNeed` — 클리어 전 오답이거나 답장 기다리는 질문이 있는 문항) · 주소 없이 연 '답장을 기다리는 질문' 목록 줄마다(`classRow` — 휴대폰에서 들고 다니며 누르는 용도, 누르면 줄이 빠짐) · hwork_teacher.html 목록의 옛 [수업에서 처리](답장만 남기던 것 → 같은 함수로 클리어까지).
 - 결과 화면 카드 상태는 '클리어 · 수업에서 확인'(result_view.js, ?v=20261121a). 서버 hwork_fix·hwork_qa_clear 의 retry_got(1차 시도 클리어 수)은 via 'qa' 만 빼므로, 학생이 한 번 틀린 시도 뒤 선생님이 처리한 문항은 그 수에 섞일 수 있다(선생님 목록 통계뿐 — 필요하면 마이그레이션으로 'class' 도 뺄 것).
 - 검증: bank-e2e(92 — 목록·카드 처리, review_at)·hwork-retry-e2e(90 — 목록의 수업에서 처리).
+
+## 클로슈 답장 초안 (2026-11-24 원장님, 리포트 092)
+- hwork_result.html: 그 문항의 마지막 학생 글(after_id)에 맞는 `hwork_qa_drafts` 초안을 답장 칸에 미리 채우고(`loadDrafts`·`fillDrafts`, 쓰던 글은 안 덮음) 위에 '클로슈 초안'/'클로슈 · 정답 확인 필요' 줄(`draftHtml`, [초안 지우기] = dismissed_at). [답장 보내기]가 성공하면 `useDraft`가 used_at·used_by. 질문 목록 줄에 '클로슈 초안 있음'. 30초 새로 읽기 때 초안도 다시 읽는다. 초안 쓰기·순찰은 리포트 CLAUDE.md 같은 절. 검증 bank-e2e(95).
+- **질문 목록(주소 없이 연 hwork_result.html)**: 줄(`[data-wopen]`)을 누르면 초안이 든 칸(`textarea[data-wk]`, 쓰던 글은 `WL.text`에 남김)·[보내기](`wlSend`)·[초안 지우기]·문제·채점 화면 링크. 위 [전체 답변 생성하기](`#genAll` → 리포트 백엔드 editReqAdd 화면 'H WORK 답장 초안')·[초안 n개 모두 보내기](`#sendAll`, '확인 필요' 제외). 30초마다 초안을 다시 읽는다(`WL.timer`). 검증 bank-e2e(100).
