@@ -183,3 +183,6 @@
 ## 클로슈 답장 초안 (2026-11-24 원장님, 리포트 092)
 - hwork_result.html: 그 문항의 마지막 학생 글(after_id)에 맞는 `hwork_qa_drafts` 초안을 답장 칸에 미리 채우고(`loadDrafts`·`fillDrafts`, 쓰던 글은 안 덮음) 위에 '클로슈 초안'/'클로슈 · 정답 확인 필요' 줄(`draftHtml`, [초안 지우기] = dismissed_at). [답장 보내기]가 성공하면 `useDraft`가 used_at·used_by. 질문 목록 줄에 '클로슈 초안 있음'. 30초 새로 읽기 때 초안도 다시 읽는다. 초안 쓰기·순찰은 리포트 CLAUDE.md 같은 절. 검증 bank-e2e(95).
 - **질문 목록(주소 없이 연 hwork_result.html)**: 줄(`[data-wopen]`)을 누르면 초안이 든 칸(`textarea[data-wk]`, 쓰던 글은 `WL.text`에 남김)·[보내기](`wlSend`)·[초안 지우기]·문제·채점 화면 링크. 위 [전체 답변 생성하기](`#genAll` → 리포트 백엔드 editReqAdd 화면 'H WORK 답장 초안')·[초안 n개 모두 보내기](`#sendAll`, '확인 필요' 제외). 30초마다 초안을 다시 읽는다(`WL.timer`). 검증 bank-e2e(100).
+
+## 문항 은행 OX·단답 문항 (2026-11-25, 리포트 093)
+- Shuefit 문법 은행에 OX·단답 문항(슈국 자체 자료, id 100000부터)이 생겼다. gbank.css 끝에 `.oxr`(O·X 글자 — 정답은 data-d="O"/"X" 의 .cn.ok)·`.sa .sat`(단답 답 칸)·`table.chtab`(선지를 표로) 모양. 출제는 OX → `ox`, 단답 → `essay`(예시 답과 비교). hwork_result.html `gMark`·retest_make.html markAns 가 OX·단답 정답을 표시하고, hwork.html 해설 머리는 `hwork_expl` 의 `ans_text`.

@@ -222,6 +222,13 @@ async function myName(){   // 답장 이름 = 허브에 로그인한 선생님(t
   try{ if(window.shuegukTeacherName) ME=(await shuegukTeacherName())||''; }catch(e){}
   return ME;
 }
+/* 문항 은행 문항의 정답 표시 — 5지선다 번호 · OX 글자 · 단답은 답 칸에 정답 글 (리포트 093) */
+function gMark(x){
+  const t=x.qtype||'choice5';
+  if(t==='short') return x.html.replace('<span class="sat"></span>','<span class="sat">'+String(x.answer||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))+'</span>');
+  const d=t==='ox'?(x.ans===1?'O':'X'):x.ans;
+  return x.html.replace(new RegExp('<span class="cn" data-d="'+d+'">'),'<span class="cn ok" data-d="'+d+'">');
+}
 /* 문제 원문 — 문항 은행(data.bank → gbank_items) 또는 교재(hwork_src_items, 숨긴 것도 선생님께는 보임) */
 /* 교재 해설(075 — 지필 워크북 해설·오답 해설) — 선생님 화면은 늘 펼쳐 볼 수 있다 */
 const EXPL={};
@@ -236,9 +243,9 @@ async function loadQs(s){
     Object.keys(d.items||{}).forEach(n=>{ const a=d.items[n]&&d.items[n].ans; if(a!=null&&a!=='') ANS[n]=Array.isArray(a)?a.join(', '):String(a); });
     if(d.bank && typeof d.bank==='object'){
       STYLE='gq'; BANK=d.bank; const ids=[...new Set(Object.values(d.bank))];
-      const g=ids.length?await sb('/gbank_items?select=id,html,pid,ans,good,bad&id=in.('+ids.join(',')+')'):[];
+      let g=[]; if(ids.length){ try{ g=await sb('/gbank_items?select=id,html,pid,ans,qtype,answer,good,bad&id=in.('+ids.join(',')+')'); }catch(e){ g=await sb('/gbank_items?select=id,html,pid,ans,good,bad&id=in.('+ids.join(',')+')'); } }   // 093 전 DB 면 옛 열
       const by={}; g.forEach(x=>by[x.id]=x);
-      Object.keys(d.bank).forEach(n=>{ const x=by[d.bank[n]]; if(x&&ANS[n]==null) ANS[n]=String(x.ans); if(x&&(x.good||(x.bad&&x.bad.length))) EXPL[n]={ bank:1, good:x.good||'', bad:x.bad||[] }; if(x) QS[n]={ html:x.html.replace(new RegExp('<span class="cn" data-d="'+x.ans+'">'),'<span class="cn ok" data-d="'+x.ans+'">'), pid:x.pid }; });
+      Object.keys(d.bank).forEach(n=>{ const x=by[d.bank[n]]; if(x&&ANS[n]==null) ANS[n]=String(x.ans); if(x&&(x.good||(x.bad&&x.bad.length))) EXPL[n]={ bank:1, good:x.good||'', bad:x.bad||[] }; if(x) QS[n]={ html:gMark(x), pid:x.pid }; });
       const pids=[...new Set(g.map(x=>x.pid).filter(Boolean))];
       if(pids.length){ (await sb('/gbank_passages?select=pid,html&pid=in.('+pids.map(p=>'"'+p+'"').join(',')+')')).forEach(p=>QP[p.pid]=p.html); }
     }else{
