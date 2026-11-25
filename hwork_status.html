@@ -40,6 +40,8 @@
   .chk input{accent-color:var(--accent);width:16px;height:16px;}
   .ibtn{border:1.5px solid var(--line);background:#fff;border-radius:10px;padding:7px 12px;font:inherit;font-size:13px;color:var(--ink-soft);cursor:pointer;}
   .ibtn:hover{border-color:var(--accent);color:var(--accent);}
+  .ibtn.alimb{background:#e6e2f2;border-color:#e6e2f2;color:#4a4266;font-weight:700;}
+  .alimw{border:0;border-radius:10px;background:#e6e2f2;color:#4a4266;font:inherit;font-size:13px;font-weight:700;padding:7px 12px;cursor:pointer;margin:2px 0 8px;}
   .upd{font-size:12px;color:var(--ink-soft);margin-left:auto;}
   .grp{font-family:"Gowun Batang",serif;font-weight:700;font-size:15px;color:var(--accent);margin:18px 4px 8px;}
   .grp:first-child{margin-top:2px;}
@@ -84,6 +86,9 @@
   }
 </style>
 <script src="hw-teacher.js?v=20261121b"></script><!-- 선생님별 H WORK (?t=) -->
+<script src="https://coke4497-sys.github.io/shueguk-report/teacher-name.js"></script>
+<script src="https://coke4497-sys.github.io/shueguk-report/activity.js"></script>
+<script src="hw-alim.js?v=20261125a"></script><!-- 미제출·오답하기 중 한꺼번에 알림톡 (2026-11-25) -->
 </head>
 <body>
 <main class="wrap">
@@ -106,6 +111,7 @@
     <div class="tools">
       <input type="text" id="fFind" placeholder="과제 제목 찾기 (예: 단어 형성)" autocomplete="off">
       <label class="chk"><input type="checkbox" id="fTodo"> 다 내지 않은 것만</label>
+      <button type="button" class="ibtn alimb" id="alimAll" title="지금 보이는 과제의 미제출·오답하기 중 학생에게 ‘H WORK 과제 미완료 안내’ 알림톡">미제출·오답 중 알림톡</button>
       <button type="button" class="ibtn" id="reload">새로고침</button>
       <span class="upd" id="upd"></span>
     </div>
@@ -332,7 +338,7 @@ function load(){
       subCols = 'id,teacher,code,name,school,grade,got,total,ts';   // 064 전 DB
       return sbAll('/hwork_submissions?select=' + subCols + '&order=id');
     }),
-    sbAll('/students?select=name,school,grade,enrolled&order=name')
+    sbAll('/students?select=name,school,grade,enrolled,code,phone_student,phone_parent1,phone_parent2&order=name')
   ]).then(function(rs){
     build(rs[0], rs[1], rs[2]);
     document.getElementById('upd').textContent = '불러온 시각 ' + new Date().toTimeString().slice(0,5);
@@ -344,7 +350,7 @@ function load(){
 
 function build(asg, subs, stus){
   var roster = stus.filter(function(s){ return !LEFT_RE.test(tr(s.enrolled)); })
-    .map(function(s){ return { name: tr(s.name), school: tr(s.school), grade: tr(s.grade) }; })
+    .map(function(s){ return { name: tr(s.name), school: tr(s.school), grade: tr(s.grade), code: tr(s.code), phone_student: tr(s.phone_student), phone_parent1: tr(s.phone_parent1), phone_parent2: tr(s.phone_parent2) }; })
     .filter(function(s){ return s.name; });
   var byItem = {}, order = [];
   asg.forEach(function(a){
@@ -462,6 +468,7 @@ function renderWorks(q){
     if (open){
       var todo = on.filter(function(s){ return !w.done[stuKey(s)]; }), done = on.filter(function(s){ return w.done[stuKey(s)]; });
       html += '<div class="rbody">' +
+        ((todo.length || on.some(function(s){ var x = w.done[stuKey(s)]; return x && !reviewed(x) && Number(x.total) > Number(x.got); })) ? '<button type="button" class="alimw" data-aw="'+i+'">이 과제 미제출·오답 중 학생에게 알림톡</button>' : '') +
         '<div class="lbl">아직 안 낸 학생 '+todo.length+'명</div>' + (todo.length ? '<div class="chips">'+todo.map(function(s){ return chipStu(s, null); }).join('')+'</div>' : '<p class="muted">모두 제출했어요.</p>') +
         '<div class="lbl">제출한 학생 '+done.length+'명</div>' + (done.length ? '<div class="chips">'+done.map(function(s){ return chipStu(s, w.done[stuKey(s)]); }).join('')+'</div>' : '<p class="muted">아직 제출이 없어요.</p>') +
         '<p class="tgt">배정 대상: '+w.rows.map(function(a){ return esc((a.type||'전체') + (a.type && a.type.indexOf('전체')<0 ? ' — ' + prettyTarget(a.target) : '')); }).join(' / ')+'</p>' +
@@ -520,7 +527,37 @@ document.getElementById('fGrade').addEventListener('change', function(e){ V.grad
 document.getElementById('fSchool').addEventListener('change', function(e){ V.school = e.target.value; render(); });
 document.getElementById('fTodo').addEventListener('change', function(e){ V.todo = e.target.checked; render(); });
 document.getElementById('fFind').addEventListener('input', function(e){ V.q = e.target.value; render(); });
+/* 미제출·오답하기 중 알림톡 (2026-11-25) — 지금 거르기(학년·학교·찾기·다 내지 않은 것만)로 보이는 과제, 또는 한 과제 */
+function alimTargets(ws){
+  var out = [];
+  ws.forEach(function(w){
+    w.assigned.filter(stuOn).forEach(function(s){
+      var r = w.done[stuKey(s)];
+      if (!r) out.push({ stu: s, code: w.code, kind: 'none' });
+      else if (!reviewed(r) && Number(r.total) > Number(r.got)) out.push({ stu: s, code: w.code, kind: 'ing' });
+    });
+  });
+  return out;
+}
+function visibleWorks(){
+  var q = qOf();
+  return D.works.filter(function(w){
+    if (!w.assigned.filter(stuOn).length) return false;
+    if (V.view === 'work' && q && w.code.replace(/\s+/g,'').toLowerCase().indexOf(q) < 0) return false;
+    return true;
+  });
+}
+document.getElementById('alimAll').addEventListener('click', function(){
+  if (!D) return;
+  var ws = visibleWorks(), q = V.view === 'stu' ? qOf() : '';
+  var list = alimTargets(ws);
+  if (q) list = list.filter(function(x){ return x.stu.name.replace(/\s+/g,'').toLowerCase().indexOf(q) >= 0; });
+  var scope = [V.grade, V.school, V.q && ('‘' + V.q + '’')].filter(Boolean).join(' · ');
+  HWA.open(list, '과제 ' + ws.length + '개' + (scope ? ' · ' + scope : '') + '에서 미제출·오답하기 중인 학생');
+});
 document.getElementById('list').addEventListener('click', function(e){
+  var aw = e.target.closest('[data-aw]');
+  if (aw) { var w = D.works[+aw.dataset.aw]; HWA.open(alimTargets([w]), HWA.shortTitle(w.code)); return; }
   var b = e.target.closest('.rhead'); if (!b) return;
   var k = b.dataset.o; V.open[k] = !V.open[k]; render();
 });
