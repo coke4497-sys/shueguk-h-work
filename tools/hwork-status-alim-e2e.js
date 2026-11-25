@@ -8,19 +8,23 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
 const ASG = [
   { seq: 2, date: '2026-11-19', item: '이수경 / A세트', type: '일부', target: '가나, 다라, 마바', due: '2026-11-27', memo: '' },
   { seq: 3, date: '2026-11-19', item: '이수경 / B세트', type: '일부', target: '가나, 다라', due: '2026-11-27', memo: '' },
-  { seq: 4, date: '2026-11-19', item: '김현지 / C세트', type: '일부', target: '사아', due: '2026-11-27', memo: '' }];
+  { seq: 4, date: '2026-11-19', item: '김현지 / C세트', type: '일부', target: '사아, 자차', due: '2026-11-27', memo: '' }];
 const SUBS = [
   { id: 1, teacher: '이수경', code: 'A세트', name: '가나', school: '화정고', grade: '고2', got: 3, total: 5, ts: '2026-11-20', review_at: null },
   { id: 2, teacher: '이수경', code: 'A세트', name: '다라', school: '화정고', grade: '고2', got: 5, total: 5, ts: '2026-11-20', review_at: null },
-  { id: 3, teacher: '이수경', code: 'B세트', name: '가나', school: '화정고', grade: '고2', got: 2, total: 5, ts: '2026-11-21', review_at: '2026-11-21 10:00' }];
+  { id: 3, teacher: '이수경', code: 'B세트', name: '가나', school: '화정고', grade: '고2', got: 2, total: 5, ts: '2026-11-21', review_at: '2026-11-21 10:00' },
+  // 답장 필요만 남은 학생 — 틀린 2문항 중 1문항 클리어, 남은 1문항은 질문 뒤 답장 기다림 → 알림톡에서 빼기
+  { id: 4, teacher: '김현지', code: 'C세트', name: '자차', school: '서정고', grade: '고1', got: 3, total: 5, ts: '2026-11-22', review_at: null, review: { 2: { cleared_at: '2026-11-22 10:00' } } }];
+const QA = [{ id: 1, sub_id: 4, q: 4, who: '학생', at: '2026-11-22T02:00:00Z' }];
 const STU = [
   { name: '가나', school: '화정고', grade: '2026 고등 2학년', enrolled: '재원', code: 'K1', phone_student: '010-1000-0001', phone_parent1: '010-2000-0001' },
   { name: '다라', school: '화정고', grade: '2026 고등 2학년', enrolled: '재원', code: 'K2', phone_student: '010-1000-0002', phone_parent1: '010-2000-0002' },
   { name: '마바', school: '화정고', grade: '2026 고등 2학년', enrolled: '재원', code: 'K3', phone_student: '', phone_parent1: '010-2000-0003' },
-  { name: '사아', school: '서정고', grade: '2026 고등 1학년', enrolled: '재원', code: 'K4', phone_student: '010-1000-0004', phone_parent1: '' }];
+  { name: '사아', school: '서정고', grade: '2026 고등 1학년', enrolled: '재원', code: 'K4', phone_student: '010-1000-0004', phone_parent1: '' },
+  { name: '자차', school: '서정고', grade: '2026 고등 1학년', enrolled: '재원', code: 'K5', phone_student: '010-1000-0005', phone_parent1: '' }];
 (async () => {
   const b = await chromium.launch(); const p = await b.newPage({ viewport: { width: 1100, height: 900 } });
-  const errs = []; p.on('pageerror', e => errs.push(e.message));
+  const errs = []; p.on('pageerror', e => { errs.push(e.message); console.log('ERR', e.message); });
   await p.addInitScript(() => { try { localStorage.setItem('shueguk_teacher_session_v2', JSON.stringify({ access_token: 'T', refresh_token: 'R', expires_at: Math.floor(Date.now() / 1000) + 3600 })); } catch (e) {} });
   const POST = [];
   await p.route('**/*', rt => {
@@ -29,6 +33,7 @@ const STU = [
     const off = (new URL(u).searchParams.get('offset') || '0') !== '0';
     if (u.includes('/rest/v1/assignments')) return rt.fulfill({ json: off ? [] : ASG });
     if (u.includes('/rest/v1/hwork_submissions')) return rt.fulfill({ json: off ? [] : SUBS });
+    if (u.includes('/rest/v1/hwork_qa')) return rt.fulfill({ json: off ? [] : QA });
     if (u.includes('/rest/v1/students')) return rt.fulfill({ json: off ? [] : STU });
     if (u.includes('alimConfig')) return rt.fulfill({ json: { result: 'success', ready: true, templates: { hwork_todo: { ready: true, text: '#{학생명} 학생\n▶ #{과제}' } } } });
     if (u.includes('script.google.com') && rt.request().method() === 'POST') { const bd = JSON.parse(rt.request().postData()); POST.push(bd); return rt.fulfill({ json: { result: 'success', sent: bd.items.map(x => ({ ok: true, student: x.student, dup: x.student === '다라' })) } }); }
@@ -70,6 +75,7 @@ const STU = [
   await p.click('#alimAll'); await p.waitForSelector('#hwa .go');
   t = await p.textContent('#hwa');
   ok(t.includes('사아') && !t.includes('가나'), '학년 거르기(고1) — 사아만');
+  ok(!t.includes('자차'), '답장 기다리는 질문만 남은 자차는 빠짐');
   ok(!errs.length, '오류 없음 ' + errs.join(' | '));
   await b.close(); srv.close();
   console.log(`통과 ${pass} · 실패 ${fail}`); process.exit(fail ? 1 : 0);
