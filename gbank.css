@@ -99,3 +99,14 @@
 .gq .tag.t2{background:#f1f1f1;color:#555}
 .gq .exb{margin-top:.6mm;color:#333}
 .gq .exbh{margin-top:1.2mm}
+/* 슈국 자체 자료(2026-11-25, 리포트 093) — OX 문항 · 단답 답 칸 · 선지를 표로 쓴 문항 */
+.gq .oxr{display:flex;justify-content:flex-end;gap:2.4em;margin:.6mm 2mm 0 0;font-weight:700}
+.gq .oxr .cn{min-width:1.2em;text-align:center}
+.gq .sa{display:flex;align-items:center;gap:2mm;border:.2mm solid #9aa9a4;border-radius:1mm;min-height:7mm;padding:.6mm 2mm;margin-top:1.2mm}
+.gq .sa .sal{flex:none;font-size:.86em;color:#555}
+.gq .sa .sat{flex:1;min-width:0;color:#3d675d}
+.gq .box p.ctr{text-align:center;margin:.6mm 0}
+.gq table.chtab{width:100%;margin:1mm 0 0}
+.gq table.chtab th,.gq table.chtab td{border:.2mm solid #b9cfc9;padding:.8mm 1.4mm;text-align:center;font-weight:400;vertical-align:middle}
+.gq table.chtab th{background:#f2f6f4}
+.gq table.chtab td.cc{width:2.2em}

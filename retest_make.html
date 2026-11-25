@@ -347,7 +347,10 @@ async function hwData(code){
 }
 function ansText(it){ const a=String(it&&it.ans!=null?it.ans:''); if(a==='*') return '모두 정답'; if(it&&it.type==='choice5') return a.split(',').map(x=>CHS[Number(x)-1]||x).join(', '); return a; }
 function markAns(html, style, it){
-  const a=String(it&&it.ans!=null?it.ans:''); if(!it||it.type!=='choice5'||a==='*') return html;
+  const a=String(it&&it.ans!=null?it.ans:'');
+  if(it && style==='gq' && it.type==='ox' && (a==='O'||a==='X')) return html.replace('<span class="cn" data-d="'+a+'">','<span class="cn ok" data-d="'+a+'">');   // 문항 은행 OX(리포트 093)
+  if(it && style==='gq' && it.type==='essay') return html.replace('<span class="sat"></span>','<span class="sat">'+esc(a)+'</span>');   // 문항 은행 단답 — 답 칸에 예시 답
+  if(!it||it.type!=='choice5'||a==='*') return html;
   const nums=a.split(',').map(x=>Number(x.trim())).filter(n=>n>=1&&n<=5);
   if(style==='gq') return nums.reduce((h,n)=>h.replace(new RegExp('<span class="cn" data-d="'+n+'">'),'<span class="cn ok" data-d="'+n+'">'),html);
   const want=nums.map(n=>CHS[n-1]);
