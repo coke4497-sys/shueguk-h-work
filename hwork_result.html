@@ -251,7 +251,7 @@ async function loadQs(s){
       const by={}; g.forEach(x=>by[x.id]=x);
       Object.keys(d.bank).forEach(n=>{ const x=by[d.bank[n]]; if(x&&ANS[n]==null) ANS[n]=String(x.ans); if(x&&(x.good||(x.bad&&x.bad.length))) EXPL[n]={ bank:1, good:x.good||'', bad:x.bad||[] }; if(x) QS[n]={ html:gMark(x), pid:x.pid }; });
       const pids=[...new Set(g.map(x=>x.pid).filter(Boolean))];
-      if(pids.length){ (await sb('/gbank_passages?select=pid,html&pid=in.('+pids.map(p=>'"'+p+'"').join(',')+')')).forEach(p=>QP[p.pid]=p.html); }
+      if(pids.length){ (await sb('/gbank_passages?select=pid,html&pid=in.('+encodeURIComponent(pids.map(p=>'"'+p+'"').join(','))+')')).forEach(p=>QP[p.pid]=p.html); }
     }else{
       STYLE='rq';
       let rows;
@@ -260,7 +260,7 @@ async function loadQs(s){
       rows.forEach(x=>{ if(x.expl||x.wrong) EXPL[x.no]={ expl:x.expl||'', wrong:x.wrong||'' }; const okc=String(x.ans||'').split('(')[0]; if(ANS[x.no]==null&&x.ans) ANS[x.no]=String(x.ans);
         QS[x.no]={ html:x.type==='5지'&&/[①②③④⑤]/.test(okc)?x.html.replace(/<span class="cn">([①②③④⑤])<\/span>/g,(m,c)=>okc.includes(c)?'<span class="cn ok">'+c+'</span>':m):x.html, pid:x.pid }; });
       const pids=[...new Set(rows.map(x=>x.pid).filter(Boolean))];
-      if(pids.length){ (await sb('/hwork_src_passages?select=pid,html&pid=in.('+pids.map(p=>'"'+p+'"').join(',')+')')).forEach(p=>QP[p.pid]=p.html); }
+      if(pids.length){ (await sb('/hwork_src_passages?select=pid,html&pid=in.('+encodeURIComponent(pids.map(p=>'"'+p+'"').join(','))+')')).forEach(p=>QP[p.pid]=p.html); }
     }
   }catch(e){}
 }
