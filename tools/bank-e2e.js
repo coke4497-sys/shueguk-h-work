@@ -309,6 +309,10 @@ function rpc(fn, p) {
   // 목록에서 줄을 누르면 초안이 든 고치기 칸 → 고쳐 개별 발송
   await tw.click('.wl [data-wopen="57|2"]'); await tw.waitForSelector('.wl textarea[data-wk="57|2"]');
   ok(await tw.inputValue('.wl textarea[data-wk="57|2"]') === '클로슈가 쓴 답장 초안입니다.', '목록 — 줄을 누르면 클로슈 초안이 든 칸이 열림');
+  // 펼친 질문에 문제·지문·정답 (2026-11-25 원장님 "문항에 해당하는 지문이 있을 때는 화면에서 확인할 수 있어야")
+  await tw.waitForSelector('.wl details.wq[data-wq="57|2"] .wpas');
+  ok((await tw.textContent('.wl details.wq[data-wq="57|2"] .wpas')).includes('지문 본문 글입니다') && (await tw.textContent('.wl details.wq[data-wq="57|2"] .gq .stem')) === '지문 세트 둘째 문항' && (await tw.textContent('.wl details.wq[data-wq="57|2"] summary')).includes('정답 4'), '목록 — 펼친 질문에 지문·문제·정답');
+  ok(await tw.inputValue('.wl textarea[data-wk="57|2"]') === '클로슈가 쓴 답장 초안입니다.', '문제를 불러온 뒤에도 답장 칸 그대로');
   await tw.fill('.wl textarea[data-wk="57|2"]', '목록에서 고친 답장'); const qb = DB.calls.filter(c => c.fn === 'qa-post').length;
   await tw.click('.wl [data-wsend="57|2"]'); await tw.waitForFunction(() => !document.querySelector('.wl [data-wopen="57|2"]'));
   const lp = DB.calls.filter(c => c.fn === 'qa-post').slice(qb);
