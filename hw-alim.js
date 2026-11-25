@@ -101,12 +101,32 @@
                date: dates.length ? dates[dates.length - 1] : '', due: dues.length ? dues[dues.length - 1] : '' };
     });
   }
-  /* 오답하기 중 = 틀린 문항이 있고 오답하기를 끝내지 않음(review_at 없음) */
+  /* 오답하기 중 = 틀린 문항이 있고 오답하기를 끝내지 않음(review_at 없음).
+   * 'reply' = 남은 오답이 모두 선생님 답장을 기다리는 질문뿐 — 알림톡 대상에서 뺀다 (2026-11-25 원장님 "답장 필요만 남은 학생은 빼주세요")
+   * sub.qaNeed = 답장 기다리는 질문 수, sub.handled = 클리어·넘김한 문항 수(review 가 있으면 여기서 셈) */
+  function handledOf(sub){
+    if (sub.handled != null) return Number(sub.handled) || 0;
+    var n = 0; Object.keys(sub.review || {}).forEach(function(k){ var v = sub.review[k] || {}; if (v.cleared_at || v.help || v.error) n++; });
+    return n;
+  }
   function state(sub){
     if (!sub) return 'none';
     var tot = Number(sub.total) || 0, got = Number(sub.got) || 0;
     if (sub.review_at || sub.reviewed) return 'ok';
-    return tot > got ? 'ing' : 'ok';
+    if (tot <= got) return 'ok';
+    var need = Number(sub.qaNeed) || 0;
+    if (need > 0 && tot - got - handledOf(sub) <= need) return 'reply';
+    return 'ing';
+  }
+  /* 답장 기다리는 질문 수 — 문항마다 마지막 글이 학생이고, 그 뒤 [잘 고쳤습니다]를 누르지 않았으면 (hwork_teacher.html 과 같은 규칙) */
+  function qaNeed(subs, qa){
+    var by = {}, ck = {}, kst = function(iso){ var d = new Date(new Date(iso).getTime() + 9 * 3600e3); if (isNaN(d)) return ''; var p = function(n){ return String(n).padStart(2, '0'); };
+      return d.getUTCFullYear() + '-' + p(d.getUTCMonth() + 1) + '-' + p(d.getUTCDate()) + ' ' + p(d.getUTCHours()) + ':' + p(d.getUTCMinutes()); };
+    (subs || []).forEach(function(r){ if (r.id) ck[r.id] = r.checked || {}; });
+    (qa || []).forEach(function(m){ var k = m.sub_id + '|' + m.q; by[k] = m.who;
+      if (m.who === '학생'){ var c = (ck[m.sub_id] || {})[m.q]; if (c && String(c.at || '') >= kst(m.at)) by[k] = '선생님'; } });
+    var n = {}; Object.keys(by).forEach(function(k){ if (by[k] === '학생'){ var id = k.split('|')[0]; n[id] = (n[id] || 0) + 1; } });
+    (subs || []).forEach(function(r){ if (r.id) r.qaNeed = n[r.id] || 0; });
   }
   function shortTitle(code){ return tr(code).replace(/^SHUEGUK REAL 내신 기출\s*/, '').replace(/^\[[^\]]*\]\s*/, ''); }
   function digits(p){ return String(p || '').replace(/\D/g, ''); }
@@ -258,5 +278,5 @@
     });
     loadCfg().then(draw);
   }
-  window.HWA = { build: build, state: state, open: open, normGrade: normGrade, stuKey: stuKey, shortTitle: shortTitle, LEFT_RE: LEFT_RE };
+  window.HWA = { build: build, state: state, qaNeed: qaNeed, open: open, normGrade: normGrade, stuKey: stuKey, shortTitle: shortTitle, LEFT_RE: LEFT_RE };
 })();

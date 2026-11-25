@@ -189,7 +189,7 @@
 <script src="hw-teacher.js?v=20261121b"></script><!-- 선생님별 H WORK (?t=) -->
 <script src="class-done.js?v=20261121a"></script><!-- 수업에서 처리 · 완료 -->
 <script src="https://coke4497-sys.github.io/shueguk-report/activity.js"></script>
-<script src="hw-alim.js?v=20261125a"></script><!-- 배정 미제출 · 한꺼번에 알림톡 (2026-11-25) -->
+<script src="hw-alim.js?v=20261125b"></script><!-- 배정 미제출 · 한꺼번에 알림톡 (2026-11-25) -->
 </head>
 <body>
 
@@ -361,7 +361,7 @@
         const [asg, stus]=await Promise.all([
           sbAllRows('/assignments?tool=eq.'+encodeURIComponent('H WORK')+'&select=seq,date,item,type,target,due&order=seq'),
           sbAllRows('/students?select=name,school,grade,enrolled,code,phone_student,phone_parent1,phone_parent2&order=id') ]);
-        const subs=ALL.map(r=>({ name:r.name, school:r.school, grade:r.grade, code:r.code, teacher:r.teacher, got:r.got, total:r.total, review_at:r.reviewed?'1':null }));
+        const subs=ALL.map(r=>({ name:r.name, school:r.school, grade:r.grade, code:r.code, teacher:r.teacher, got:r.got, total:r.total, review_at:r.reviewed?'1':null, qaNeed:r.qaNeed||0, handled:(r.fix&&r.fix.handled)||0 }));
         WORKS=HWA.build(asg, subs, stus);
         NONE=[];
         WORKS.forEach(w=>w.assigned.forEach(st=>{ if(!w.done[HWA.stuKey(st)]) NONE.push({ st:'none', none:true, name:st.name, school:st.school, grade:HWA.normGrade(st.grade)||st.grade,
@@ -461,7 +461,7 @@
     const t=document.getElementById('fTeacher').value, c=document.getElementById('fCode').value, s=document.getElementById('fSchool').value,
           g=document.getElementById('fGrade').value, q=document.getElementById('q').value.trim();
     const list=LAST_NONE.map(r=>({ stu:r.stu, code:r.code, kind:'none' }));
-    const ingKey={}; LAST_BASE.forEach(r=>{ ingKey[r.code+'|'+r.name]=1; });   // 화면 거르기 안의 제출만 — 답장 필요 상태여도 오답하기를 안 끝냈으면 넣는다
+    const ingKey={}; LAST_BASE.forEach(r=>{ ingKey[r.code+'|'+r.name]=1; });   // 화면 거르기 안의 제출만 — 남은 오답이 답장 기다리는 질문뿐이면(state 'reply') 뺀다
     WORKS.forEach(w=>{ if(w.teacher!==t || (c&&w.code!==c)) return;
       w.assigned.forEach(st=>{ const x=w.done[HWA.stuKey(st)]; if(!x || HWA.state(x)!=='ing') return;
         if(!ingKey[w.code+'|'+x.name]) return;   // 화면 거르기(학교·학년·이름)와 같은 줄만
@@ -554,7 +554,7 @@
   let RETRY_COL = false;
   function fixSum(rv, nwrong){
     const o={ n:nwrong, clr:0, help:0, err:0, any:false };
-    Object.values(rv||{}).forEach(v=>{ o.any=true; if(v.cleared_at) o.clr++; if(v.help) o.help++; if(v.error) o.err++; });
+    Object.values(rv||{}).forEach(v=>{ o.any=true; if(v.cleared_at) o.clr++; if(v.help) o.help++; if(v.error) o.err++; if(v.cleared_at||v.help||v.error) o.handled=(o.handled||0)+1; });
     return o;
   }
   /* 화면 이탈 (066, 2026-11-12) — 푸는 동안 다른 앱으로 넘어가거나 화면을 끈 횟수·시간. 0이면 표시 안 함 */

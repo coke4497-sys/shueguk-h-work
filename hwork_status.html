@@ -88,7 +88,7 @@
 <script src="hw-teacher.js?v=20261121b"></script><!-- 선생님별 H WORK (?t=) -->
 <script src="https://coke4497-sys.github.io/shueguk-report/teacher-name.js"></script>
 <script src="https://coke4497-sys.github.io/shueguk-report/activity.js"></script>
-<script src="hw-alim.js?v=20261125a"></script><!-- 미제출·오답하기 중 한꺼번에 알림톡 (2026-11-25) -->
+<script src="hw-alim.js?v=20261125b"></script><!-- 미제출·오답하기 중 한꺼번에 알림톡 (2026-11-25) -->
 </head>
 <body>
 <main class="wrap">
@@ -331,15 +331,20 @@ function stuKey(s){ return s.name + '|' + s.school + '|' + s.grade; }
 function load(){
   var box = document.getElementById('list');
   box.innerHTML = '<div class="empty">불러오는 중…</div>';
-  var subCols = 'id,teacher,code,name,school,grade,got,total,ts,review_at';
+  var subCols = 'id,teacher,code,name,school,grade,got,total,ts,review_at,review,checked';
   Promise.all([
     sbAll('/assignments?tool=eq.' + encodeURIComponent(TOOL) + '&select=seq,date,item,type,target,due,memo&order=seq'),
     sbAll('/hwork_submissions?select=' + subCols + '&order=id').catch(function(){
+      subCols = 'id,teacher,code,name,school,grade,got,total,ts,review_at';   // 074 전 DB
+      return sbAll('/hwork_submissions?select=' + subCols + '&order=id');
+    }).catch(function(){
       subCols = 'id,teacher,code,name,school,grade,got,total,ts';   // 064 전 DB
       return sbAll('/hwork_submissions?select=' + subCols + '&order=id');
     }),
-    sbAll('/students?select=name,school,grade,enrolled,code,phone_student,phone_parent1,phone_parent2&order=name')
+    sbAll('/students?select=name,school,grade,enrolled,code,phone_student,phone_parent1,phone_parent2&order=name'),
+    sbAll('/hwork_qa?select=id,sub_id,q,who,at&order=id').catch(function(){ return []; })   // 답장 기다리는 질문 — 그것만 남은 학생은 알림톡에서 뺀다
   ]).then(function(rs){
+    HWA.qaNeed(rs[1], rs[3]);
     build(rs[0], rs[1], rs[2]);
     document.getElementById('upd').textContent = '불러온 시각 ' + new Date().toTimeString().slice(0,5);
     render();
@@ -534,7 +539,7 @@ function alimTargets(ws){
     w.assigned.filter(stuOn).forEach(function(s){
       var r = w.done[stuKey(s)];
       if (!r) out.push({ stu: s, code: w.code, kind: 'none' });
-      else if (!reviewed(r) && Number(r.total) > Number(r.got)) out.push({ stu: s, code: w.code, kind: 'ing' });
+      else if (!reviewed(r) && HWA.state(r) === 'ing') out.push({ stu: s, code: w.code, kind: 'ing' });   // 답장 기다리는 질문만 남았으면 빼기
     });
   });
   return out;
