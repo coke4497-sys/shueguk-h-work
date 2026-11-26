@@ -72,6 +72,9 @@
   .wl .wtool{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 4px 12px}
   .wl .wtool button{border:0;border-radius:999px;background:#ede4f4;color:#5a4a6a;padding:10px 16px;font-size:14px;font-family:inherit;cursor:pointer}
   .wl .wtool #sendAll{background:#4a4266;color:#fff}
+  .wl .wsort{margin-left:auto;display:flex;gap:4px}
+  .wl .wtool .wsort button{background:#fff;color:#5c6a64;padding:8px 12px;font-size:13px}
+  .wl .wtool .wsort button.on{background:#ede4f4;color:#5a4a6a;font-weight:700}
   .wl .wtool button:disabled{opacity:.45;cursor:default}
   .wl .wmsg{font-size:12.5px;color:#54655c}
   .wl .wrow .row{display:block;background:#fff;border-radius:16px;padding:12px 150px 12px 16px;color:#2b3a33;cursor:pointer}
@@ -686,14 +689,19 @@ async function boot(){
 /* 주소 없이 열면 — 답장을 기다리는 질문(마지막 글이 학생) 목록 */
 async function waitList(){
   let rows=[];
-  try{ rows=await sb('/hwork_qa?select=id,sub_id,q,who,body,at,s:hwork_submissions(name,school,grade,code,teacher)&order=id.desc&limit=2000'); }catch(e){}
+  try{ rows=await sb('/hwork_qa?select=id,sub_id,q,who,body,at,s:hwork_submissions(name,school,grade,code,teacher,ts)&order=id.desc&limit=2000'); }catch(e){}
   const seen=new Set(), wait=[];
   rows.forEach(r=>{ const k=r.sub_id+'|'+r.q; if(seen.has(k)) return; seen.add(k); if(r.who==='학생'&&r.s&&(!window.HWT||HWT.mine(r.s.teacher))) wait.push(r); });
-  WL.rows=wait; await wlLoadDrafts(); wlDraw();
+  WL.rows=wait; wlSortRows(); await wlLoadDrafts(); wlDraw();
   if(!WL.timer) WL.timer=setInterval(async()=>{ if(document.hidden||WL.busy) return; const n=Object.keys(WL.drafts).length; await wlLoadDrafts(); if(Object.keys(WL.drafts).length!==n) wlDraw(); }, 30000);
 }
 /* 답장 기다리는 질문 목록 — 클로슈 초안 보고 고쳐 보내기·전체 답변 생성 요청·전체 발송 (2026-11-24 원장님, 리포트 092) */
 const WL={ rows:[], drafts:{}, open:new Set(), text:{}, busy:false, timer:null, q:{}, hw:{} };
+/* 정렬 — 최근 제출순(기본, 2026-11-26 원장님 "선생님이 질문 답변하는 리스트에서는 최근 제출순 필요") / 최근 질문순. 이 기기에 기억 */
+WL.sort=(()=>{ try{ return localStorage.getItem('hw_wl_sort')==='q'?'q':'sub'; }catch(e){ return 'sub'; } })();
+function wlSubMs(r){ const m=String((r.s&&r.s.ts)||'').match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})(?:\D+(\d{1,2})\D+(\d{1,2}))?/); return m?Date.UTC(+m[1],+m[2]-1,+m[3],+(m[4]||0),+(m[5]||0)):0; }
+function wlSortRows(){ WL.rows.sort((a,b)=>WL.sort==='q'?(b.id-a.id):((wlSubMs(b)-wlSubMs(a))||(b.sub_id-a.sub_id)||(+a.q-+b.q))); }
+function wlSetSort(v){ WL.sort=v; try{ localStorage.setItem('hw_wl_sort',v); }catch(e){} wlSortRows(); wlDraw(); }
 /* 목록에서 펼친 질문의 문제·지문·정답 — 결과 화면(loadQs)과 같은 원본에서, 펼칠 때 한 번만 (2026-11-25 원장님 "문항에 해당하는 지문이 있을 때는 화면에서 확인할 수 있어야") */
 async function wlLoadQ(r){
   const k=wlKey(r); if(WL.q[k]) return;
@@ -744,8 +752,8 @@ function wlDraw(){
       <textarea data-wk="${esc(k)}" maxlength="5000" placeholder="학생에게 보낼 답장">${esc(wlText(k))}</textarea>
       <div class="wact"><button type="button" class="go" data-wsend="${esc(k)}">보내기</button>${d?`<button type="button" class="sub" data-wdrop="${esc(k)}">초안 지우기</button>`:''}<a href="?sid=${r.sub_id}&q=${enc(r.q)}${window.HWT&&HWT.t?'&t='+enc(HWT.t):''}" target="_blank">문제·채점 화면에서 보기 ↗</a></div></div>`; };
   $('view').innerHTML=`<div class="wl"><h1>답장을 기다리는 H WORK 질문</h1><p>줄을 누르면 클로슈가 쓴 답장 초안이 열립니다. 고친 뒤 [보내기]를 누르면 그 학생에게 갑니다. 수업 시간에 직접 설명했다면 [수업에서 처리 · 완료]를 누르세요.</p>
-    ${WL.rows.length?`<div class="wtool"><button type="button" id="genAll">전체 답변 생성하기</button><button type="button" id="sendAll" ${ready?'':'disabled'}>초안 ${ready}개 모두 보내기</button><span class="wmsg" id="wmsg">${WL.reqAt?'클로슈에게 '+esc(WL.reqAt)+'에 요청했어요. 보통 몇 분 안에 초안이 채워집니다(30초마다 다시 확인).':''}${chk?` · 정답 확인 필요 ${chk}개는 모두 보내기에서 빠집니다`:''}</span></div>`:''}
-    ${WL.rows.length?WL.rows.map(r=>`<div class="wrow${WL.open.has(wlKey(r))?' open':''}"><div class="row" role="button" tabindex="0" data-wopen="${esc(wlKey(r))}"><b>${esc(r.s.name)}</b> · ${esc(r.q)}번${tag(r)}<small>${esc(r.s.code)} · ${esc(r.s.teacher)} · ${esc(kst(r.at))}</small>${esc(r.body)}</div><button type="button" class="cls" data-sid="${r.sub_id}" data-q="${esc(r.q)}" data-nm="${esc(r.s.name)}" onclick="classRow(this)">수업에서 처리 · 완료</button>${body(r)}</div>`).join(''):'<p>답장을 기다리는 질문이 없습니다.</p>'}</div>`;
+    ${WL.rows.length?`<div class="wtool"><button type="button" id="genAll">전체 답변 생성하기</button><button type="button" id="sendAll" ${ready?'':'disabled'}>초안 ${ready}개 모두 보내기</button><span class="wsort"><button type="button" class="${WL.sort==='sub'?'on':''}" onclick="wlSetSort('sub')">최근 제출순</button><button type="button" class="${WL.sort==='q'?'on':''}" onclick="wlSetSort('q')">최근 질문순</button></span><span class="wmsg" id="wmsg">${WL.reqAt?'클로슈에게 '+esc(WL.reqAt)+'에 요청했어요. 보통 몇 분 안에 초안이 채워집니다(30초마다 다시 확인).':''}${chk?` · 정답 확인 필요 ${chk}개는 모두 보내기에서 빠집니다`:''}</span></div>`:''}
+    ${WL.rows.length?WL.rows.map(r=>`<div class="wrow${WL.open.has(wlKey(r))?' open':''}"><div class="row" role="button" tabindex="0" data-wopen="${esc(wlKey(r))}"><b>${esc(r.s.name)}</b> · ${esc(r.q)}번${tag(r)}<small>${esc(r.s.code)} · ${esc(r.s.teacher)} · 제출 ${esc(r.s.ts||'')} · 질문 ${esc(kst(r.at))}</small>${esc(r.body)}</div><button type="button" class="cls" data-sid="${r.sub_id}" data-q="${esc(r.q)}" data-nm="${esc(r.s.name)}" onclick="classRow(this)">수업에서 처리 · 완료</button>${body(r)}</div>`).join(''):'<p>답장을 기다리는 질문이 없습니다.</p>'}</div>`;
 }
 async function wlSend(k, quiet){
   const r=WL.rows.find(x=>wlKey(x)===k); if(!r) return false;

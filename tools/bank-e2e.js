@@ -319,12 +319,19 @@ function rpc(fn, p) {
   ok(lp.length === 1 && lp[0].r.body === '목록에서 고친 답장' && lp[0].r.sub_id === 57 && (DB.draftPatch || []).some(x => x.rest.includes('id=eq.1') && x.b.used_at), '목록 — 개별 보내기: 고친 글이 가고 초안은 쓴 것으로, 줄이 빠짐');
   await tw.close();
   // 전체 발송 · 전체 답변 생성하기
-  DB.qa.push({ id: 71, sub_id: 58, q: '1', who: '학생', name: '최하나', body: '1번?', mine: '1', at: '2026-11-24T06:00:00Z', read_at: null, s: Object.assign({}, sub, { id: 58, name: '최하나' }) });
-  DB.qa.push({ id: 72, sub_id: 59, q: '3', who: '학생', name: '정두리', body: '3번?', mine: '1', at: '2026-11-24T06:01:00Z', read_at: null, s: Object.assign({}, sub, { id: 59, name: '정두리' }) });
+  DB.qa.push({ id: 71, sub_id: 58, q: '1', who: '학생', name: '최하나', body: '1번?', mine: '1', at: '2026-11-24T06:00:00Z', read_at: null, s: Object.assign({}, sub, { id: 58, name: '최하나', ts: '2026-11-25 10:00' }) });
+  DB.qa.push({ id: 72, sub_id: 59, q: '3', who: '학생', name: '정두리', body: '3번?', mine: '1', at: '2026-11-24T06:01:00Z', read_at: null, s: Object.assign({}, sub, { id: 59, name: '정두리', ts: '2026-11-20 10:00' }) });
   DB.drafts = [{ id: 3, sub_id: 58, q: '1', after_id: 71, kind: '초안', body: '하나 답장', note: '' }, { id: 4, sub_id: 59, q: '3', after_id: 72, kind: '확인 필요', body: '참고', note: '정답 의심' }];
   DB.draftPatch = []; DB.posts = [];
   const ta = await ctx.newPage(); await ta.goto(U + 'hwork_result.html'); await ta.waitForSelector('#sendAll');
   ok((await ta.textContent('#sendAll')).includes('초안 1개'), '전체 발송 버튼 — 정답 확인 필요는 세지 않음');
+  const wOrd = () => ta.evaluate(() => [...document.querySelectorAll('.wl .row[data-wopen]')].map(e => e.getAttribute('data-wopen')));
+  await ta.evaluate(() => { try { localStorage.removeItem('hw_wl_sort'); } catch (e) {} });
+  let wo = await wOrd();
+  ok(wo.indexOf('58|1') < wo.indexOf('59|3') && (await ta.textContent('.wl')).includes('제출 2026-11-25 10:00'), '질문 목록 — 기본은 최근 제출순(제출 시각 표시)');
+  await ta.click('.wsort button:nth-child(2)'); wo = await wOrd();
+  ok(wo.indexOf('59|3') < wo.indexOf('58|1'), '질문 목록 — [최근 질문순]으로 바꾸기');
+  await ta.click('.wsort button:nth-child(1)');
   const qb2 = DB.calls.filter(c => c.fn === 'qa-post').length;
   await ta.click('#sendAll'); await ta.waitForFunction(() => !document.querySelector('.wl [data-wopen="58|1"]'));
   const ap = DB.calls.filter(c => c.fn === 'qa-post').slice(qb2);
