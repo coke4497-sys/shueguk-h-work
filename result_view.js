@@ -183,6 +183,7 @@
     const d=c.detail[q]||{}, r=(c.review||{})[q]||{};
     if(c.mode==='teacher' || d.ok===true){ const a=d.ans!=null&&d.ans!==''?d.ans:(c.mode==='teacher'&&c.answers?c.answers[q]:null); return a!=null&&a!==''?esc(show(a)):''; }
     if(r.cleared_at && c.answers && c.answers[q]!=null) return esc(show(c.answers[q]));
+    if(c.allAns && c.allAns[q]!=null && c.allAns[q]!=='') return esc(show(c.allAns[q]));   // 완료한 과제 = 정답지 (2026-11-26, 리포트 094)
     return null;
   }
   function filterHit(c, q, f){
