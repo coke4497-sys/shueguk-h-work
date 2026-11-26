@@ -326,7 +326,7 @@ function sbAll(path){
 
 var D = null;   // {works:[{key,teacher,code,rows,assigned:[stu],subs:{stuKey:sub}}], stus:{key:stu}}
 var V = { view: 'work', grade: '', school: '', week: 0, q: '', todo: false, open: {} };
-try { var sv = JSON.parse(sessionStorage.getItem('hs_view') || 'null'); if (sv) { V.view = sv.view || 'work'; V.grade = sv.grade || ''; V.school = sv.school || ''; V.week = Number(sv.week) || 0; V.todo = !!sv.todo; } } catch(e){}
+try { var sv = JSON.parse(sessionStorage.getItem('hs_view') || 'null'); if (sv) { V.view = sv.view || 'work'; V.grade = sv.grade || ''; V.school = sv.school || ''; V.week = sv.week === 'x' ? 'x' : (Number(sv.week) || 0); V.todo = !!sv.todo; } } catch(e){}
 function saveV(){ try { sessionStorage.setItem('hs_view', JSON.stringify({ view:V.view, grade:V.grade, school:V.school, week:V.week, todo:V.todo })); } catch(e){} }
 function stuKey(s){ return s.name + '|' + s.school + '|' + s.grade; }
 
@@ -398,7 +398,8 @@ function build(asg, subs, stus){
 }
 
 /* 주차 거르기 (2026-11-26 원장님) — 과제를 처음 배정한 날의 주차, hw-alim.js weekOf */
-function wkOn(w){ return !V.week || w.wk === V.week; }
+function curWeek(){ var y = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10); return window.HWA && HWA.weekOf ? HWA.weekOf(y) : 0; }
+function wkOn(w){ if (V.week === 'x') return w.wk !== curWeek(); return !V.week || w.wk === V.week; }
 function wkPill(w){ return w.wk ? '<span class="wkp">'+w.wk+'주차</span>' : ''; }
 function stuOn(s){
   if (V.grade && shortGrade(s.grade) !== V.grade) return false;
@@ -419,9 +420,10 @@ function fillFilters(){
   var sl = Object.keys(ss).sort(function(a, b){ return a.localeCompare(b, 'ko'); });
   document.getElementById('fSchool').innerHTML = '<option value="">모든 학교</option>' + sl.map(function(s){ return '<option value="'+esc(s)+'"'+(s===V.school?' selected':'')+'>'+esc(s)+' · '+ss[s]+'명</option>'; }).join('');
   var wl = []; D.works.forEach(function(w){ if (w.wk && wl.indexOf(w.wk) < 0) wl.push(w.wk); }); wl.sort(function(a, b){ return b - a; });
-  if (V.week && wl.indexOf(V.week) < 0) V.week = 0;
+  var nw = curWeek(), hasOld = nw && wl.some(function(n){ return n < nw; });
+  if (V.week === 'x' ? !hasOld : (V.week && wl.indexOf(V.week) < 0)) V.week = 0;
   var fw = document.getElementById('fWeek');
-  fw.innerHTML = '<option value="">모든 주차</option>' + wl.map(function(n){ return '<option value="'+n+'"'+(n===V.week?' selected':'')+'>'+n+'주차</option>'; }).join('');
+  fw.innerHTML = '<option value="">모든 주차</option>' + (hasOld ? '<option value="x"'+(V.week==='x'?' selected':'')+'>이번 주('+nw+'주차) 빼고</option>' : '') + wl.map(function(n){ return '<option value="'+n+'"'+(n===V.week?' selected':'')+'>'+n+'주차</option>'; }).join('');
   fw.style.display = wl.length ? '' : 'none';
   document.getElementById('fTodo').checked = V.todo;
 }
@@ -542,7 +544,7 @@ document.getElementById('views').addEventListener('click', function(e){
 });
 document.getElementById('fGrade').addEventListener('change', function(e){ V.grade = e.target.value; render(); });
 document.getElementById('fSchool').addEventListener('change', function(e){ V.school = e.target.value; render(); });
-document.getElementById('fWeek').addEventListener('change', function(e){ V.week = Number(e.target.value) || 0; render(); });
+document.getElementById('fWeek').addEventListener('change', function(e){ V.week = e.target.value === 'x' ? 'x' : (Number(e.target.value) || 0); render(); });
 document.getElementById('fTodo').addEventListener('change', function(e){ V.todo = e.target.checked; render(); });
 document.getElementById('fFind').addEventListener('input', function(e){ V.q = e.target.value; render(); });
 /* 미제출·오답하기 중 알림톡 (2026-11-25) — 지금 거르기(학년·학교·찾기·다 내지 않은 것만)로 보이는 과제, 또는 한 과제 */
@@ -570,7 +572,7 @@ document.getElementById('alimAll').addEventListener('click', function(){
   var ws = visibleWorks(), q = V.view === 'stu' ? qOf() : '';
   var list = alimTargets(ws);
   if (q) list = list.filter(function(x){ return x.stu.name.replace(/\s+/g,'').toLowerCase().indexOf(q) >= 0; });
-  var scope = [V.week ? V.week + '주차' : '', V.grade, V.school, V.q && ('‘' + V.q + '’')].filter(Boolean).join(' · ');
+  var scope = [V.week === 'x' ? '이번 주 빼고' : V.week ? V.week + '주차' : '', V.grade, V.school, V.q && ('‘' + V.q + '’')].filter(Boolean).join(' · ');
   HWA.open(list, '과제 ' + ws.length + '개' + (scope ? ' · ' + scope : '') + '에서 미제출·오답하기 중인 학생');
 });
 document.getElementById('list').addEventListener('click', function(e){

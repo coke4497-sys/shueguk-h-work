@@ -385,7 +385,8 @@
       fillSel('fSchool',  uniq(ALL.concat(NONE).map(r=>r.school)),  '전체 학교');
       fillSel('fGrade',   uniq(ALL.concat(NONE).map(r=>r.grade)),   '전체 학년');
       { const ws=[...new Set(ALL.concat(NONE).map(r=>r.wk).filter(Boolean))].sort((a,b)=>b-a), sel=document.getElementById('fWeek'), cur=sel.value;
-        sel.innerHTML='<option value="">전체 주차</option>'+ws.map(n=>`<option value="${n}"${String(n)===cur?' selected':''}>${n}주차</option>`).join('');
+        const nw=curWeek();
+        sel.innerHTML='<option value="">전체 주차</option>'+(nw&&ws.some(n=>n<nw)?`<option value="x"${cur==='x'?' selected':''}>이번 주(${nw}주차) 빼고</option>`:'')+ws.map(n=>`<option value="${n}"${String(n)===cur?' selected':''}>${n}주차</option>`).join('');
         sel.style.display=ws.length?'':'none'; }
       document.getElementById('loading').style.display='none';
       applyFilter();
@@ -395,6 +396,7 @@
     }
   }
 
+  function curWeek(){ const y=new Date(Date.now()+9*3600e3).toISOString().slice(0,10); return window.HWA&&HWA.weekOf?HWA.weekOf(y):0; }
   function applyFilter(){
     const t=document.getElementById('fTeacher').value;
     const c=document.getElementById('fCode').value;
@@ -414,12 +416,13 @@
       return;
     }
 
-    const wf=Number(document.getElementById('fWeek').value)||0;
+    const wv=document.getElementById('fWeek').value, wx=wv==='x', wf=wx?0:(Number(wv)||0), nw=curWeek();
+    const wkOk=r=>wx?r.wk!==nw:(!wf||r.wk===wf);
     const base=ALL.filter(r=>
-      (r.teacher===t) && (!c||r.code===c) && (!s||r.school===s) && (!g||r.grade===g) && (!wf||r.wk===wf) &&
+      (r.teacher===t) && (!c||r.code===c) && (!s||r.school===s) && (!g||r.grade===g) && wkOk(r) &&
       (!q||(r.name||'').includes(q)) );
     base.forEach(r=>{ r.st=stOf(r); }); LAST_BASE=base;
-    const nones=NONE.filter(r=>r.teacher===t && (!c||r.code===c) && (!s||r.school===s) && (!g||r.grade===g) && (!wf||r.wk===wf) && (!q||(r.name||'').includes(q)));
+    const nones=NONE.filter(r=>r.teacher===t && (!c||r.code===c) && (!s||r.school===s) && (!g||r.grade===g) && wkOk(r) && (!q||(r.name||'').includes(q)));
     LAST_NONE=nones;
     const cnt={ all:base.length+nones.length, need:0, ing:0, wait:0, done:0, none:nones.length };
     base.forEach(r=>{ if(cnt[r.st]!=null) cnt[r.st]++; });
