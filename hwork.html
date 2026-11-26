@@ -1232,7 +1232,7 @@
         box.innerHTML=`<div class="expl">${j.err?'<b>오류 문항</b> 교재에서 풀지 않고 넘어가는 문항이에요.':`<b>정답 ${escapeHtml(j.ans_text||'')}</b>`}${j.essay?`<div>예시 답: ${escapeHtml(j.essay)}</div>`:''}${j.expl?`<div>${escapeHtml(j.expl)}</div>`:''}${wl.map(w=>`<div>${escapeHtml(w)}</div>`).join('')}${j.expl||wl.length?'<div style="color:#8a9893;font-size:13px">더 궁금하면 아래에 질문해 주세요.</div>':'<div style="color:#8a9893;font-size:13px">학교 기출 문항이라 따로 해설은 없어요. 더 궁금하면 아래에 질문해 주세요.</div>'}</div>`;
         return;
       }
-      box.innerHTML=`<div class="expl"><b>정답 ${'①②③④⑤'[j.ans-1]||j.ans}</b> ${j.good||''}${(j.bad||[]).map(b=>`<div>${b}</div>`).join('')}</div>`;
+      box.innerHTML=`<div class="expl"><b>정답 ${j.ans_text?escapeHtml(j.ans_text):('①②③④⑤'[j.ans-1]||j.ans)}</b> ${j.good||''}${(j.bad||[]).map(b=>`<div>${b}</div>`).join('')}</div>`;
     }catch(e){ box.innerHTML='<div class="lockn">인터넷 연결을 확인하고 다시 눌러 주세요.</div>'; }
   }
   /* 선생님 확인 하트 팝업 (2026-11-17 원장님 "선생님이 애정을 가지고 이 과제를 검사했다는 팝업", 리포트 074)

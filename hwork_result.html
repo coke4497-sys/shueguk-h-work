@@ -65,6 +65,10 @@
   .dft.chk{background:#fdeef0;color:#a8434f}
   .dft .why{flex-basis:100%;font-size:12.5px}
   .dft button{border:0;background:transparent;color:#8a978f;text-decoration:underline;font-family:inherit;font-size:12.5px;cursor:pointer;padding:2px}
+  .wl .wq{background:#fff;border-radius:12px;padding:8px 12px;margin:6px 0}
+  .wl .wq summary{cursor:pointer;font-size:13px;color:#5a4a6a;font-weight:700;padding:2px 0}
+  .wl .wq .wqm{font-size:13px;color:#5c6a64;margin:0}
+  .wl .wpas{background:#f4f9f7;border-radius:10px;padding:8px 10px;margin:8px 0;max-height:45vh;overflow:auto}
   .wl .wtool{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 4px 12px}
   .wl .wtool button{border:0;border-radius:999px;background:#ede4f4;color:#5a4a6a;padding:10px 16px;font-size:14px;font-family:inherit;cursor:pointer}
   .wl .wtool #sendAll{background:#4a4266;color:#fff}
@@ -222,6 +226,13 @@ async function myName(){   // 답장 이름 = 허브에 로그인한 선생님(t
   try{ if(window.shuegukTeacherName) ME=(await shuegukTeacherName())||''; }catch(e){}
   return ME;
 }
+/* 문항 은행 문항의 정답 표시 — 5지선다 번호 · OX 글자 · 단답은 답 칸에 정답 글 (리포트 093) */
+function gMark(x){
+  const t=x.qtype||'choice5';
+  if(t==='short') return x.html.replace('<span class="sat"></span>','<span class="sat">'+String(x.answer||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))+'</span>');
+  const d=t==='ox'?(x.ans===1?'O':'X'):x.ans;
+  return x.html.replace(new RegExp('<span class="cn" data-d="'+d+'">'),'<span class="cn ok" data-d="'+d+'">');
+}
 /* 문제 원문 — 문항 은행(data.bank → gbank_items) 또는 교재(hwork_src_items, 숨긴 것도 선생님께는 보임) */
 /* 교재 해설(075 — 지필 워크북 해설·오답 해설) — 선생님 화면은 늘 펼쳐 볼 수 있다 */
 const EXPL={};
@@ -236,11 +247,11 @@ async function loadQs(s){
     Object.keys(d.items||{}).forEach(n=>{ const a=d.items[n]&&d.items[n].ans; if(a!=null&&a!=='') ANS[n]=Array.isArray(a)?a.join(', '):String(a); });
     if(d.bank && typeof d.bank==='object'){
       STYLE='gq'; BANK=d.bank; const ids=[...new Set(Object.values(d.bank))];
-      const g=ids.length?await sb('/gbank_items?select=id,html,pid,ans,good,bad&id=in.('+ids.join(',')+')'):[];
+      let g=[]; if(ids.length){ try{ g=await sb('/gbank_items?select=id,html,pid,ans,qtype,answer,good,bad&id=in.('+ids.join(',')+')'); }catch(e){ g=await sb('/gbank_items?select=id,html,pid,ans,good,bad&id=in.('+ids.join(',')+')'); } }   // 093 전 DB 면 옛 열
       const by={}; g.forEach(x=>by[x.id]=x);
-      Object.keys(d.bank).forEach(n=>{ const x=by[d.bank[n]]; if(x&&ANS[n]==null) ANS[n]=String(x.ans); if(x&&(x.good||(x.bad&&x.bad.length))) EXPL[n]={ bank:1, good:x.good||'', bad:x.bad||[] }; if(x) QS[n]={ html:x.html.replace(new RegExp('<span class="cn" data-d="'+x.ans+'">'),'<span class="cn ok" data-d="'+x.ans+'">'), pid:x.pid }; });
+      Object.keys(d.bank).forEach(n=>{ const x=by[d.bank[n]]; if(x&&ANS[n]==null) ANS[n]=String(x.ans); if(x&&(x.good||(x.bad&&x.bad.length))) EXPL[n]={ bank:1, good:x.good||'', bad:x.bad||[] }; if(x) QS[n]={ html:gMark(x), pid:x.pid }; });
       const pids=[...new Set(g.map(x=>x.pid).filter(Boolean))];
-      if(pids.length){ (await sb('/gbank_passages?select=pid,html&pid=in.('+pids.map(p=>'"'+p+'"').join(',')+')')).forEach(p=>QP[p.pid]=p.html); }
+      if(pids.length){ (await sb('/gbank_passages?select=pid,html&pid=in.('+encodeURIComponent(pids.map(p=>'"'+p+'"').join(','))+')')).forEach(p=>QP[p.pid]=p.html); }
     }else{
       STYLE='rq';
       let rows;
@@ -249,7 +260,7 @@ async function loadQs(s){
       rows.forEach(x=>{ if(x.expl||x.wrong) EXPL[x.no]={ expl:x.expl||'', wrong:x.wrong||'' }; const okc=String(x.ans||'').split('(')[0]; if(ANS[x.no]==null&&x.ans) ANS[x.no]=String(x.ans);
         QS[x.no]={ html:x.type==='5지'&&/[①②③④⑤]/.test(okc)?x.html.replace(/<span class="cn">([①②③④⑤])<\/span>/g,(m,c)=>okc.includes(c)?'<span class="cn ok">'+c+'</span>':m):x.html, pid:x.pid }; });
       const pids=[...new Set(rows.map(x=>x.pid).filter(Boolean))];
-      if(pids.length){ (await sb('/hwork_src_passages?select=pid,html&pid=in.('+pids.map(p=>'"'+p+'"').join(',')+')')).forEach(p=>QP[p.pid]=p.html); }
+      if(pids.length){ (await sb('/hwork_src_passages?select=pid,html&pid=in.('+encodeURIComponent(pids.map(p=>'"'+p+'"').join(','))+')')).forEach(p=>QP[p.pid]=p.html); }
     }
   }catch(e){}
 }
@@ -682,7 +693,38 @@ async function waitList(){
   if(!WL.timer) WL.timer=setInterval(async()=>{ if(document.hidden||WL.busy) return; const n=Object.keys(WL.drafts).length; await wlLoadDrafts(); if(Object.keys(WL.drafts).length!==n) wlDraw(); }, 30000);
 }
 /* 답장 기다리는 질문 목록 — 클로슈 초안 보고 고쳐 보내기·전체 답변 생성 요청·전체 발송 (2026-11-24 원장님, 리포트 092) */
-const WL={ rows:[], drafts:{}, open:new Set(), text:{}, busy:false, timer:null };
+const WL={ rows:[], drafts:{}, open:new Set(), text:{}, busy:false, timer:null, q:{}, hw:{} };
+/* 목록에서 펼친 질문의 문제·지문·정답 — 결과 화면(loadQs)과 같은 원본에서, 펼칠 때 한 번만 (2026-11-25 원장님 "문항에 해당하는 지문이 있을 때는 화면에서 확인할 수 있어야") */
+async function wlLoadQ(r){
+  const k=wlKey(r); if(WL.q[k]) return;
+  WL.q[k]={ loading:true };
+  const out={ style:'rq', html:'', pas:'', ans:'' };
+  try{
+    const hk=r.s.teacher+'|'+r.s.code;
+    if(!WL.hw[hk]) WL.hw[hk]=sb('/hwork_homeworks?select=data&teacher=eq.'+enc(r.s.teacher)+'&code=eq.'+enc(r.s.code)+'&limit=1').then(x=>(x[0]&&x[0].data)||{}).catch(()=>({}));
+    const d=await WL.hw[hk]; const q=String(r.q);
+    const it=d.items&&d.items[q]; if(it&&it.ans!=null&&it.ans!=='') out.ans=Array.isArray(it.ans)?it.ans.join(', '):String(it.ans);
+    if(d.bank&&typeof d.bank==='object'){
+      out.style='gq'; const id=d.bank[q];
+      if(id!=null){ let g; try{ g=await sb('/gbank_items?select=id,html,pid,ans,qtype,answer&id=eq.'+id); }catch(e){ g=await sb('/gbank_items?select=id,html,pid,ans&id=eq.'+id); }
+        const x=g&&g[0]; if(x){ out.html=gMark(x); if(!out.ans) out.ans=String(x.ans);
+          if(x.pid){ const pp=await sb('/gbank_passages?select=html&pid=eq.'+enc(x.pid)); if(pp[0]) out.pas=pp[0].html; } } }
+    }else{
+      const rows=await sb('/hwork_src_items?select=no,html,pid,ans,type&code=eq.'+enc(r.s.code)+'&no=eq.'+enc(q));
+      const x=rows&&rows[0]; if(x){ const okc=String(x.ans||'').split('(')[0]; if(!out.ans&&x.ans) out.ans=String(x.ans);
+        out.html=x.type==='5지'&&/[①②③④⑤]/.test(okc)?x.html.replace(/<span class="cn">([①②③④⑤])<\/span>/g,(m,c)=>okc.includes(c)?'<span class="cn ok">'+c+'</span>':m):x.html;
+        if(x.pid){ const pp=await sb('/hwork_src_passages?select=html&pid=eq.'+enc(x.pid)); if(pp[0]) out.pas=pp[0].html; } }
+    }
+  }catch(e){ out.err=1; }
+  WL.q[k]=out;
+  const el=document.querySelector('.wl .wq[data-wq="'+(window.CSS&&CSS.escape?CSS.escape(k):k)+'"]');   // 그 자리만 바꾼다 — 답장 칸의 커서·쓰던 글을 건드리지 않게
+  if(el){ const t=document.createElement('div'); t.innerHTML=wlQHtml(k); if(t.firstElementChild) el.replaceWith(t.firstElementChild); else el.remove(); }
+}
+function wlQHtml(k){
+  const x=WL.q[k]; if(!x||x.loading) return '<div class="wq" data-wq="'+esc(k)+'"><p class="wqm">문제·지문을 불러오는 중…</p></div>';
+  if(!x.html&&!x.pas) return x.err?'<div class="wq" data-wq="'+esc(k)+'"><p class="wqm">문제를 불러오지 못했어요. [문제·채점 화면에서 보기]로 확인해 주세요.</p></div>':'';
+  return `<details class="wq" data-wq="${esc(k)}" open><summary>문제${x.pas?' · 지문':''} 보기${x.ans?' · 정답 '+esc(x.ans):''}</summary>${x.pas?`<div class="wpas"><div class="${x.style}">${x.pas}</div></div>`:''}${x.html?`<div class="${x.style}">${x.html}</div>`:''}</details>`;
+}
 const wlKey=r=>r.sub_id+'|'+r.q;
 async function wlLoadDrafts(){
   const d={};
@@ -697,7 +739,8 @@ function wlDraw(){
   const chk=WL.rows.filter(r=>(WL.drafts[wlKey(r)]||{}).kind==='확인 필요').length;
   const tag=r=>{ const d=WL.drafts[wlKey(r)]; return d?`<span class="dtag${d.kind==='확인 필요'?' chk':''}">${d.kind==='확인 필요'?'클로슈 · 정답 확인 필요':'클로슈 초안 있음'}</span>`:''; };
   const body=r=>{ const k=wlKey(r), d=WL.drafts[k]; if(!WL.open.has(k)) return '';
-    return `<div class="wbody">${d?(d.kind==='확인 필요'?`<div class="dft chk"><b>클로슈 · 정답 확인 필요</b> 정답부터 확인해 주세요. 아래 글은 참고용입니다.${d.note?`<div class="why">${esc(d.note)}</div>`:''}</div>`:`<div class="dft"><b>클로슈 초안</b> 읽고 고친 뒤 [보내기]를 누르면 학생에게 갑니다.${d.note?`<div class="why">${esc(d.note)}</div>`:''}</div>`):'<div class="dft">아직 클로슈 초안이 없습니다. 직접 적어 보내거나 [전체 답변 생성하기]를 눌러 주세요.</div>'}
+    if(!WL.q[k]) wlLoadQ(r);
+    return `<div class="wbody">${wlQHtml(k)}${d?(d.kind==='확인 필요'?`<div class="dft chk"><b>클로슈 · 정답 확인 필요</b> 정답부터 확인해 주세요. 아래 글은 참고용입니다.${d.note?`<div class="why">${esc(d.note)}</div>`:''}</div>`:`<div class="dft"><b>클로슈 초안</b> 읽고 고친 뒤 [보내기]를 누르면 학생에게 갑니다.${d.note?`<div class="why">${esc(d.note)}</div>`:''}</div>`):'<div class="dft">아직 클로슈 초안이 없습니다. 직접 적어 보내거나 [전체 답변 생성하기]를 눌러 주세요.</div>'}
       <textarea data-wk="${esc(k)}" maxlength="5000" placeholder="학생에게 보낼 답장">${esc(wlText(k))}</textarea>
       <div class="wact"><button type="button" class="go" data-wsend="${esc(k)}">보내기</button>${d?`<button type="button" class="sub" data-wdrop="${esc(k)}">초안 지우기</button>`:''}<a href="?sid=${r.sub_id}&q=${enc(r.q)}${window.HWT&&HWT.t?'&t='+enc(HWT.t):''}" target="_blank">문제·채점 화면에서 보기 ↗</a></div></div>`; };
   $('view').innerHTML=`<div class="wl"><h1>답장을 기다리는 H WORK 질문</h1><p>줄을 누르면 클로슈가 쓴 답장 초안이 열립니다. 고친 뒤 [보내기]를 누르면 그 학생에게 갑니다. 수업 시간에 직접 설명했다면 [수업에서 처리 · 완료]를 누르세요.</p>

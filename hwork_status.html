@@ -17,6 +17,7 @@
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
   body{background:var(--bg);color:var(--ink);font-family:"Gowun Dodum","Apple SD Gothic Neo","Malgun Gothic",sans-serif;font-size:15px;line-height:1.6;padding:0 0 80px;-webkit-font-smoothing:antialiased;}
+  .wkp{display:inline-block;font-size:11px;font-weight:700;background:#E4F0EC;color:#3D675D;padding:1px 8px;border-radius:9px;margin-right:6px;vertical-align:1px;white-space:nowrap;}
   .wrap{max-width:760px;margin:0 auto;padding:0 18px;}
   .back{display:inline-flex;align-items:center;gap:6px;margin:24px 0 0;color:var(--ink-soft);text-decoration:none;font-size:14px;}
   .back svg{width:16px;height:16px;} .back:hover{color:var(--accent);}
@@ -40,6 +41,8 @@
   .chk input{accent-color:var(--accent);width:16px;height:16px;}
   .ibtn{border:1.5px solid var(--line);background:#fff;border-radius:10px;padding:7px 12px;font:inherit;font-size:13px;color:var(--ink-soft);cursor:pointer;}
   .ibtn:hover{border-color:var(--accent);color:var(--accent);}
+  .ibtn.alimb{background:#e6e2f2;border-color:#e6e2f2;color:#4a4266;font-weight:700;}
+  .alimw{border:0;border-radius:10px;background:#e6e2f2;color:#4a4266;font:inherit;font-size:13px;font-weight:700;padding:7px 12px;cursor:pointer;margin:2px 0 8px;}
   .upd{font-size:12px;color:var(--ink-soft);margin-left:auto;}
   .grp{font-family:"Gowun Batang",serif;font-weight:700;font-size:15px;color:var(--accent);margin:18px 4px 8px;}
   .grp:first-child{margin-top:2px;}
@@ -84,6 +87,9 @@
   }
 </style>
 <script src="hw-teacher.js?v=20261121b"></script><!-- 선생님별 H WORK (?t=) -->
+<script src="https://coke4497-sys.github.io/shueguk-report/teacher-name.js"></script>
+<script src="https://coke4497-sys.github.io/shueguk-report/activity.js"></script>
+<script src="hw-alim.js?v=20261126a"></script><!-- 미제출·오답하기 중 한꺼번에 알림톡 (2026-11-25) -->
 </head>
 <body>
 <main class="wrap">
@@ -102,10 +108,12 @@
       <span class="seg" id="views"><button type="button" data-v="work" class="on">과제별</button><button type="button" data-v="stu">학생별</button></span>
       <select id="fGrade"><option value="">모든 학년</option></select>
       <select id="fSchool"><option value="">모든 학교</option></select>
+      <select id="fWeek"><option value="">모든 주차</option></select>
     </div>
     <div class="tools">
       <input type="text" id="fFind" placeholder="과제 제목 찾기 (예: 단어 형성)" autocomplete="off">
       <label class="chk"><input type="checkbox" id="fTodo"> 다 내지 않은 것만</label>
+      <button type="button" class="ibtn alimb" id="alimAll" title="지금 보이는 과제의 미제출·오답하기 중 학생에게 ‘H WORK 과제 미완료 안내’ 알림톡">미제출·오답 중 알림톡</button>
       <button type="button" class="ibtn" id="reload">새로고침</button>
       <span class="upd" id="upd"></span>
     </div>
@@ -317,23 +325,28 @@ function sbAll(path){
 }
 
 var D = null;   // {works:[{key,teacher,code,rows,assigned:[stu],subs:{stuKey:sub}}], stus:{key:stu}}
-var V = { view: 'work', grade: '', school: '', q: '', todo: false, open: {} };
-try { var sv = JSON.parse(sessionStorage.getItem('hs_view') || 'null'); if (sv) { V.view = sv.view || 'work'; V.grade = sv.grade || ''; V.school = sv.school || ''; V.todo = !!sv.todo; } } catch(e){}
-function saveV(){ try { sessionStorage.setItem('hs_view', JSON.stringify({ view:V.view, grade:V.grade, school:V.school, todo:V.todo })); } catch(e){} }
+var V = { view: 'work', grade: '', school: '', week: 0, q: '', todo: false, open: {} };
+try { var sv = JSON.parse(sessionStorage.getItem('hs_view') || 'null'); if (sv) { V.view = sv.view || 'work'; V.grade = sv.grade || ''; V.school = sv.school || ''; V.week = Number(sv.week) || 0; V.todo = !!sv.todo; } } catch(e){}
+function saveV(){ try { sessionStorage.setItem('hs_view', JSON.stringify({ view:V.view, grade:V.grade, school:V.school, week:V.week, todo:V.todo })); } catch(e){} }
 function stuKey(s){ return s.name + '|' + s.school + '|' + s.grade; }
 
 function load(){
   var box = document.getElementById('list');
   box.innerHTML = '<div class="empty">불러오는 중…</div>';
-  var subCols = 'id,teacher,code,name,school,grade,got,total,ts,review_at';
+  var subCols = 'id,teacher,code,name,school,grade,got,total,ts,review_at,review,checked';
   Promise.all([
     sbAll('/assignments?tool=eq.' + encodeURIComponent(TOOL) + '&select=seq,date,item,type,target,due,memo&order=seq'),
     sbAll('/hwork_submissions?select=' + subCols + '&order=id').catch(function(){
+      subCols = 'id,teacher,code,name,school,grade,got,total,ts,review_at';   // 074 전 DB
+      return sbAll('/hwork_submissions?select=' + subCols + '&order=id');
+    }).catch(function(){
       subCols = 'id,teacher,code,name,school,grade,got,total,ts';   // 064 전 DB
       return sbAll('/hwork_submissions?select=' + subCols + '&order=id');
     }),
-    sbAll('/students?select=name,school,grade,enrolled&order=name')
+    sbAll('/students?select=name,school,grade,enrolled,code,phone_student,phone_parent1,phone_parent2&order=name'),
+    sbAll('/hwork_qa?select=id,sub_id,q,who,at&order=id').catch(function(){ return []; })   // 답장 기다리는 질문 — 그것만 남은 학생은 알림톡에서 뺀다
   ]).then(function(rs){
+    HWA.qaNeed(rs[1], rs[3]);
     build(rs[0], rs[1], rs[2]);
     document.getElementById('upd').textContent = '불러온 시각 ' + new Date().toTimeString().slice(0,5);
     render();
@@ -344,7 +357,7 @@ function load(){
 
 function build(asg, subs, stus){
   var roster = stus.filter(function(s){ return !LEFT_RE.test(tr(s.enrolled)); })
-    .map(function(s){ return { name: tr(s.name), school: tr(s.school), grade: tr(s.grade) }; })
+    .map(function(s){ return { name: tr(s.name), school: tr(s.school), grade: tr(s.grade), code: tr(s.code), phone_student: tr(s.phone_student), phone_parent1: tr(s.phone_parent1), phone_parent2: tr(s.phone_parent2) }; })
     .filter(function(s){ return s.name; });
   var byItem = {}, order = [];
   asg.forEach(function(a){
@@ -377,13 +390,16 @@ function build(asg, subs, stus){
     var dates = rows.map(function(a){ return tr(a.date); }).filter(Boolean).sort();
     var dues = rows.map(function(a){ return tr(a.due); }).filter(Boolean).sort();
     return { key: item, teacher: teacher, code: code, rows: rows, assigned: assigned, done: done,
-             date: dates.length ? dates[dates.length - 1] : '', due: dues.length ? dues[dues.length - 1] : '' };
+             date: dates.length ? dates[dates.length - 1] : '', wk: HWA.weekOf(dates[0] || ''), due: dues.length ? dues[dues.length - 1] : '' };
   });
   works.sort(bookCmp);
   D = { works: works, stus: stuMap };
   fillFilters();
 }
 
+/* 주차 거르기 (2026-11-26 원장님) — 과제를 처음 배정한 날의 주차, hw-alim.js weekOf */
+function wkOn(w){ return !V.week || w.wk === V.week; }
+function wkPill(w){ return w.wk ? '<span class="wkp">'+w.wk+'주차</span>' : ''; }
 function stuOn(s){
   if (V.grade && shortGrade(s.grade) !== V.grade) return false;
   if (V.school && s.school !== V.school) return false;
@@ -402,6 +418,11 @@ function fillFilters(){
   document.getElementById('fGrade').innerHTML = '<option value="">모든 학년</option>' + gl.map(function(g){ return '<option value="'+esc(g)+'"'+(g===V.grade?' selected':'')+'>'+esc(g)+' · '+gs[g]+'명</option>'; }).join('');
   var sl = Object.keys(ss).sort(function(a, b){ return a.localeCompare(b, 'ko'); });
   document.getElementById('fSchool').innerHTML = '<option value="">모든 학교</option>' + sl.map(function(s){ return '<option value="'+esc(s)+'"'+(s===V.school?' selected':'')+'>'+esc(s)+' · '+ss[s]+'명</option>'; }).join('');
+  var wl = []; D.works.forEach(function(w){ if (w.wk && wl.indexOf(w.wk) < 0) wl.push(w.wk); }); wl.sort(function(a, b){ return b - a; });
+  if (V.week && wl.indexOf(V.week) < 0) V.week = 0;
+  var fw = document.getElementById('fWeek');
+  fw.innerHTML = '<option value="">모든 주차</option>' + wl.map(function(n){ return '<option value="'+n+'"'+(n===V.week?' selected':'')+'>'+n+'주차</option>'; }).join('');
+  fw.style.display = wl.length ? '' : 'none';
   document.getElementById('fTodo').checked = V.todo;
 }
 
@@ -425,6 +446,7 @@ function render(){
   // 요약 — 거르기(학년·학교)를 반영한 배정 수
   var tot = 0, sub = 0, rev = 0, wn = 0, sset = {};
   D.works.forEach(function(w){
+    if (!wkOn(w)) return;
     var on = w.assigned.filter(stuOn); if (!on.length) return;
     wn++;
     on.forEach(function(s){ var k = stuKey(s); sset[k] = 1; tot++; var r = w.done[k]; if (r) { sub++; if (reviewed(r)) rev++; } });
@@ -443,6 +465,7 @@ function render(){
 function renderWorks(q){
   var html = '', head = null;
   D.works.forEach(function(w, i){
+    if (!wkOn(w)) return;
     var on = w.assigned.filter(stuOn); if (!on.length) return;
     if (q && w.code.replace(/\s+/g,'').toLowerCase().indexOf(q) < 0) return;
     var n = on.filter(function(s){ return w.done[stuKey(s)]; }).length;
@@ -456,12 +479,13 @@ function renderWorks(q){
     if (w.due) meta.push('마감 '+md(w.due));
     if (w.teacher && w.teacher !== '이수경') meta.push(w.teacher);
     html += '<div class="row'+(open?' open':'')+(n>=on.length?' full':'')+'"><button type="button" class="rhead" data-o="w'+i+'">' +
-      '<span class="rt"><b>'+esc(sp.rest)+'</b><small>'+esc(meta.join(' · '))+'</small></span>' +
+      '<span class="rt"><b>'+wkPill(w)+esc(sp.rest)+'</b><small>'+esc(meta.join(' · '))+'</small></span>' +
       '<span class="rp">'+bar(n, on.length)+'<small class="rv">오답 끝냄 '+r+'</small></span>' +
       '<svg class="cv" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>';
     if (open){
       var todo = on.filter(function(s){ return !w.done[stuKey(s)]; }), done = on.filter(function(s){ return w.done[stuKey(s)]; });
       html += '<div class="rbody">' +
+        ((todo.length || on.some(function(s){ var x = w.done[stuKey(s)]; return x && !reviewed(x) && Number(x.total) > Number(x.got); })) ? '<button type="button" class="alimw" data-aw="'+i+'">이 과제 미제출·오답 중 학생에게 알림톡</button>' : '') +
         '<div class="lbl">아직 안 낸 학생 '+todo.length+'명</div>' + (todo.length ? '<div class="chips">'+todo.map(function(s){ return chipStu(s, null); }).join('')+'</div>' : '<p class="muted">모두 제출했어요.</p>') +
         '<div class="lbl">제출한 학생 '+done.length+'명</div>' + (done.length ? '<div class="chips">'+done.map(function(s){ return chipStu(s, w.done[stuKey(s)]); }).join('')+'</div>' : '<p class="muted">아직 제출이 없어요.</p>') +
         '<p class="tgt">배정 대상: '+w.rows.map(function(a){ return esc((a.type||'전체') + (a.type && a.type.indexOf('전체')<0 ? ' — ' + prettyTarget(a.target) : '')); }).join(' / ')+'</p>' +
@@ -480,7 +504,7 @@ function renderStudents(q){
   var list = Object.keys(D.stus).map(function(k){ return D.stus[k]; }).filter(stuOn);
   if (q) list = list.filter(function(s){ return s.name.replace(/\s+/g,'').toLowerCase().indexOf(q) >= 0; });
   var rows = list.map(function(s){
-    var k = stuKey(s), ws = D.works.filter(function(w){ return w.assigned.some(function(x){ return stuKey(x) === k; }); });
+    var k = stuKey(s), ws = D.works.filter(function(w){ return wkOn(w) && w.assigned.some(function(x){ return stuKey(x) === k; }); });
     var n = ws.filter(function(w){ return w.done[k]; }).length;
     return { s: s, k: k, ws: ws, n: n };
   });
@@ -502,9 +526,9 @@ function renderStudents(q){
       var todo = r.ws.filter(function(w){ return !w.done[r.k]; }), done = r.ws.filter(function(w){ return w.done[r.k]; });
       html += '<div class="rbody">' +
         '<div class="lbl">아직 안 낸 과제 '+todo.length+'개 <small>교재 앞쪽부터</small></div>' +
-        (todo.length ? '<ol class="wl">'+todo.map(function(w){ return '<li class="todo">'+esc(w.code.replace(/^SHUEGUK REAL\s*/, ''))+(w.due?'<small>마감 '+md(w.due)+'</small>':'')+'</li>'; }).join('')+'</ol>' : '<p class="muted">모두 제출했어요.</p>') +
+        (todo.length ? '<ol class="wl">'+todo.map(function(w){ return '<li class="todo">'+wkPill(w)+esc(w.code.replace(/^SHUEGUK REAL\s*/, ''))+(w.due?'<small>마감 '+md(w.due)+'</small>':'')+'</li>'; }).join('')+'</ol>' : '<p class="muted">모두 제출했어요.</p>') +
         '<div class="lbl">제출한 과제 '+done.length+'개</div>' +
-        (done.length ? '<ol class="wl">'+done.map(function(w){ var x = w.done[r.k]; return '<li class="done">'+esc(w.code.replace(/^SHUEGUK REAL\s*/, ''))+'<small>'+esc((x.total!=null&&x.total!=='')?(x.got+'/'+x.total):'')+(reviewed(x)?' · 오답 ✓':'')+'</small></li>'; }).join('')+'</ol>' : '<p class="muted">아직 제출이 없어요.</p>') +
+        (done.length ? '<ol class="wl">'+done.map(function(w){ var x = w.done[r.k]; return '<li class="done">'+wkPill(w)+esc(w.code.replace(/^SHUEGUK REAL\s*/, ''))+'<small>'+esc((x.total!=null&&x.total!=='')?(x.got+'/'+x.total):'')+(reviewed(x)?' · 오답 ✓':'')+'</small></li>'; }).join('')+'</ol>' : '<p class="muted">아직 제출이 없어요.</p>') +
       '</div>';
     }
     html += '</div>';
@@ -518,9 +542,40 @@ document.getElementById('views').addEventListener('click', function(e){
 });
 document.getElementById('fGrade').addEventListener('change', function(e){ V.grade = e.target.value; render(); });
 document.getElementById('fSchool').addEventListener('change', function(e){ V.school = e.target.value; render(); });
+document.getElementById('fWeek').addEventListener('change', function(e){ V.week = Number(e.target.value) || 0; render(); });
 document.getElementById('fTodo').addEventListener('change', function(e){ V.todo = e.target.checked; render(); });
 document.getElementById('fFind').addEventListener('input', function(e){ V.q = e.target.value; render(); });
+/* 미제출·오답하기 중 알림톡 (2026-11-25) — 지금 거르기(학년·학교·찾기·다 내지 않은 것만)로 보이는 과제, 또는 한 과제 */
+function alimTargets(ws){
+  var out = [];
+  ws.forEach(function(w){
+    w.assigned.filter(stuOn).forEach(function(s){
+      var r = w.done[stuKey(s)];
+      if (!r) out.push({ stu: s, code: w.code, kind: 'none' });
+      else if (!reviewed(r) && HWA.state(r) === 'ing') out.push({ stu: s, code: w.code, kind: 'ing' });   // 답장 기다리는 질문만 남았으면 빼기
+    });
+  });
+  return out;
+}
+function visibleWorks(){
+  var q = qOf();
+  return D.works.filter(function(w){
+    if (!wkOn(w) || !w.assigned.filter(stuOn).length) return false;
+    if (V.view === 'work' && q && w.code.replace(/\s+/g,'').toLowerCase().indexOf(q) < 0) return false;
+    return true;
+  });
+}
+document.getElementById('alimAll').addEventListener('click', function(){
+  if (!D) return;
+  var ws = visibleWorks(), q = V.view === 'stu' ? qOf() : '';
+  var list = alimTargets(ws);
+  if (q) list = list.filter(function(x){ return x.stu.name.replace(/\s+/g,'').toLowerCase().indexOf(q) >= 0; });
+  var scope = [V.week ? V.week + '주차' : '', V.grade, V.school, V.q && ('‘' + V.q + '’')].filter(Boolean).join(' · ');
+  HWA.open(list, '과제 ' + ws.length + '개' + (scope ? ' · ' + scope : '') + '에서 미제출·오답하기 중인 학생');
+});
 document.getElementById('list').addEventListener('click', function(e){
+  var aw = e.target.closest('[data-aw]');
+  if (aw) { var w = D.works[+aw.dataset.aw]; HWA.open(alimTargets([w]), HWA.shortTitle(w.code)); return; }
   var b = e.target.closest('.rhead'); if (!b) return;
   var k = b.dataset.o; V.open[k] = !V.open[k]; render();
 });

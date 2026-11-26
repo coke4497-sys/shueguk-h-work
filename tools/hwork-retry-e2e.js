@@ -233,7 +233,7 @@ function rpc(fn, p) {
     { id: 42, ts: '2026-11-11 15:10', teacher: '이수경', code: 'T세트', school: '무원고등학교', grade: '고2', name: '정해인', got: 1, total: 4, questions: {},
       retry_got: null, retry_at: null, review_at: null, detail: grade({ '1': '1', '3': '가', '4': 'O' }).detail, review: null } ];
   sub[0].away_n = 3; sub[0].away_sec = 130; sub[0].check_done = { at: '2026-11-17 21:11', by: '이수경', note: '' }; sub[0].ts = '2026-11-12 15:00';
-  let oldDb = false, awayOld = false; const QAPOST = [], PATCHES = [];
+  let oldDb = false, awayOld = false; const QAPOST = [], PATCHES = [], ALIMPOST = [];
   await tp.context().route('**/*', async rt => {
     const u = rt.request().url();
     if (u.startsWith('http://localhost:' + PORT)) return rt.continue();
@@ -251,6 +251,16 @@ function rpc(fn, p) {
     if (u.includes('/rest/v1/hwork_qa?select=id,sub_id,q,who')) return rt.fulfill({ json: (q => (q.get('offset') && q.get('offset') !== '0') ? [] : [
       { id: 1, sub_id: 41, q: '3', who: '학생' }, { id: 2, sub_id: 41, q: '3', who: '선생님' }, { id: 3, sub_id: 42, q: '2', who: '학생' }])(new URL(u).searchParams) });
     if (u.includes('/rest/v1/hwork_qa?select=q,who')) { const sid = new URL(u).searchParams.get('sub_id'); return rt.fulfill({ json: [{ sub_id: 41, q: '3', who: '학생' }, { sub_id: 41, q: '3', who: '선생님' }, { sub_id: 42, q: '2', who: '학생' }].filter(m => 'eq.' + m.sub_id === sid) }); }
+    // 배정 · 재원 명단 — 미제출 줄과 한꺼번에 알림톡 (2026-11-25)
+    if (u.includes('/rest/v1/assignments')) return rt.fulfill({ json: (new URL(u).searchParams.get('offset') || '0') !== '0' ? [] : [
+      { seq: 2, date: '2026-11-20', item: '이수경 / T세트', type: '일부', target: '박보검, 정해인, 김수현, 이도윤', due: '2026-11-27' }] });
+    if (u.includes('/rest/v1/students')) return rt.fulfill({ json: (new URL(u).searchParams.get('offset') || '0') !== '0' ? [] : [
+      { name: '박보검', school: '무원고', grade: '2026 고등 2학년', enrolled: '재원', code: 'K1', phone_student: '010-1111-0001', phone_parent1: '010-2222-0001' },
+      { name: '정해인', school: '무원고', grade: '2026 고등 2학년', enrolled: '재원', code: 'K2', phone_student: '010-1111-0002', phone_parent1: '010-2222-0002' },
+      { name: '김수현', school: '무원고', grade: '2026 고등 2학년', enrolled: '재원', code: 'K3', phone_student: '010-1111-0003', phone_parent1: '010-2222-0003' },
+      { name: '이도윤', school: '무원고', grade: '2026 고등 2학년', enrolled: '재원', code: '', phone_student: '010-1111-0004', phone_parent1: '' }] });
+    if (u.includes('script.google.com') && u.includes('alimConfig')) return rt.fulfill({ json: { result: 'success', ready: true, templates: { hwork_todo: { ready: true, text: '[이수경국어학원] H WORK 과제 미완료 안내\n#{학생명} 학생의 H WORK 과제가 아직 완료되지 않았습니다.\n\n▶ #{과제}' } } } });
+    if (u.includes('script.google.com') && rt.request().method() === 'POST') { const bd = JSON.parse(rt.request().postData() || '{}'); if (bd.action === 'alimSend') { ALIMPOST.push(bd); return rt.fulfill({ json: { result: 'success', sent: bd.items.map(x => ({ ok: true, student: x.student, who: x.who })) } }); } }
     if (/\/rest\/v1\/(hwork_qa|hwork_homeworks|hwork_retests|hwork_src_items|hwork_src_passages|students)/.test(u)) return rt.fulfill({ json: [] });
     if (u.endsWith('.js')) return rt.fulfill({ body: '', contentType: 'text/javascript' });
     return rt.fulfill({ json: { ok: true, list: [] } });
@@ -260,17 +270,37 @@ function rpc(fn, p) {
   ok((await tp.inputValue('#fTeacher')) === '이수경', '주소 ?t= 로 열면 그 강사가 골라진 목록 (결과 화면 돌아가기)');
   ok(await tp.locator('#listBody tr.chkd:has-text("박보검")').count() === 1 && await tp.locator('#listBody tr.chkd:has-text("정해인")').count() === 0 && (await tp.textContent('#listBody tr:has-text("박보검")')).includes('♥ 검사 완료'), '과제 검사 완료한 줄만 색 · ♥ 검사 완료');
   ok(await tp.isDisabled('#fTeacher') && (await tp.textContent('.hwt-badge')).includes('이수경 선생님의 H WORK'), '선생님 카드로 열면 강사 칸 고정 (2026-11-21)');
+  // 배정됐지만 미제출 · 한꺼번에 알림톡 (2026-11-25)
+  ok(await tp.locator('#listBody tr.nonr').count() === 2 && (await tp.textContent('#listBody tr.nonr:has-text("김수현")')).includes('미제출') && (await tp.textContent('#listBody tr.nonr:has-text("김수현")')).includes('마감 11/27'), '배정됐지만 안 낸 학생 2명이 미제출 줄로 (마감 11/27)');
+  ok((await tp.textContent('#stchips')).includes('미제출2') && (await tp.textContent('#summary')).includes('미제출 2건'), '상태 알약·요약에 미제출 2');
+  // 주차 표시 (2026-11-26) — 11/20 배정 = 3주차
+  ok((await tp.textContent('#listBody tr.nonr:has-text("김수현") .wkp')) === '3주차' && (await tp.textContent('#listBody tr.r:has-text("박보검") .wkp')) === '3주차' && (await tp.$$eval('#fWeek option', o => o.map(x => x.textContent))).join() === '전체 주차,3주차', '과제 이름 위 3주차 · 주차 거르기');
+  await tp.click('#stchips .stchip:has-text("미제출")'); await tp.waitForTimeout(100);
+  ok(await tp.locator('#listBody tr.nonr').count() === 2 && await tp.locator('#listBody tr.r').count() === 0, '미제출 알약을 누르면 미제출 줄만');
+  await tp.click('#stchips .stchip:has-text("전체")'); await tp.waitForTimeout(100);
+  await tp.click('.alimbulk'); await tp.waitForSelector('#hwa .go'); await tp.waitForTimeout(150);
+  const hwaTxt = await tp.textContent('#hwa');
+  ok(hwaTxt.includes('미제출 2명') && hwaTxt.includes('오답하기 중 1명') && hwaTxt.includes('정해인') && hwaTxt.includes('김수현') && !hwaTxt.includes('박보검'), '알림톡 창 — 미제출 2명 · 오답하기 중 1명(정해인) · 끝낸 박보검은 없음');
+  ok(hwaTxt.includes('접근코드가 없어') && (await tp.textContent('#hwa .sum')).includes('학생 2명') , '접근코드 없는 학생(이도윤)은 잠김 · 보낼 학생 2명');
+  ok((await tp.textContent('#hwa .pv')).includes('▶ T세트'), '미리보기에 과제 이름');
+  tp.once('dialog', d => d.accept());
+  await tp.click('#hwa .go'); await tp.waitForTimeout(600);
+  const ap = ALIMPOST[0];
+  ok(ap && ap.kind === 'hwork_todo' && ap.items.length === 2 && ap.items.every(x => x.who === '학생' && x.vars.과제 === 'T세트' && x.vars.접근코드) && ap.items.some(x => x.to === '01011110003') && /^TA:무원고\|\d{4}-\d{2}-\d{2}$/.test(ap.items[0].date), '보내기 — hwork_todo · 학생 번호 · 과제·접근코드 · 하루 한 번 열쇠 ' + JSON.stringify(ap && ap.items[0]));
+  ok((await tp.textContent('#hwaMsg')).includes('보냄 2통'), '결과 — 보냄 2통');
+  await tp.click('#hwa [data-x]');
+
   // 목록 가독성 — 답장 필요 맨 위·상태 알약·거르기·제목 두 줄 (2026-11-17)
   ok((await tp.textContent('#listBody tr.r >> nth=0')).includes('정해인') && (await tp.textContent('#listBody tr:has-text("정해인") .stp')).includes('답장 필요 1') && await tp.locator('#listBody tr.needr').count() === 1, '답장 필요한 제출이 맨 위 · 답장 필요 1');
   ok((await tp.textContent('#listBody tr:has-text("박보검")')).includes('질문 1 · 모두 답함'), '답장을 다 한 제출: 질문 1 · 모두 답함');
   ok((await tp.textContent('#summary')).includes('답장할 질문이 있는 과제 1건') && (await tp.textContent('#stchips')).includes('답장 필요1'), '요약·거르기 숫자');
-  ok(await tp.locator('#listBody tr.sep').count() === 2, '상태별 묶음 머리');
+  ok(await tp.locator('#listBody tr.sep').count() === 3, '상태별 묶음 머리 (미제출 묶음 포함)');
   await tp.click('.stchip.need'); await tp.waitForTimeout(150);
   ok(await tp.locator('#listBody tr.r').count() === 1 && await tp.locator('#listBody tr.sep').count() === 0, '[답장 필요] 거르기');
   await tp.click('.stchip >> nth=0'); await tp.waitForTimeout(150);
   await tp.click('.sortsw button:has-text("최근 제출순")'); await tp.waitForTimeout(150);
   const subTimes = await tp.$$eval('#listBody tr.r', trs => trs.map(t => t.querySelector('.date').getAttribute('title')));
-  ok(await tp.locator('#listBody tr.sep').count() === 0 && await tp.locator('.sortsw button.on').textContent() === '최근 제출순' && subTimes.length > 1, '최근 제출순 — 상태 묶음 없이 ' + JSON.stringify(subTimes));
+  ok(await tp.locator('#listBody tr.sep').count() === 1 && await tp.locator('.sortsw button.on').textContent() === '최근 제출순' && subTimes.length > 1, '최근 제출순 — 상태 묶음 없이(미제출 묶음만) ' + JSON.stringify(subTimes));
   ok(await tp.evaluate(() => localStorage.getItem('hw_t_sort')) === 'recent', '보기 순서 기억');
   await tp.click('.sortsw button:has-text("상태별")'); await tp.waitForTimeout(150);
   if (SHOT) await tp.screenshot({ path: SHOT + '/teacher-list.png', fullPage: true });

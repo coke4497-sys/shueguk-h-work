@@ -150,6 +150,7 @@
   .stchip.on{ background:#5A4A6A; color:#fff; }
   .stchip.need:not(.on) b{ color:#C0392B; }
   table.list td.tt{ text-align:left; white-space:normal; min-width:220px; }
+  table.list td.tt .wkp{ display:inline-block; font-size:11px; font-weight:700; background:#E4F0EC; color:#3D675D; padding:1px 8px; border-radius:9px; margin-bottom:2px; }
   table.list td.tt .bk{ display:block; font-size:11.5px; color:#8B928C; line-height:1.4; }
   table.list td.tt .ls{ display:block; font-weight:700; color:#2A332F; line-height:1.45; }
   table.list td.stc{ text-align:left; }
@@ -160,6 +161,10 @@
   .stp.wait{ background:#E3EEF9; color:#3D5F86; }
   .stp.done{ background:#FBE4EA; color:#B0476A; }
   .stp.sub{ background:#F2F5F3; color:#65726B; }
+  .stp.none{ background:#FBE6E9; color:#A23A4C; }
+  tr.nonr{ background:#FFFBFC; cursor:default; }
+  tr.nonr td{ color:#6A7871; }
+  .alimbulk{ border:0; border-radius:999px; background:#E6E2F2; color:#4A4266; font-family:inherit; font-size:13px; font-weight:700; padding:7px 13px; cursor:pointer; }
   .inclass{ display:block; margin-top:5px; border:0; background:#EDE4F4; color:#5A4A6A; font-family:inherit; font-size:11.5px; padding:3px 9px; border-radius:99px; cursor:pointer; }
   .inclass:hover{ background:#E3D7EE; }
   .qsub{ display:block; font-size:11.5px; color:#8B928C; margin-top:3px; white-space:nowrap; }
@@ -184,6 +189,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="hw-teacher.js?v=20261121b"></script><!-- 선생님별 H WORK (?t=) -->
 <script src="class-done.js?v=20261121a"></script><!-- 수업에서 처리 · 완료 -->
+<script src="https://coke4497-sys.github.io/shueguk-report/activity.js"></script>
+<script src="hw-alim.js?v=20261126a"></script><!-- 배정 미제출 · 한꺼번에 알림톡 (2026-11-25) -->
 </head>
 <body>
 
@@ -200,6 +207,7 @@
     <select id="fCode" onchange="applyFilter()"><option value="">전체 제목</option></select>
     <select id="fSchool" onchange="applyFilter()"><option value="">전체 학교</option></select>
     <select id="fGrade" onchange="applyFilter()"><option value="">전체 학년</option></select>
+    <select id="fWeek" onchange="applyFilter()"><option value="">전체 주차</option></select>
     <input type="text" id="q" placeholder="이름 검색" oninput="applyFilter()">
     <button onclick="reload()">새로고침</button>
   </div>
@@ -276,7 +284,8 @@
     }
   }
 
-  let ALL=[];
+  let ALL=[], NONE=[], ASG_OK=false, WEEK={};   // NONE = 배정됐지만 아직 안 낸 학생(학생 × 과제) — hw-alim.js (2026-11-25)
+  let WORKS=[];
   let CUR=[];
   function escapeHtml(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
   function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show');
@@ -349,15 +358,33 @@
         list.forEach(r=>{ if(r._id){ const o=st[r._id]; r.qaNeed=o?o.need:0; r.qaAns=o?o.ans:0; r.qaQs=o?o.qs:[]; r.qaOn=true; } });
       }catch(e){ console.warn('질문 대화 읽기 실패', e); }
       ALL=list;
+      // 배정 · 재원 명단 — 배정된 과제 중 아직 안 낸 학생 (2026-11-25 원장님)
+      try{
+        const [asg, stus]=await Promise.all([
+          sbAllRows('/assignments?tool=eq.'+encodeURIComponent('H WORK')+'&select=seq,date,item,type,target,due&order=seq'),
+          sbAllRows('/students?select=name,school,grade,enrolled,code,phone_student,phone_parent1,phone_parent2&order=id') ]);
+        const subs=ALL.map(r=>({ name:r.name, school:r.school, grade:r.grade, code:r.code, teacher:r.teacher, got:r.got, total:r.total, review_at:r.reviewed?'1':null, qaNeed:r.qaNeed||0, handled:(r.fix&&r.fix.handled)||0 }));
+        WORKS=HWA.build(asg, subs, stus);
+        // 주차 = 그 과제를 처음 배정한 날 (2026-11-26 원장님 — 4주차 11/24~)
+        WEEK={}; WORKS.forEach(w=>{ const k=w.teacher+'|'+w.code, n=HWA.weekOf(w.first); if(n && (!WEEK[k] || n<WEEK[k])) WEEK[k]=n; });
+        NONE=[];
+        WORKS.forEach(w=>w.assigned.forEach(st=>{ if(!w.done[HWA.stuKey(st)]) NONE.push({ st:'none', none:true, name:st.name, school:st.school, grade:HWA.normGrade(st.grade)||st.grade,
+          teacher:w.teacher, code:w.code, due:w.due, stu:st, wk:WEEK[w.teacher+'|'+w.code]||0 }); }));
+        ALL.forEach(r=>{ r.wk=WEEK[r.teacher+'|'+r.code]||0; });
+        ASG_OK=true;
+      }catch(e){ console.warn('배정 읽기 실패 — 미제출 줄 없이', e); ASG_OK=false; NONE=[]; WORKS=[]; }
       fillSel('fTeacher', uniq(ALL.map(r=>r.teacher)), '전체 강사');
       if(!T_PRESET){ T_PRESET=true;   // 처음 열 때 강사 = 주소 ?t= 또는 허브 로그인 이름 (2026-11-17 원장님 "돌아가기 했을 때 제 이름이 선택된 상태로")
         let want=new URLSearchParams(location.search).get('t')||'';
         if(!want){ try{ want=window.shuegukTeacherName?((await shuegukTeacherName())||''):''; }catch(e){} }
         const sel=document.getElementById('fTeacher'); if(want && [...sel.options].some(o=>o.value===want)) sel.value=want; }
       if(window.HWT) HWT.lock(document.getElementById('fTeacher'));   // 선생님 카드로 열면 그 선생님만 (2026-11-21)
-      fillSel('fCode',    uniq(ALL.map(r=>r.code)),    '전체 제목');
-      fillSel('fSchool',  uniq(ALL.map(r=>r.school)),  '전체 학교');
-      fillSel('fGrade',   uniq(ALL.map(r=>r.grade)),   '전체 학년');
+      fillSel('fCode',    uniq(ALL.concat(NONE).map(r=>r.code)),    '전체 제목');
+      fillSel('fSchool',  uniq(ALL.concat(NONE).map(r=>r.school)),  '전체 학교');
+      fillSel('fGrade',   uniq(ALL.concat(NONE).map(r=>r.grade)),   '전체 학년');
+      { const ws=[...new Set(ALL.concat(NONE).map(r=>r.wk).filter(Boolean))].sort((a,b)=>b-a), sel=document.getElementById('fWeek'), cur=sel.value;
+        sel.innerHTML='<option value="">전체 주차</option>'+ws.map(n=>`<option value="${n}"${String(n)===cur?' selected':''}>${n}주차</option>`).join('');
+        sel.style.display=ws.length?'':'none'; }
       document.getElementById('loading').style.display='none';
       applyFilter();
     }catch(err){
@@ -385,25 +412,30 @@
       return;
     }
 
+    const wf=Number(document.getElementById('fWeek').value)||0;
     const base=ALL.filter(r=>
-      (r.teacher===t) && (!c||r.code===c) && (!s||r.school===s) && (!g||r.grade===g) &&
+      (r.teacher===t) && (!c||r.code===c) && (!s||r.school===s) && (!g||r.grade===g) && (!wf||r.wk===wf) &&
       (!q||(r.name||'').includes(q)) );
     base.forEach(r=>{ r.st=stOf(r); }); LAST_BASE=base;
-    const cnt={ all:base.length, need:0, ing:0, wait:0, done:0 };
+    const nones=NONE.filter(r=>r.teacher===t && (!c||r.code===c) && (!s||r.school===s) && (!g||r.grade===g) && (!wf||r.wk===wf) && (!q||(r.name||'').includes(q)));
+    LAST_NONE=nones;
+    const cnt={ all:base.length+nones.length, need:0, ing:0, wait:0, done:0, none:nones.length };
     base.forEach(r=>{ if(cnt[r.st]!=null) cnt[r.st]++; });
     if(ST_F!=='all' && !cnt[ST_F]) ST_F='all';
-    document.getElementById('stchips').innerHTML=[['all','전체'],['need','답장 필요'],['ing','오답하기 중'],['wait','검사 대기'],['done','검사 완료']]
+    document.getElementById('stchips').innerHTML=[['all','전체'],['need','답장 필요'],['ing','오답하기 중'],['wait','검사 대기'],['done','검사 완료']].concat(ASG_OK?[['none','미제출']]:[])
       .map(([k,l])=>`<button class="stchip${k==='need'?' need':''}${ST_F===k?' on':''}" onclick="setStF('${k}')">${l}<b>${cnt[k]}</b></button>`).join('')
+      +((cnt.ing||cnt.none)&&ASG_OK?`<button class="alimbulk" onclick="alimBulk()" title="지금 거르기 안의 오답하기 중·미제출 학생에게 ‘H WORK 과제 미완료 안내’ 알림톡">오답 중·미제출 알림톡</button>`:'')
       +(cnt.wait?`<button class="bulkchk" onclick="bulkCheck()" title="오답하기를 끝낸 제출을 모두 과제 검사 완료로 — 학생에게 하트가 갑니다">검사 대기 ${cnt.wait}건 한 번에 검사 완료 ♥</button>`:'')
       +`<span class="sortsw"><button class="${SORT==='st'?'on':''}" onclick="setSort('st')">상태별</button><button class="${SORT==='recent'?'on':''}" onclick="setSort('recent')">최근 제출순</button></span>`;
     // 답장 필요 → 오답하기 중 → 검사 대기 → 검사 완료 → 그 밖, 같은 상태 안은 최근 제출 먼저
-    const ORD={ need:0, ing:1, wait:2, done:3, sub:4 };
+    const ORD={ need:0, ing:1, wait:2, done:3, sub:4, none:5 };
     const recent=(a,b)=>(subMs(b)-subMs(a)) || (Number(b._id||0)-Number(a._id||0));
-    const rows=base.filter(r=>ST_F==='all'||r.st===ST_F).sort(SORT==='recent' ? recent : (a,b)=>(ORD[a.st]-ORD[b.st]) || recent(a,b));
+    const subRows=base.filter(r=>ST_F==='all'||r.st===ST_F).sort(SORT==='recent' ? recent : (a,b)=>(ORD[a.st]-ORD[b.st]) || recent(a,b));
+    const rows=subRows.concat(ST_F==='all'||ST_F==='none' ? nones.slice().sort((a,b)=>String(a.code).localeCompare(String(b.code),'ko')||String(a.name).localeCompare(String(b.name),'ko')) : []);
     CUR=rows;
 
     // 요약
-    let sumLine=`제출 <b>${base.length}</b>건`;
+    let sumLine=`제출 <b>${base.length}</b>건`+(ASG_OK&&nones.length?` · <span style="color:#A23A4C;font-weight:700">배정됐지만 미제출 ${nones.length}건</span>`:'');
     if(cnt.need) sumLine+=` · <span style="color:#C0392B;font-weight:700">답장할 질문이 있는 과제 ${cnt.need}건</span>`;
     if(base.length){
       let acc=0,n=0;
@@ -414,14 +446,15 @@
 
     if(!rows.length){ tbl.style.display='none'; empty.style.display='block'; empty.textContent='조건에 맞는 제출이 없습니다.'; return; }
     empty.style.display='none'; tbl.style.display='table';
-    const SEP={ need:'답장이 필요한 질문이 있어요', ing:'학생이 오답하기를 하고 있어요', wait:'오답하기를 끝냈어요 · 선생님 검사를 기다려요', done:'과제 검사 완료', sub:'그 밖의 제출' };
+    const SEP={ need:'답장이 필요한 질문이 있어요', ing:'학생이 오답하기를 하고 있어요', wait:'오답하기를 끝냈어요 · 선생님 검사를 기다려요', done:'과제 검사 완료', sub:'그 밖의 제출', none:'배정됐지만 아직 내지 않았어요' };
     let prev='';
     body.innerHTML=rows.map((r,i)=>{
       let sep='';
-      if(ST_F==='all' && SORT==='st' && r.st!==prev){ prev=r.st; sep=`<tr class="sep"><td colspan="7">${SEP[r.st]}</td></tr>`; }
+      if(ST_F==='all' && (SORT==='st'||r.none) && r.st!==prev){ prev=r.st; sep=`<tr class="sep"><td colspan="7">${SEP[r.st]}</td></tr>`; }
+      if(r.none) return sep+`<tr class="nonr"><td class="stc"><span class="stp none">미제출</span></td><td class="tt">${titleHtml(r.code, r.wk)}</td><td class="nm">${escapeHtml(r.name||'')}</td><td class="sc">—</td><td>${escapeHtml(r.school||'')}</td><td>${escapeHtml(r.grade||'')}</td><td class="date">${r.due?'마감 '+escapeHtml(dueMd(r.due)):''}</td></tr>`;
       return sep+`<tr class="r${r.st==='need'?' needr':''}${r.done?' chkd':''}" onclick="openReportAt(${i})"${r.done?` title="${escapeHtml((r.done.by||'')+' 선생님 · '+String(r.done.at||'').slice(5,16)+' 과제 검사 완료')}"`:''}>
       <td class="stc">${stPill(r)}${qaSub(r)}${r.st==='need'?`<button class="inclass" onclick="event.stopPropagation();inClass(${i})" title="학생 오답하기 없이 질문한 문항을 클리어로 바꾸고 '수업 시간에 직접 설명했어요.' 답장을 남깁니다">수업에서 처리 · 완료</button>`:''}</td>
-      <td class="tt">${titleHtml(r.code)}</td>
+      <td class="tt">${titleHtml(r.code, r.wk)}</td>
       <td class="nm">${escapeHtml(r.name||'')}</td>
       <td class="sc">${escapeHtml(r.got)} / ${escapeHtml(r.total)}${retryTag(r)}</td>
       <td>${escapeHtml(r.school||'')}</td><td>${escapeHtml(r.grade||'')}</td>
@@ -430,7 +463,20 @@
   }
 
   /* 줄 상태 (2026-11-17) — need 답장 필요 · ing 오답하기 중 · wait 검사 대기 · done 검사 완료 · sub 그 밖 */
-  let ST_F='all', LAST_BASE=[];
+  let ST_F='all', LAST_BASE=[], LAST_NONE=[];
+  /* 오답 중·미제출 알림톡 (2026-11-25) — 지금 거르기 안: 미제출(배정 기준) + 오답하기 중(배정된 과제의 제출 중 오답하기를 끝내지 않은 것) */
+  function dueMd(d){ const m=String(d||'').match(/\d{4}-(\d{2})-(\d{2})/); return m?(+m[1])+'/'+(+m[2]):String(d||''); }
+  function alimBulk(){
+    const t=document.getElementById('fTeacher').value, c=document.getElementById('fCode').value, s=document.getElementById('fSchool').value,
+          g=document.getElementById('fGrade').value, q=document.getElementById('q').value.trim();
+    const list=LAST_NONE.map(r=>({ stu:r.stu, code:r.code, kind:'none' }));
+    const ingKey={}; LAST_BASE.forEach(r=>{ ingKey[r.code+'|'+r.name]=1; });   // 화면 거르기 안의 제출만 — 남은 오답이 답장 기다리는 질문뿐이면(state 'reply') 뺀다
+    WORKS.forEach(w=>{ if(w.teacher!==t || (c&&w.code!==c)) return;
+      w.assigned.forEach(st=>{ const x=w.done[HWA.stuKey(st)]; if(!x || HWA.state(x)!=='ing') return;
+        if(!ingKey[w.code+'|'+x.name]) return;   // 화면 거르기(학교·학년·이름)와 같은 줄만
+        list.push({ stu:st, code:w.code, kind:'ing' }); }); });
+    HWA.open(list, t+' 선생님 과제'+(c?' · '+HWA.shortTitle(c):'')+([s,g,q].filter(Boolean).length?' · '+[s,g,q].filter(Boolean).join(' · '):''));
+  }
   function setStF(k){ ST_F=k; applyFilter(); }
   /* 줄 순서 (2026-11-20 원장님 "제출 시간 최근부터 확인 리스트") — 상태별(답장 필요 먼저) / 최근 제출순(상태 상관없이 제출 시각 내림차순). 이 기기에 기억 */
   let SORT=(function(){ try{ return localStorage.getItem('hw_t_sort')==='recent'?'recent':'st'; }catch(e){ return 'st'; } })();
@@ -505,7 +551,11 @@
     return `<span class="qsub">질문 ${n} · 모두 답함</span>`;
   }
   /* 제목 두 줄 — 교재 이름(작게) + 차시(굵게) */
-  function titleHtml(code){
+  function titleHtml(code, wk){
+    const w=wk?`<span class="wkp">${wk}주차</span>`:'';
+    return w+titleHtml0(code);
+  }
+  function titleHtml0(code){
     code=String(code||'');
     let m=code.match(/^(.*?\))\s+(\d.*)$/);
     if(!m){ const i=code.lastIndexOf(' · '); if(i>0 && /^\[/.test(code)) m=[0, code.slice(0,i), code.slice(i+3)]; }
@@ -517,7 +567,7 @@
   let RETRY_COL = false;
   function fixSum(rv, nwrong){
     const o={ n:nwrong, clr:0, help:0, err:0, any:false };
-    Object.values(rv||{}).forEach(v=>{ o.any=true; if(v.cleared_at) o.clr++; if(v.help) o.help++; if(v.error) o.err++; });
+    Object.values(rv||{}).forEach(v=>{ o.any=true; if(v.cleared_at) o.clr++; if(v.help) o.help++; if(v.error) o.err++; if(v.cleared_at||v.help||v.error) o.handled=(o.handled||0)+1; });
     return o;
   }
   /* 화면 이탈 (066, 2026-11-12) — 푸는 동안 다른 앱으로 넘어가거나 화면을 끈 횟수·시간. 0이면 표시 안 함 */

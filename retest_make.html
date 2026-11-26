@@ -335,19 +335,22 @@ async function hwData(code){
       const by={}; g.forEach(x=>by[x.id]=x);
       Object.keys(d.bank).forEach(n=>{ const x=by[d.bank[n]]; if(x) o.q[n]={ html:x.html, pid:x.pid?'g:'+x.pid:'', style:'gq', gans:x.ans }; });
       const pids=[...new Set(g.map(x=>x.pid).filter(Boolean))];
-      if(pids.length){ const ps=await sb('/gbank_passages?select=pid,html&pid=in.('+pids.map(p=>'"'+p+'"').join(',')+')'); ps.forEach(p=>o.pas['g:'+p.pid]=p.html); }
+      if(pids.length){ const ps=await sb('/gbank_passages?select=pid,html&pid=in.('+encodeURIComponent(pids.map(p=>'"'+p+'"').join(','))+')'); ps.forEach(p=>o.pas['g:'+p.pid]=p.html); }
     }else{
       const s=await sb('/hwork_src_items?select=no,html,pid&active=is.true&code=eq.'+enc(code));
       s.forEach(x=>{ o.q[x.no]={ html:x.html, pid:x.pid?'s:'+x.pid:'', style:'rq' }; });
       const pids=[...new Set(s.map(x=>x.pid).filter(Boolean))];
-      if(pids.length){ const ps=await sb('/hwork_src_passages?select=pid,html&pid=in.('+pids.map(p=>'"'+p+'"').join(',')+')'); ps.forEach(p=>o.pas['s:'+p.pid]=p.html); }
+      if(pids.length){ const ps=await sb('/hwork_src_passages?select=pid,html&pid=in.('+encodeURIComponent(pids.map(p=>'"'+p+'"').join(','))+')'); ps.forEach(p=>o.pas['s:'+p.pid]=p.html); }
     }
   }catch(e){}
   return HWD[code]=o;
 }
 function ansText(it){ const a=String(it&&it.ans!=null?it.ans:''); if(a==='*') return '모두 정답'; if(it&&it.type==='choice5') return a.split(',').map(x=>CHS[Number(x)-1]||x).join(', '); return a; }
 function markAns(html, style, it){
-  const a=String(it&&it.ans!=null?it.ans:''); if(!it||it.type!=='choice5'||a==='*') return html;
+  const a=String(it&&it.ans!=null?it.ans:'');
+  if(it && style==='gq' && it.type==='ox' && (a==='O'||a==='X')) return html.replace('<span class="cn" data-d="'+a+'">','<span class="cn ok" data-d="'+a+'">');   // 문항 은행 OX(리포트 093)
+  if(it && style==='gq' && it.type==='essay') return html.replace('<span class="sat"></span>','<span class="sat">'+esc(a)+'</span>');   // 문항 은행 단답 — 답 칸에 예시 답
+  if(!it||it.type!=='choice5'||a==='*') return html;
   const nums=a.split(',').map(x=>Number(x.trim())).filter(n=>n>=1&&n<=5);
   if(style==='gq') return nums.reduce((h,n)=>h.replace(new RegExp('<span class="cn" data-d="'+n+'">'),'<span class="cn ok" data-d="'+n+'">'),html);
   const want=nums.map(n=>CHS[n-1]);
