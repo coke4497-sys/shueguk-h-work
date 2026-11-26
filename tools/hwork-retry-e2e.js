@@ -36,6 +36,7 @@ function rpc(fn, p) {
     return { ok: true, id: 41, key: DB.row.key, result: Object.assign({}, r, { detail: hide(r.detail) }),
       student: { teacher: p.teacher, code: p.code, school: p.school, grade: p.grade, name: p.name } };
   }
+  if (fn === 'hwork_sub_find') { DB.found = p; return DB.row && p.key === 'STUKEY' && p.code === DB.row.code ? { ok: true, id: DB.row.id, key: DB.row.key } : { ok: false, error: 'not_found' }; }
   const s = DB.row;
   if (!s || p.id !== s.id || p.key !== s.key) return { ok: false, error: '제출 기록을 찾을 수 없습니다.' };
   s.review = s.review || {};
@@ -65,7 +66,8 @@ function rpc(fn, p) {
   if (fn === 'hwork_retry_state') {
     const ans = {}; wq.forEach(q => { if ((s.review[q] || {}).cleared_at) ans[q] = KEY[q].ans; });
     return { ok: true, stage: done() ? 'done' : 'fix', teacher: s.teacher, code: s.code, name: s.name, got: s.got, total: s.total,
-      detail: hide(s.detail), review: s.review, answers: ans };
+      detail: hide(s.detail), review: s.review, answers: ans,
+      all_ans: done() ? Object.fromEntries(Object.keys(KEY).map(k => [k, KEY[k].ans])) : null };
   }
   return { ok: false };
 }
@@ -365,6 +367,32 @@ function rpc(fn, p) {
   ok((await tp.locator('#listBody tr.r').count()) === 2 && (await tp.locator('#listBody .rtag').count()) === 0, '064 전 DB: 목록 그대로');
   [rp] = await Promise.all([tp.waitForEvent('popup'), tp.click('#listBody tr:has-text("박보검")')]);
   ok(rp.url().includes('sid=41'), '064 전 DB: 원본 제출이면 같은 결과 화면으로');
+
+  // 094 — 학생 페이지 '제출 완료' 링크(k)로 다른 기기에서 열면 결과·정답지 (2026-11-26)
+  DB.row = { id: 77, key: 'feedfeedfeedfeedfeedfeedfeedfeed', teacher: '이수경', code: 'T세트', name: '박보검', got: 3, total: 4,
+    detail: grade({ '1': '1', '2': '서술', '3': '나', '4': 'O', '5': '2' }).detail, review: { '1': { tries: [{ pick: '3', ok: true }], cleared_at: '15:06' } } };
+  const c4 = await b.newContext({ viewport: { width: 390, height: 844 } });
+  await c4.route('**/*', async rt => { const u = rt.request().url();
+    if (u.startsWith('http://localhost:' + PORT)) return rt.continue();
+    if (u.includes('/rpc/hwork_list')) return rt.fulfill({ json: { ok: true, list: [{ teacher: '이수경', code: 'T세트', due: '', closed: false }] } });
+    if (u.includes('/rpc/hwork_meta')) return rt.fulfill({ json: { ok: true, meta: { teacher: '이수경', code: 'T세트', count: 5, schools: ['무원고등학교'], items: {}, due: '', closed: false } } });
+    const m = u.match(/\/rpc\/(hwork_[a-z_]+)/);
+    if (m) { const body = JSON.parse(rt.request().postData() || '{}'); return rt.fulfill({ json: rpc(m[1], body.p || {}) }); }
+    return rt.fulfill({ body: '' }); });
+  const p4 = await c4.newPage();
+  await p4.goto('http://localhost:' + PORT + '/hwork.html?c=' + encodeURIComponent('T세트') + '&t=' + encodeURIComponent('이수경') + '&nm=' + encodeURIComponent('박보검')
+    + '&sc=' + encodeURIComponent('무원고등학교') + '&gr=' + encodeURIComponent('고2') + '&done=1&k=STUKEY');
+  await p4.waitForTimeout(1200);
+  ok(DB.found && DB.found.key === 'STUKEY' && DB.found.teacher === '이수경', '094 제출 완료 링크: 접근코드로 제출 찾기');
+  ok(await p4.locator('.ansheet').count() === 1, '094 완료한 과제 결과에 정답지 칸');
+  await p4.click('.ansheet summary'); await p4.waitForTimeout(150);
+  const sheet = await p4.textContent('.ansheet');
+  ok(/1X3/.test(sheet.replace(/\s/g, '')) && sheet.includes('내 답 1') && sheet.includes('예시 답'), '094 정답지: 번호·O/X·정답·내 답');
+  ok(await p4.evaluate(() => document.documentElement.scrollWidth <= 391), '094 정답지 휴대폰 가로 넘침 없음');
+  DB.row.review = {};
+  const p5 = await c4.newPage(); await p5.goto(p4.url()); await p5.waitForTimeout(1200);
+  ok(await p5.locator('.ansheet').count() === 0 && await p5.locator('#report').isVisible(), '094 오답하기가 남았으면 정답지 없이 결과만');
+  await c4.close();
 
   console.log('통과', pass, '실패', fail); await b.close(); srv.close(); process.exit(fail ? 1 : 0);
 })();

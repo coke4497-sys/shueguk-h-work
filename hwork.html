@@ -337,10 +337,20 @@
   #report .gq table.ot{ width:auto; max-width:100%; background:transparent; border-radius:0; box-shadow:none; overflow:visible; margin:4px auto; }
   #report .gq table.ot td{ padding:3px 6px; font-size:13px; text-align:inherit; }
   #report .gq .ctab table.ot{ width:100%; } #report .gq .ctab table.ot td{ text-align:center; }
+.ansheet summary{cursor:pointer;font-weight:700;color:#4a3f63;list-style:none}
+.ansheet summary small{font-weight:400;color:#6b766f;margin-left:6px;font-size:12.5px}
+.ansheet .as-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:6px;margin-top:12px}
+.ansheet .as-c{background:#f6f7f4;border-radius:10px;padding:7px 8px;display:flex;flex-wrap:wrap;align-items:center;gap:4px;font-size:13px}
+.ansheet .as-c b{font-family:"Do Hyeon",sans-serif;font-weight:400;font-size:15px;color:#33443c}
+.ansheet .as-c i{font-style:normal;font-size:11px;border-radius:99px;padding:0 6px}
+.ansheet .as-o{background:#dcebe3;color:#4b6157}.ansheet .as-x{background:#f6e6e9;color:#a8434f}.ansheet .as-e{background:#f1f4f1;color:#54655c}
+.ansheet .as-a{width:100%;font-weight:700;color:#3d675d;word-break:break-all}
+.ansheet .as-m{width:100%;font-size:11.5px;color:#6b766f;word-break:break-all}
+.ansheet .as-n{font-size:12px;color:#6b766f;margin-top:8px}
 </style>
 <link rel="stylesheet" href="gbank.css">
 <link rel="stylesheet" href="real.css">
-<script src="result_view.js?v=20261121a"></script>
+<script src="result_view.js?v=20261126a"></script>
 </head>
 <body>
 
@@ -441,6 +451,8 @@
     if(!c) return null;
     return { teacher:(q.get('t')||'').trim(), code:c, name:(q.get('nm')||'').trim(),
              school:(q.get('sc')||'').trim(), grade:(q.get('gr')||'').trim(), done:q.get('done')==='1',
+             // 학생 페이지가 실어 보낸 본인 확인 — 다른 기기에서도 제출한 과제를 다시 연다 (2026-11-26, 리포트 094 hwork_sub_find)
+             k:(q.get('k')||'').trim(), st:(q.get('st')||'').trim(),
              // 다음에 풀 배정 과제(학생 페이지가 교재 순서로 실어 보냄 — 'teacher\tcode' 줄들, 2026-11-19)
              next:(q.get('nx')||'').split('\n').map(x=>{ const i=x.indexOf('\t'); return i<0?null:{ t:x.slice(0,i).trim(), c:x.slice(i+1).trim() }; })
                   .filter(x=>x&&x.c&&x.c!==c) };
@@ -573,11 +585,17 @@
     // 이 기기에 같은 과제의 오답하기가 남아 있으면 그것부터 이어 한다
     const left=rsList().find(x=>x.code===hw.code && (!FX.name || x.name===FX.name));
     if(left && await resumeOne(Number(left.id), String(left.key))) return;
+    if(FX.done && (FX.k||FX.st)){
+      try{
+        const f=await sbRpc('hwork_sub_find', { p:{ key:FX.k, student:FX.st, teacher:hw.teacher, code:hw.code } });
+        if(f && f.ok && f.key && await resumeOne(Number(f.id), String(f.key))) return;
+      }catch(e){}
+    }
     if(FX.done){
       document.getElementById('footer').style.display='none';
       document.querySelector('.progress-wrap').style.display='none';
       const n=document.getElementById('topErr'); n.className='notice'; n.style.display='block';
-      n.textContent='이미 제출한 과제입니다. 오답하기는 제출한 기기에서 이어 할 수 있어요.';
+      n.textContent='이미 제출한 과제입니다. 학생 페이지의 H WORK 목록에서 다시 열면 결과와 정답지를 볼 수 있어요.';
       return;
     }
     if(hw.closed){ showErr('마감된 과제입니다. 선생님께 문의해 주세요.'); document.getElementById('footer').style.display='none'; return; }
@@ -946,7 +964,7 @@
   }
   function fromState(id, key, s){
     RS={ id, key, st:{ teacher:s.teacher, code:s.code, name:s.name, school:'', grade:'' }, got:s.got, total:s.total,
-         count:null, detail:s.detail||{}, review:s.review||null, answers:s.answers||{}, draft:{}, qa:[], ui:null,
+         count:null, detail:s.detail||{}, review:s.review||null, answers:s.answers||{}, draft:{}, qa:[], ui:null, allAns:s.all_ans||null,
          checked:s.checked||{}, checkDone:s.check_done||null, checkSeen:s.check_seen_at||'',
          time:s.time||null, away:Number(s.away_n)>0?{ n:Number(s.away_n), sec:Number(s.away_sec)||0 }:null };
     RS.stage=calcStage();
@@ -974,6 +992,7 @@
     const ctx={ mode:'student', st:{ name:st.name, school:st.school, grade:st.grade, teacher:st.teacher, code:st.code },
       got:RS.got||0, total:RS.total||0, n, detail:RS.detail||{}, review:RS.review||{}, answers:RS.answers||{}, qa:RS.qa||[],
       checked:RS.checked||{}, checkDone:RS.checkDone||null, time:RS.time||null, away:RS.away||null,
+      allAns:RS.allAns||null, extra:ansSheetHtml(),
       note:(ne?'서술형 '+ne+'문항은 점수에 넣지 않았습니다. 문항을 눌러 예시 답과 비교해 보세요. ':'')+(RS.id?'궁금한 문항은 카드를 눌러 선생님께 바로 질문할 수 있어요. 답장이 오면 그 문항에 표시돼요.':''),
       ui:RS.ui||null,
       hooks:{
@@ -1005,6 +1024,24 @@
     document.getElementById('footer').style.display='none';
     document.getElementById('report').style.display='block';
     document.body.classList.add('rvon');
+  }
+  /* 정답지 — 완료한 과제(오답하기를 끝냈거나 선생님 과제 검사 완료)만, 서버가 all_ans 를 줄 때 (2026-11-26 원장님) */
+  /* 오답하기를 막 끝냈으면 정답지를 받아 다시 그린다 */
+  async function allAnsLoad(){
+    if(!RS.id || !RS.key || RS.allAns) return;
+    try{ const s=await sbRpc('hwork_retry_state', { p:{ id:RS.id, key:RS.key } });
+      if(s && s.ok && s.all_ans){ RS.allAns=s.all_ans; drawReport(); } }catch(e){}
+  }
+  function ansSheetHtml(){
+    const A=RS.allAns; if(!A) return '';
+    const qs=Object.keys(RS.detail||{}).sort((a,b)=>Number(a)-Number(b)); if(!qs.length) return '';
+    const sh=a=>{ a=String(a==null?'':a); return a==='*'?'모두 정답':a; };
+    const cells=qs.map(q=>{ const d=RS.detail[q]||{}, ess=d.type==='essay', a=A[q]!=null?A[q]:(d.ans||'');
+      const mk=ess?'<i class="as-e">비교</i>':d.ok===true?'<i class="as-o">O</i>':'<i class="as-x">X</i>';
+      return `<div class="as-c"><b>${escapeHtml(q)}</b>${mk}<span class="as-a">${escapeHtml(ess?'예시 답':sh(a))}</span>`
+        +(ess?'':`<span class="as-m">내 답 ${escapeHtml(d.mine!=null&&String(d.mine)!==''?String(d.mine):'무응답')}</span>`)+'</div>'; }).join('');
+    return `<section class="rvcard ansheet"><details><summary>정답지 보기 <small>완료한 과제라 모든 문항 정답을 볼 수 있어요</small></summary>
+      <div class="as-grid">${cells}</div><div class="as-n">O·X는 처음 제출한 답 기준입니다. 서술형 예시 답은 문항 카드에서 확인해 주세요.</div></details></section>`;
   }
   /* 문항 카드 안 오답하기 칸 — 클리어 전 오답만 */
   function fixForm(q){
@@ -1088,7 +1125,7 @@
       if(j.correct){ RS.answers[q]=j.ans; delete RS.draft[q]; toast(q+'번 클리어!'); }
       else { RS.draft[q]={ errOpen:(RS.draft[q]||{}).errOpen }; toast('아쉬워요. '+dr.pick+'도 정답이 아닙니다. 그 답을 고른 이유부터 다시 적어 주세요'); }
       const was=RS.stage; RS.stage=calcStage(); rsRemember();
-      keepScroll(q, drawReport); if(was!=='done' && RS.stage==='done') setTimeout(clearShow, 450);
+      keepScroll(q, drawReport); if(was!=='done' && RS.stage==='done') allAnsLoad(), setTimeout(clearShow, 450);
     }catch(e){ btn.disabled=false; btn.textContent='재채점'; toast('인터넷 연결을 확인하고 다시 눌러 주세요'); }
   }
   async function sendFlag(q, kind){
@@ -1108,7 +1145,7 @@
       if(kind==='error'){ (RS.draft[q]=RS.draft[q]||{}).errOpen=false; }
       toast(kind==='help'?'선생님께 도움 요청을 남겼어요':'문항 오류 신고를 남겼어요');
       const was=RS.stage; RS.stage=calcStage(); rsRemember();
-      keepScroll(q, drawReport); if(was!=='done' && RS.stage==='done') setTimeout(clearShow, 450);
+      keepScroll(q, drawReport); if(was!=='done' && RS.stage==='done') allAnsLoad(), setTimeout(clearShow, 450);
     }catch(e){ toast('인터넷 연결을 확인하고 다시 눌러 주세요'); }
   }
   /* 이어 하기 — 이 기기에 남은 미완료 과제 */
@@ -1320,7 +1357,7 @@
       if(!j.ok){ toast(j.error||'기록하지 못했어요'); if(b){ b.disabled=false; b.textContent='이해했어요'; } return; }
       RS.review=RS.review||{}; RS.review[q]=j.review||Object.assign({}, RS.review[q]||{}, { understood_at:j.at });
       if(j.ans!=null){ RS.answers=RS.answers||{}; RS.answers[q]=j.ans; if(RS.detail[q]) RS.detail[q].ans=j.ans; }
-      const was=RS.stage; RS.stage=calcStage(); if(was!=='done' && RS.stage==='done') setTimeout(clearShow, 450);
+      const was=RS.stage; RS.stage=calcStage(); if(was!=='done' && RS.stage==='done') allAnsLoad(), setTimeout(clearShow, 450);
       toast(j.cleared?q+'번 클리어! 정답이 열렸어요':'좋아요. 이해했다고 기록했어요');
       keepScroll(q, drawReport);
     }catch(e){ toast('인터넷 연결을 확인하고 다시 눌러 주세요'); if(b){ b.disabled=false; b.textContent='이해했어요'; } }
@@ -1338,7 +1375,7 @@
       const d=RS.detail[q]||{}, r=rvOf(q);
       if(d.ok===false && d.type!=='essay' && !r.cleared_at && !r.help){   // 오답하기를 '선생님께 넘김'으로
         try{ const f=await sbRpc('hwork_flag', { p:{ id:RS.id, key:RS.key, q:String(q), kind:'help', text:text.slice(0,300) } });
-             if(f.ok){ setReview(q, { help:{ at:f.at, text } }); const was=RS.stage; RS.stage=calcStage(); rsRemember(); if(was!=='done' && RS.stage==='done') setTimeout(clearShow, 900); } }catch(e){}
+             if(f.ok){ setReview(q, { help:{ at:f.at, text } }); const was=RS.stage; RS.stage=calcStage(); rsRemember(); if(was!=='done' && RS.stage==='done') allAnsLoad(), setTimeout(clearShow, 900); } }catch(e){}
       }
       toast('선생님께 보냈어요');
       keepScroll(q, drawReport);
