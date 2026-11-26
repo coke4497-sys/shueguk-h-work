@@ -171,6 +171,8 @@
   .qsub.need{ color:#C0392B; font-weight:700; }
   tr.r.needr td{ background:#FFF4EF; }
   tr.r.needr:hover td{ background:#FDE8DF; }
+  /* 질문 답장 · 답변 생성(2026-11-26 원장님 "답변생성 버튼이 어디요?") — 답장 기다리는 질문 목록(hwork_result.html 주소 없이)으로 */
+  .qalink{ display:inline-block; border-radius:999px; background:#EDE4F4; color:#5A4A6A; font-size:13px; font-weight:700; padding:7px 13px; text-decoration:none; }
   .bulkchk{ border:0; background:#FCE4EC; color:#A33A5E; border-radius:999px; padding:6px 14px; font:inherit; font-size:13px; font-weight:700; cursor:pointer; }
   .sortsw{ display:inline-flex; margin-left:auto; background:#F2F5F3; border-radius:999px; padding:3px; gap:2px; }
   .sortsw button{ border:0; background:none; border-radius:999px; padding:5px 12px; font:inherit; font-size:13px; color:#65726B; cursor:pointer; }
@@ -425,6 +427,7 @@
     document.getElementById('stchips').innerHTML=[['all','전체'],['need','답장 필요'],['ing','오답하기 중'],['wait','검사 대기'],['done','검사 완료']].concat(ASG_OK?[['none','미제출']]:[])
       .map(([k,l])=>`<button class="stchip${k==='need'?' need':''}${ST_F===k?' on':''}" onclick="setStF('${k}')">${l}<b>${cnt[k]}</b></button>`).join('')
       +((cnt.ing||cnt.none)&&ASG_OK?`<button class="alimbulk" onclick="alimBulk()" title="지금 거르기 안의 오답하기 중·미제출 학생에게 ‘H WORK 과제 미완료 안내’ 알림톡">오답 중·미제출 알림톡</button>`:'')
+      +`<a class="qalink" href="${(window.HWT?HWT.url:String)('hwork_result.html')}" target="_blank" title="답장을 기다리는 질문 목록 — 클로슈 초안 보기·[전체 답변 생성하기]·[초안 모두 보내기]">질문 답장 · 답변 생성 ↗</a>`
       +(cnt.wait?`<button class="bulkchk" onclick="bulkCheck()" title="오답하기를 끝낸 제출을 모두 과제 검사 완료로 — 학생에게 하트가 갑니다">검사 대기 ${cnt.wait}건 한 번에 검사 완료 ♥</button>`:'')
       +`<span class="sortsw"><button class="${SORT==='st'?'on':''}" onclick="setSort('st')">상태별</button><button class="${SORT==='recent'?'on':''}" onclick="setSort('recent')">최근 제출순</button></span>`;
     // 답장 필요 → 오답하기 중 → 검사 대기 → 검사 완료 → 그 밖, 같은 상태 안은 최근 제출 먼저

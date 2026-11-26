@@ -202,3 +202,4 @@
 - 제출 현황(hwork_status.html): 과제별 줄 제목 앞·학생별 펼친 과제 목록에 같은 알약, 거르기 `#fWeek`(V.week, sessionStorage `hs_view`에 함께) — 요약 타일·알림톡 대상도 그 주차만.
 - 학생 페이지 H WORK 목록(리포트 s.html): 낱개 카드·세부 문제지 줄 제목 앞 `.hwwk`, 단원 카드는 그 안 가장 이른 주차.
 - 검증: hwork-retry-e2e(99)·hwork-status-alim-e2e(15) + 리포트 hwork-retest-list-e2e(19).
+- **채점·질문 확인 목록에서 답장 목록으로**(2026-11-26 원장님 "답변생성 버튼이 어디요?" — [전체 답변 생성하기]는 hwork_result.html 을 주소 없이 열어야 보여 찾을 길이 없었다): hwork_teacher.html 상태 알약 줄에 연보라 **[질문 답장 · 답변 생성 ↗]**(`a.qalink`, 새 탭, HWT.url 로 ?t= 이어 붙임) → 답장 기다리는 질문 목록. 기다리는 질문이 없으면 그 화면에 생성 버튼도 없다. 검증 hwork-retry-e2e(100).

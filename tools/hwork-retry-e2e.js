@@ -294,6 +294,7 @@ function rpc(fn, p) {
   ok((await tp.textContent('#listBody tr.r >> nth=0')).includes('정해인') && (await tp.textContent('#listBody tr:has-text("정해인") .stp')).includes('답장 필요 1') && await tp.locator('#listBody tr.needr').count() === 1, '답장 필요한 제출이 맨 위 · 답장 필요 1');
   ok((await tp.textContent('#listBody tr:has-text("박보검")')).includes('질문 1 · 모두 답함'), '답장을 다 한 제출: 질문 1 · 모두 답함');
   ok((await tp.textContent('#summary')).includes('답장할 질문이 있는 과제 1건') && (await tp.textContent('#stchips')).includes('답장 필요1'), '요약·거르기 숫자');
+  ok(/hwork_result\.html/.test(await tp.getAttribute('#stchips a.qalink', 'href') || ''), '질문 답장 · 답변 생성 링크 → 답장 기다리는 질문 목록');
   ok(await tp.locator('#listBody tr.sep').count() === 3, '상태별 묶음 머리 (미제출 묶음 포함)');
   await tp.click('.stchip.need'); await tp.waitForTimeout(150);
   ok(await tp.locator('#listBody tr.r').count() === 1 && await tp.locator('#listBody tr.sep').count() === 0, '[답장 필요] 거르기');
