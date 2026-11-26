@@ -273,6 +273,8 @@ function rpc(fn, p) {
   // 배정됐지만 미제출 · 한꺼번에 알림톡 (2026-11-25)
   ok(await tp.locator('#listBody tr.nonr').count() === 2 && (await tp.textContent('#listBody tr.nonr:has-text("김수현")')).includes('미제출') && (await tp.textContent('#listBody tr.nonr:has-text("김수현")')).includes('마감 11/27'), '배정됐지만 안 낸 학생 2명이 미제출 줄로 (마감 11/27)');
   ok((await tp.textContent('#stchips')).includes('미제출2') && (await tp.textContent('#summary')).includes('미제출 2건'), '상태 알약·요약에 미제출 2');
+  // 주차 표시 (2026-11-26) — 11/20 배정 = 3주차
+  ok((await tp.textContent('#listBody tr.nonr:has-text("김수현") .wkp')) === '3주차' && (await tp.textContent('#listBody tr.r:has-text("박보검") .wkp')) === '3주차' && (await tp.$$eval('#fWeek option', o => o.map(x => x.textContent))).join() === '전체 주차,3주차', '과제 이름 위 3주차 · 주차 거르기');
   await tp.click('#stchips .stchip:has-text("미제출")'); await tp.waitForTimeout(100);
   ok(await tp.locator('#listBody tr.nonr').count() === 2 && await tp.locator('#listBody tr.r').count() === 0, '미제출 알약을 누르면 미제출 줄만');
   await tp.click('#stchips .stchip:has-text("전체")'); await tp.waitForTimeout(100);

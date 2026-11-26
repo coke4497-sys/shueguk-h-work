@@ -17,6 +17,7 @@
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
   body{background:var(--bg);color:var(--ink);font-family:"Gowun Dodum","Apple SD Gothic Neo","Malgun Gothic",sans-serif;font-size:15px;line-height:1.6;padding:0 0 80px;-webkit-font-smoothing:antialiased;}
+  .wkp{display:inline-block;font-size:11px;font-weight:700;background:#E4F0EC;color:#3D675D;padding:1px 8px;border-radius:9px;margin-right:6px;vertical-align:1px;white-space:nowrap;}
   .wrap{max-width:760px;margin:0 auto;padding:0 18px;}
   .back{display:inline-flex;align-items:center;gap:6px;margin:24px 0 0;color:var(--ink-soft);text-decoration:none;font-size:14px;}
   .back svg{width:16px;height:16px;} .back:hover{color:var(--accent);}
@@ -88,7 +89,7 @@
 <script src="hw-teacher.js?v=20261121b"></script><!-- 선생님별 H WORK (?t=) -->
 <script src="https://coke4497-sys.github.io/shueguk-report/teacher-name.js"></script>
 <script src="https://coke4497-sys.github.io/shueguk-report/activity.js"></script>
-<script src="hw-alim.js?v=20261125b"></script><!-- 미제출·오답하기 중 한꺼번에 알림톡 (2026-11-25) -->
+<script src="hw-alim.js?v=20261126a"></script><!-- 미제출·오답하기 중 한꺼번에 알림톡 (2026-11-25) -->
 </head>
 <body>
 <main class="wrap">
@@ -107,6 +108,7 @@
       <span class="seg" id="views"><button type="button" data-v="work" class="on">과제별</button><button type="button" data-v="stu">학생별</button></span>
       <select id="fGrade"><option value="">모든 학년</option></select>
       <select id="fSchool"><option value="">모든 학교</option></select>
+      <select id="fWeek"><option value="">모든 주차</option></select>
     </div>
     <div class="tools">
       <input type="text" id="fFind" placeholder="과제 제목 찾기 (예: 단어 형성)" autocomplete="off">
@@ -323,9 +325,9 @@ function sbAll(path){
 }
 
 var D = null;   // {works:[{key,teacher,code,rows,assigned:[stu],subs:{stuKey:sub}}], stus:{key:stu}}
-var V = { view: 'work', grade: '', school: '', q: '', todo: false, open: {} };
-try { var sv = JSON.parse(sessionStorage.getItem('hs_view') || 'null'); if (sv) { V.view = sv.view || 'work'; V.grade = sv.grade || ''; V.school = sv.school || ''; V.todo = !!sv.todo; } } catch(e){}
-function saveV(){ try { sessionStorage.setItem('hs_view', JSON.stringify({ view:V.view, grade:V.grade, school:V.school, todo:V.todo })); } catch(e){} }
+var V = { view: 'work', grade: '', school: '', week: 0, q: '', todo: false, open: {} };
+try { var sv = JSON.parse(sessionStorage.getItem('hs_view') || 'null'); if (sv) { V.view = sv.view || 'work'; V.grade = sv.grade || ''; V.school = sv.school || ''; V.week = Number(sv.week) || 0; V.todo = !!sv.todo; } } catch(e){}
+function saveV(){ try { sessionStorage.setItem('hs_view', JSON.stringify({ view:V.view, grade:V.grade, school:V.school, week:V.week, todo:V.todo })); } catch(e){} }
 function stuKey(s){ return s.name + '|' + s.school + '|' + s.grade; }
 
 function load(){
@@ -388,13 +390,16 @@ function build(asg, subs, stus){
     var dates = rows.map(function(a){ return tr(a.date); }).filter(Boolean).sort();
     var dues = rows.map(function(a){ return tr(a.due); }).filter(Boolean).sort();
     return { key: item, teacher: teacher, code: code, rows: rows, assigned: assigned, done: done,
-             date: dates.length ? dates[dates.length - 1] : '', due: dues.length ? dues[dues.length - 1] : '' };
+             date: dates.length ? dates[dates.length - 1] : '', wk: HWA.weekOf(dates[0] || ''), due: dues.length ? dues[dues.length - 1] : '' };
   });
   works.sort(bookCmp);
   D = { works: works, stus: stuMap };
   fillFilters();
 }
 
+/* 주차 거르기 (2026-11-26 원장님) — 과제를 처음 배정한 날의 주차, hw-alim.js weekOf */
+function wkOn(w){ return !V.week || w.wk === V.week; }
+function wkPill(w){ return w.wk ? '<span class="wkp">'+w.wk+'주차</span>' : ''; }
 function stuOn(s){
   if (V.grade && shortGrade(s.grade) !== V.grade) return false;
   if (V.school && s.school !== V.school) return false;
@@ -413,6 +418,11 @@ function fillFilters(){
   document.getElementById('fGrade').innerHTML = '<option value="">모든 학년</option>' + gl.map(function(g){ return '<option value="'+esc(g)+'"'+(g===V.grade?' selected':'')+'>'+esc(g)+' · '+gs[g]+'명</option>'; }).join('');
   var sl = Object.keys(ss).sort(function(a, b){ return a.localeCompare(b, 'ko'); });
   document.getElementById('fSchool').innerHTML = '<option value="">모든 학교</option>' + sl.map(function(s){ return '<option value="'+esc(s)+'"'+(s===V.school?' selected':'')+'>'+esc(s)+' · '+ss[s]+'명</option>'; }).join('');
+  var wl = []; D.works.forEach(function(w){ if (w.wk && wl.indexOf(w.wk) < 0) wl.push(w.wk); }); wl.sort(function(a, b){ return b - a; });
+  if (V.week && wl.indexOf(V.week) < 0) V.week = 0;
+  var fw = document.getElementById('fWeek');
+  fw.innerHTML = '<option value="">모든 주차</option>' + wl.map(function(n){ return '<option value="'+n+'"'+(n===V.week?' selected':'')+'>'+n+'주차</option>'; }).join('');
+  fw.style.display = wl.length ? '' : 'none';
   document.getElementById('fTodo').checked = V.todo;
 }
 
@@ -436,6 +446,7 @@ function render(){
   // 요약 — 거르기(학년·학교)를 반영한 배정 수
   var tot = 0, sub = 0, rev = 0, wn = 0, sset = {};
   D.works.forEach(function(w){
+    if (!wkOn(w)) return;
     var on = w.assigned.filter(stuOn); if (!on.length) return;
     wn++;
     on.forEach(function(s){ var k = stuKey(s); sset[k] = 1; tot++; var r = w.done[k]; if (r) { sub++; if (reviewed(r)) rev++; } });
@@ -454,6 +465,7 @@ function render(){
 function renderWorks(q){
   var html = '', head = null;
   D.works.forEach(function(w, i){
+    if (!wkOn(w)) return;
     var on = w.assigned.filter(stuOn); if (!on.length) return;
     if (q && w.code.replace(/\s+/g,'').toLowerCase().indexOf(q) < 0) return;
     var n = on.filter(function(s){ return w.done[stuKey(s)]; }).length;
@@ -467,7 +479,7 @@ function renderWorks(q){
     if (w.due) meta.push('마감 '+md(w.due));
     if (w.teacher && w.teacher !== '이수경') meta.push(w.teacher);
     html += '<div class="row'+(open?' open':'')+(n>=on.length?' full':'')+'"><button type="button" class="rhead" data-o="w'+i+'">' +
-      '<span class="rt"><b>'+esc(sp.rest)+'</b><small>'+esc(meta.join(' · '))+'</small></span>' +
+      '<span class="rt"><b>'+wkPill(w)+esc(sp.rest)+'</b><small>'+esc(meta.join(' · '))+'</small></span>' +
       '<span class="rp">'+bar(n, on.length)+'<small class="rv">오답 끝냄 '+r+'</small></span>' +
       '<svg class="cv" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>';
     if (open){
@@ -492,7 +504,7 @@ function renderStudents(q){
   var list = Object.keys(D.stus).map(function(k){ return D.stus[k]; }).filter(stuOn);
   if (q) list = list.filter(function(s){ return s.name.replace(/\s+/g,'').toLowerCase().indexOf(q) >= 0; });
   var rows = list.map(function(s){
-    var k = stuKey(s), ws = D.works.filter(function(w){ return w.assigned.some(function(x){ return stuKey(x) === k; }); });
+    var k = stuKey(s), ws = D.works.filter(function(w){ return wkOn(w) && w.assigned.some(function(x){ return stuKey(x) === k; }); });
     var n = ws.filter(function(w){ return w.done[k]; }).length;
     return { s: s, k: k, ws: ws, n: n };
   });
@@ -514,9 +526,9 @@ function renderStudents(q){
       var todo = r.ws.filter(function(w){ return !w.done[r.k]; }), done = r.ws.filter(function(w){ return w.done[r.k]; });
       html += '<div class="rbody">' +
         '<div class="lbl">아직 안 낸 과제 '+todo.length+'개 <small>교재 앞쪽부터</small></div>' +
-        (todo.length ? '<ol class="wl">'+todo.map(function(w){ return '<li class="todo">'+esc(w.code.replace(/^SHUEGUK REAL\s*/, ''))+(w.due?'<small>마감 '+md(w.due)+'</small>':'')+'</li>'; }).join('')+'</ol>' : '<p class="muted">모두 제출했어요.</p>') +
+        (todo.length ? '<ol class="wl">'+todo.map(function(w){ return '<li class="todo">'+wkPill(w)+esc(w.code.replace(/^SHUEGUK REAL\s*/, ''))+(w.due?'<small>마감 '+md(w.due)+'</small>':'')+'</li>'; }).join('')+'</ol>' : '<p class="muted">모두 제출했어요.</p>') +
         '<div class="lbl">제출한 과제 '+done.length+'개</div>' +
-        (done.length ? '<ol class="wl">'+done.map(function(w){ var x = w.done[r.k]; return '<li class="done">'+esc(w.code.replace(/^SHUEGUK REAL\s*/, ''))+'<small>'+esc((x.total!=null&&x.total!=='')?(x.got+'/'+x.total):'')+(reviewed(x)?' · 오답 ✓':'')+'</small></li>'; }).join('')+'</ol>' : '<p class="muted">아직 제출이 없어요.</p>') +
+        (done.length ? '<ol class="wl">'+done.map(function(w){ var x = w.done[r.k]; return '<li class="done">'+wkPill(w)+esc(w.code.replace(/^SHUEGUK REAL\s*/, ''))+'<small>'+esc((x.total!=null&&x.total!=='')?(x.got+'/'+x.total):'')+(reviewed(x)?' · 오답 ✓':'')+'</small></li>'; }).join('')+'</ol>' : '<p class="muted">아직 제출이 없어요.</p>') +
       '</div>';
     }
     html += '</div>';
@@ -530,6 +542,7 @@ document.getElementById('views').addEventListener('click', function(e){
 });
 document.getElementById('fGrade').addEventListener('change', function(e){ V.grade = e.target.value; render(); });
 document.getElementById('fSchool').addEventListener('change', function(e){ V.school = e.target.value; render(); });
+document.getElementById('fWeek').addEventListener('change', function(e){ V.week = Number(e.target.value) || 0; render(); });
 document.getElementById('fTodo').addEventListener('change', function(e){ V.todo = e.target.checked; render(); });
 document.getElementById('fFind').addEventListener('input', function(e){ V.q = e.target.value; render(); });
 /* 미제출·오답하기 중 알림톡 (2026-11-25) — 지금 거르기(학년·학교·찾기·다 내지 않은 것만)로 보이는 과제, 또는 한 과제 */
@@ -547,7 +560,7 @@ function alimTargets(ws){
 function visibleWorks(){
   var q = qOf();
   return D.works.filter(function(w){
-    if (!w.assigned.filter(stuOn).length) return false;
+    if (!wkOn(w) || !w.assigned.filter(stuOn).length) return false;
     if (V.view === 'work' && q && w.code.replace(/\s+/g,'').toLowerCase().indexOf(q) < 0) return false;
     return true;
   });
@@ -557,7 +570,7 @@ document.getElementById('alimAll').addEventListener('click', function(){
   var ws = visibleWorks(), q = V.view === 'stu' ? qOf() : '';
   var list = alimTargets(ws);
   if (q) list = list.filter(function(x){ return x.stu.name.replace(/\s+/g,'').toLowerCase().indexOf(q) >= 0; });
-  var scope = [V.grade, V.school, V.q && ('‘' + V.q + '’')].filter(Boolean).join(' · ');
+  var scope = [V.week ? V.week + '주차' : '', V.grade, V.school, V.q && ('‘' + V.q + '’')].filter(Boolean).join(' · ');
   HWA.open(list, '과제 ' + ws.length + '개' + (scope ? ' · ' + scope : '') + '에서 미제출·오답하기 중인 학생');
 });
 document.getElementById('list').addEventListener('click', function(e){

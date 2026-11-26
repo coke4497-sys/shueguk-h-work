@@ -98,7 +98,7 @@
       var dates = rows.map(function(a){ return tr(a.date); }).filter(Boolean).sort();
       var dues = rows.map(function(a){ return tr(a.due); }).filter(Boolean).sort();
       return { item: item, teacher: teacher, code: code, rows: rows, assigned: assigned, done: done,
-               date: dates.length ? dates[dates.length - 1] : '', due: dues.length ? dues[dues.length - 1] : '' };
+               date: dates.length ? dates[dates.length - 1] : '', first: dates.length ? dates[0] : '', due: dues.length ? dues[dues.length - 1] : '' };
     });
   }
   /* 오답하기 중 = 틀린 문항이 있고 오답하기를 끝내지 않음(review_at 없음).
@@ -128,6 +128,15 @@
     var n = {}; Object.keys(by).forEach(function(k){ if (by[k] === '학생'){ var id = k.split('|')[0]; n[id] = (n[id] || 0) + 1; } });
     (subs || []).forEach(function(r){ if (r.id) r.qaNeed = n[r.id] || 0; });
   }
+  /* 주차 = 처음 배정한 날로 센다 — 4주차가 11/24(화)부터, 7일마다 한 주 (2026-11-26 원장님 "2주차, 3주차, 4주차(11/24-)").
+   * 리포트 s.html hwWeekOf 와 같은 규칙 — 고치면 함께 */
+  var WEEK_BASE = Date.UTC(2026, 10, 24), WEEK_NO = 4;
+  function weekOf(ymd){
+    var m = String(ymd || '').match(/(\d{4})-(\d{2})-(\d{2})/); if (!m) return 0;
+    var n = WEEK_NO + Math.floor((Date.UTC(+m[1], +m[2] - 1, +m[3]) - WEEK_BASE) / (7 * 864e5));
+    return n >= 1 ? n : 0;
+  }
+  function weekLabel(ymd){ var n = weekOf(ymd); return n ? n + '주차' : ''; }
   function shortTitle(code){ return tr(code).replace(/^SHUEGUK REAL 내신 기출\s*/, '').replace(/^\[[^\]]*\]\s*/, ''); }
   function digits(p){ return String(p || '').replace(/\D/g, ''); }
   function todayKst(){ var d = new Date(Date.now() + 9 * 3600e3); return d.toISOString().slice(0, 10); }
@@ -278,5 +287,5 @@
     });
     loadCfg().then(draw);
   }
-  window.HWA = { build: build, state: state, qaNeed: qaNeed, open: open, normGrade: normGrade, stuKey: stuKey, shortTitle: shortTitle, LEFT_RE: LEFT_RE };
+  window.HWA = { build: build, state: state, qaNeed: qaNeed, open: open, normGrade: normGrade, stuKey: stuKey, shortTitle: shortTitle, LEFT_RE: LEFT_RE, weekOf: weekOf, weekLabel: weekLabel };
 })();

@@ -43,6 +43,7 @@ const STU = [
   });
   await p.goto('http://localhost:' + PORT + '/hwork_status.html'); await p.waitForSelector('#list .row'); await p.waitForTimeout(200);
   ok(await p.locator('#alimAll').count() === 1, '위 줄에 [미제출·오답 중 알림톡]');
+  ok((await p.textContent('#list .row .wkp')) === '3주차' && (await p.$$eval('#fWeek option', o => o.map(x => x.textContent))).join() === '모든 주차,3주차', '과제 이름 앞 3주차 · 주차 거르기 (2026-11-26)');
   await p.click('#alimAll'); await p.waitForSelector('#hwa .go'); await p.waitForTimeout(100);
   let t = await p.textContent('#hwa');
   // A세트: 가나 오답 중, 다라 만점(제외), 마바 미제출 / B세트: 가나 오답 끝냄(제외), 다라 미제출 / C세트: 사아 미제출
