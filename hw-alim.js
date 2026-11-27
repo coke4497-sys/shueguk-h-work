@@ -205,6 +205,8 @@
     var first = send[0];
     var tpl = CFG && CFG.text || '';
     var pv = first ? tpl.replace('#{학생명}', baseName(first.stu.name)).replace('#{과제}', taskText(first)) : '';
+    var P0 = box.querySelector('.p'), L0 = box.querySelector('.list');
+    var keep = { p: P0 ? P0.scrollTop : 0, b: box.scrollTop, l: L0 ? L0.scrollTop : 0 };
     box.querySelector('.p').innerHTML =
       '<h3>H WORK 알림톡 보내기</h3>'
       + '<div class="sub">'+esc(CUR.title)+'<br>알림톡 종류는 ‘H WORK 과제 미완료 안내’입니다. 학생 한 명에게 하루 한 통만 가고, 과제가 여럿이면 ‘첫 과제 외 n개’로 묶어 보내요.</div>'
@@ -222,6 +224,8 @@
       + '<div class="msg'+(CUR.err?' err':'')+'" id="hwaMsg">'+esc(CUR.msg || (CFG === false ? '알림톡 설정을 불러오지 못했어요. 잠시 뒤 다시 열어 주세요.' : (CFG && !CFG.ready ? '‘H WORK 과제 미완료 안내’ 템플릿이 아직 준비 전이에요.' : '')))+'</div>'
       + '<div class="ft"><span class="sum">학생 '+send.length+'명 · 알림톡 '+msgs+'통</span><button type="button" class="cx" data-x="1">닫기</button>'
       + '<button type="button" class="go" data-go="1"'+(!send.length||!msgs||!CFG||!CFG.ready||CUR.busy?' disabled':'')+'>'+(CUR.busy?'보내는 중…':'알림톡 보내기')+'</button></div>';
+    var L1 = box.querySelector('.list'); if (L1) L1.scrollTop = keep.l;   // 체크를 바꿔도 보던 자리 그대로
+    if (P0) box.querySelector('.p').scrollTop = keep.p; box.scrollTop = keep.b;
   }
   function loadCfg(){
     if (CFG) return Promise.resolve(CFG);

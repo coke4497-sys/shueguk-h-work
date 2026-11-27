@@ -51,6 +51,16 @@ const STU = [
   ok(t.includes('고른 받는 분의 연락처가 없어요') && (await p.textContent('#hwa .sum')).includes('학생 3명'), '학생 번호 없는 마바는 잠김 · 3명');
   await p.click('#hwa label.ck:has-text("학부모님1") input'); await p.waitForTimeout(80);
   ok((await p.textContent('#hwa .sum')).includes('학생 4명') && (await p.textContent('#hwa .sum')).includes('6통'), '학부모님1을 더하면 마바도 · 4명 6통(사아는 학부모님 번호 없음)');
+  // 체크를 풀어도 목록 스크롤이 맨 위로 가지 않음 (2026-11-27 원장님)
+  await p.addStyleTag({ content: '#hwa .list{max-height:60px!important;overflow:auto!important}' });
+  await p.evaluate(() => { document.querySelector('#hwa .list').scrollTop = 40; });
+  const sc0 = await p.evaluate(() => document.querySelector('#hwa .list').scrollTop);
+  await p.evaluate(() => { const c = [...document.querySelectorAll('#hwa .list input[data-i]:not([disabled])')].pop(); c.click(); });
+  await p.waitForTimeout(80);
+  const sc1 = await p.evaluate(() => document.querySelector('#hwa .list').scrollTop);
+  ok(sc0 > 0 && sc1 === sc0, '체크를 풀어도 목록 스크롤 자리 그대로 (' + sc0 + ' → ' + sc1 + ')');
+  await p.evaluate(() => { const c = [...document.querySelectorAll('#hwa .list input[data-i]:not([disabled])')].pop(); c.click(); });
+  await p.waitForTimeout(80);
   await p.click('#hwa .pill[data-kind="ing"]'); await p.waitForTimeout(80);
   ok((await p.textContent('#hwa .sum')).includes('학생 3명'), '오답하기 중을 끄면 가나가 빠짐 → 3명');
   await p.click('#hwa .pill[data-kind="ing"]'); await p.waitForTimeout(80);
