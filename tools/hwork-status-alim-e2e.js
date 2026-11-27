@@ -87,6 +87,21 @@ const STU = [
   t = await p.textContent('#hwa');
   ok(t.includes('사아') && !t.includes('가나'), '학년 거르기(고1) — 사아만');
   ok(!t.includes('자차'), '답장 기다리는 질문만 남은 자차는 빠짐');
+  // 학생별 · 수행률 낮은 순 (2026-11-27 원장님)
+  await p.click('#hwa [data-x]');
+  await p.selectOption('#fGrade', ''); await p.click('#views [data-v="stu"]'); await p.waitForTimeout(100);
+  ok(await p.isVisible('#fSort'), '학생별 보기에 순서 고르기');
+  await p.selectOption('#fSort', 'rate'); await p.waitForTimeout(100);
+  const names = await p.$$eval('#list .rhead .rt b', x => x.map(e => e.textContent));
+  // 마바·사아 0/1(제출 0) · 자차 0/1(제출 1) · 다라 1/2(제출 1/2) · 가나 1/2(제출 2/2)
+  ok(names.join() === '마바,사아,자차,다라,가나', '수행률 낮은 순 — 끝낸 과제 비율 → 제출률 → 이름 ' + names.join());
+  ok((await p.textContent('#list .rhead >> nth=0')).includes('수행률 0%') && (await p.textContent('#list .rhead >> nth=3')).includes('수행률 50%'), '줄마다 수행률 %');
+  await p.check('#fTodo'); await p.waitForTimeout(100);
+  ok((await p.$$eval('#list .rhead', x => x.length)) === 5, '다 내지 않은 것만 — 수행을 다 못 한 학생');
+  await p.reload(); await p.waitForSelector('#list .row'); await p.waitForTimeout(200);
+  ok((await p.inputValue('#fSort')) === 'rate', '새로고침해도 순서 기억');
+  await p.click('#views [data-v="work"]'); await p.waitForTimeout(80);
+  ok(!(await p.isVisible('#fSort')), '과제별 보기에서는 순서 고르기 숨김');
   ok(!errs.length, '오류 없음 ' + errs.join(' | '));
   await b.close(); srv.close();
   console.log(`통과 ${pass} · 실패 ${fail}`); process.exit(fail ? 1 : 0);
