@@ -48,6 +48,8 @@ function fake(rt, u, method, body) {
   if (rest.startsWith('/gbank_passages')) { const m = rest.match(/pid=eq\.([^&]+)/); return rt.fulfill({ json: m ? PAS.filter(p => p.pid === decodeURIComponent(m[1])) : (rest.includes('offset=0') ? PAS : []) }); }
   if (rest.startsWith('/hwork_homeworks')) {
     if (method === 'POST') { DB.saved = JSON.parse(body)[0]; return rt.fulfill({ status: 201, body: '' }); }
+    if (method === 'PATCH') { DB.hwPatch = (DB.hwPatch || []).concat([JSON.parse(body)]); return rt.fulfill({ status: 204, body: '' }); }
+    if (rest.includes('select=id,data')) return rt.fulfill({ json: [{ id: 7, data: { teacher: '이현지', code: DB.sub ? DB.sub.code : '', count: 3, items: { '1': { ans: '2', type: 'choice5' }, '2': { ans: '3', type: 'choice5' }, '3': { ans: '4', type: 'choice5' } }, bank: { '1': 101, '2': 102, '3': 103 } } }] });
     if (rest.includes('select=code,data')) return rt.fulfill({ json: [{ code: '[모의고사 문법] 음운 1회', data: { bank: { '1': 101, '2': 102, '3': 103 } } }, { code: '다른 과제', data: { bank: { '5': 102 } } }] });
     if (rest.includes('teacher=eq') && RS_MODE) return rt.fulfill({ json: [{ data: { count: 3 } }] });
     if (rest.includes('teacher=eq')) return rt.fulfill({ json: [{ data: { bank: { '1': 101, '2': 102, '3': 103 } } }] });
@@ -56,6 +58,7 @@ function fake(rt, u, method, body) {
   if (rest.startsWith('/hwork_src_items')) { DB.calls.push({ fn: 'src', rest }); return rt.fulfill({ json: [{ no: '2', html: RQ(2), pid: 'wb-P1', type: '5지', ans: '③', essay: '', src: '건대부고3 24 1 중간', err: false, book: '문장 1권(기본·실력)', expl: '교사 해설 글', wrong: '① 첫 오답 ② 둘째 오답' }] }); }
   if (rest.startsWith('/hwork_src_passages')) return rt.fulfill({ json: [{ pid: 'wb-P1', html: '<div class="psg">교재 지문 글 나랏 말ᄊᆞ미</div>' }] });
   if (rest.startsWith('/students')) return rt.fulfill({ json: rest.includes('offset=0') ? [{ code: 'tok-kim', name: '김철수', school: '화정고', grade: '고1', enrolled: '재원', phone_student: '010-1234-5678' }, { school: '화정고', enrolled: '재원' }, { school: '능곡고', enrolled: '재원' }, { school: '옛학교', enrolled: '퇴원' }] : [] });
+  if (rest.startsWith('/hwork_submissions') && method === 'GET' && rest.includes('teacher=eq')) return rt.fulfill({ json: DB.sub ? [DB.sub] : [] });
   if (rest.startsWith('/hwork_submissions') && method === 'DELETE') { DB.subDel = (DB.subDel || []).concat([rest]); return rt.fulfill({ json: [DB.sub] }); }
   if (rest.startsWith('/hwork_submissions') && method === 'PATCH') { const b = JSON.parse(body); DB.subPatch = (DB.subPatch || []).concat([b]); Object.assign(DB.sub, b); return rt.fulfill({ status: 204, body: '' }); }
   if (rest.startsWith('/hwork_submissions')) { const m = rest.match(/id=eq\.(\d+)/); return rt.fulfill({ json: m && DB.sub && DB.sub.id == m[1] ? [DB.sub] : [] }); }
@@ -274,6 +277,22 @@ function rpc(fn, p) {
   ok(dlg[0] && dlg[0].includes('초기화할까요') && dlg[0].includes(DB.sub.code), '제출 초기화 — 확인 창에 과제 이름');
   ok(DB.subDel && DB.subDel.length === 1 && DB.subDel[0].includes('id=eq.55'), '제출 초기화 — 그 제출만 DELETE');
   await tt.close();
+  // 정답 고치기 · 오류 문항 — 모두 정답으로 바꾸고 이미 낸 제출 다시 채점 (2026-11-28)
+  { const tf = await ctx.newPage(); await tf.goto(U + 'hwork_result.html?sid=55&q=3'); await tf.waitForSelector('#rvq3 .qchk button.fx');
+    const got0 = Number(DB.sub.got) || 0, ok0 = DB.sub.detail['3'].ok;
+    await tf.click('#rvq3 .qchk button.fx'); await tf.waitForSelector('#fxBox [data-fxm="all"]');
+    ok((await tf.textContent('#fxBox')).includes('지금 정답'), '정답 고치기 창 — 지금 정답');
+    await tf.click('#fxBox [data-fxm="set"]'); await tf.click('#fxBox [data-fxn="5"]');
+    ok(await tf.$('#fxBox [data-fxn="5"].on') !== null, '정답 고르기 — 번호 켜짐');
+    await tf.click('#fxBox [data-fxm="all"]');
+    const n0 = (DB.subPatch || []).length;
+    await Promise.all([tf.waitForEvent('load'), tf.click('#fxGo')]);
+    const sv = DB.posts.filter(x => x.action === 'saveHomework').pop();
+    ok(sv && sv.data.items['3'].ans === '*', '정답 고치기 — 시트 saveHomework 에 모두 정답 *');
+    ok(DB.hwPatch && DB.hwPatch.pop().data.items['3'].ans === '*', '정답 고치기 — 과제 사본도 *');
+    const sp = (DB.subPatch || []).slice(n0).pop();
+    ok(sp && sp.detail['3'].ok === true && (ok0 === true || sp.got === got0 + 1), '정답 고치기 — 제출 다시 채점(3번 정답·점수 +1)');
+    await tf.close(); }
   // 학생이 다시 들어오면 하트 팝업 한 번
   S.checked = { '2': { at: '2026-11-17 21:00', by: '이현지' } }; S.done = { at: '2026-11-17 21:01', by: '이현지', note: '오답 이유를 잘 적었어요' }; S.seen = null;
   const sp = await ctx.newPage(); await sp.goto(U + 'hwork.html?sid=55&k=tok-kim'); await sp.waitForSelector('.hpop');

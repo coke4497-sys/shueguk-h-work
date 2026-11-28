@@ -218,3 +218,6 @@
 ## 제출 초기화 (2026-11-28 원장님 "제출 과제마다 교사페이지에서 초기화 버튼")
 - hwork_result.html '과제 검사' 상자 맨 아래 [제출 초기화](`resetSub`) — 확인 창(학생·과제·제출 시각·점수·지워지는 것) 뒤 `hwork_submissions` 그 줄을 DELETE(교사 계정, return=representation 으로 지워진 것 확인). 질문·답장(hwork_qa)·답장 첨부 줄·클로슈 초안은 FK cascade 로 함께 지워지고, 개인 리테스트의 src_id 는 비워진다. 답장 첨부 저장소 파일은 다른 답장이 같은 경로를 쓰지 않을 때만 지운다(지난 답장 불러오기). 배정은 그대로라 학생은 처음부터 다시 풀어 낸다. 끝나면 제출 확인 목록으로. 티쳐스 활동 알림 즉시.
 - 남는 것: H WORK 결과 시트 사본 한 줄(지우는 액션 없음 — 화면은 원본을 봄), 답장 안 한 질문의 슈톡 'H WORK 질문' 할 일(대기로 남으면 업무 카드에서 취소). 검증 bank-e2e(109).
+
+## 정답 고치기 · 오류 문항 (2026-11-28 원장님 "제출 현황 채점에서 오류문항을 바로 체크하고 싶어요")
+- hwork_result.html 문항 카드의 [잘 고쳤습니다] 줄에 **[정답 고치기 · 오류 문항]**(`fixOpen` — 서술형 빼고) → 창 `#fxBg`: [모두 정답 (오류 문항)](ans '*') / [정답 고르기](5지 번호 여러 개 = 복수 정답 '1,3', OX 하나) → [저장 · 다시 채점](`fixSave`). 차례: ① H WORK 시트 saveHomework(과제 data 통째, 실패하면 멈춤) ② hwork_homeworks 사본 PATCH ③ hwork_src_items 정답 글('①, ③'·'모두 정답') ④ Shuefit 독서·문학 과제(data.rd)면 reading_items data.ans + 지문 data.edits 에 {level,code,v,ord,path:'ans',set} 기록(원본을 다시 올려도 남게) ⑤ 이 과제의 모든 제출 다시 채점 — detail[q].ok·ans, 바뀐 만큼 got ±1, 정답이 되면 review[q] 지움, 남은 오답이 없어지면 review_at, 정답이던 문항이 오답이 되면 review_at 비움. 문법 문항 은행(data.bank) 정답은 다른 과제도 쓰므로 바꾸지 않는다(H WORK 채점만). 활동 알림 즉시. 채점 규칙(모두 정답·복수 정답)은 069 `hwork_ans_ok_` 와 같다. 검증 bank-e2e(114).
