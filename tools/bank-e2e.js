@@ -55,6 +55,7 @@ function fake(rt, u, method, body) {
     if (rest.includes('teacher=eq')) return rt.fulfill({ json: [{ data: { bank: { '1': 101, '2': 102, '3': 103 } } }] });
     return rt.fulfill({ json: rest.includes('offset=0') ? DB.hws : [] });
   }
+  if (rest.startsWith('/hwork_src_items') && method === 'PATCH') { DB.srcPatch = (DB.srcPatch || []).concat([{ rest, b: JSON.parse(body) }]); return rt.fulfill({ json: [{ no: '2' }] }); }
   if (rest.startsWith('/hwork_src_items')) { DB.calls.push({ fn: 'src', rest }); return rt.fulfill({ json: [{ no: '2', html: RQ(2), pid: 'wb-P1', type: '5지', ans: '③', essay: '', src: '건대부고3 24 1 중간', err: false, book: '문장 1권(기본·실력)', expl: '교사 해설 글', wrong: '① 첫 오답 ② 둘째 오답' }] }); }
   if (rest.startsWith('/hwork_src_passages')) return rt.fulfill({ json: [{ pid: 'wb-P1', html: '<div class="psg">교재 지문 글 나랏 말ᄊᆞ미</div>' }] });
   if (rest.startsWith('/students')) return rt.fulfill({ json: rest.includes('offset=0') ? [{ code: 'tok-kim', name: '김철수', school: '화정고', grade: '고1', enrolled: '재원', phone_student: '010-1234-5678' }, { school: '화정고', enrolled: '재원' }, { school: '능곡고', enrolled: '재원' }, { school: '옛학교', enrolled: '퇴원' }] : [] });
@@ -427,6 +428,16 @@ function rpc(fn, p) {
   ok(await rt2.locator('#rvq2 details.expl').count() === 1 && (await rt2.locator('#rvq2 details.expl').textContent()).includes('교사 해설 글') && await rt2.locator('#rvq2 details.expl div').count() === 3, '결과 화면 — 교재 해설 보기(해설 + 오답 해설 두 줄, 075)');
   ok(DB.calls.some(c => c.fn === 'src' && c.rest.includes('expl,wrong')), '결과 화면 — 해설 칸까지 읽음');
   if (SHOT) await rt2.screenshot({ path: path.join(SHOT, 'real-teacher-result.png') });
+  // 정답·해설 고치기 — 정답은 그대로 두고 해설만 고치면 다시 채점 없이 원문 해설만 바뀜 (2026-11-28)
+  if (await rt2.$('#rvq2 .qchk button.fx')) {
+    await rt2.click('#rvq2 .qchk button.fx'); await rt2.waitForSelector('#fxExpl');
+    ok((await rt2.inputValue('#fxExpl')).includes('교사 해설 글') && await rt2.$('#fxWrong') !== null, '정답·해설 고치기 — 지금 해설·오답 해설 칸');
+    await rt2.fill('#fxExpl', '고친 해설 글'); const nsub = (DB.subPatch || []).length;
+    await rt2.click('#fxGo'); await rt2.waitForTimeout(400);
+    const sp = (DB.srcPatch || []).pop();
+    ok(sp && sp.b.expl === '고친 해설 글' && !('ans' in sp.b) && sp.rest.includes('no=eq.2'), '해설만 고치기 — 원문 해설 PATCH(정답 그대로)');
+    ok((DB.subPatch || []).length === nsub, '해설만 고치기 — 다시 채점 안 함');
+  } else ok(false, '정답·해설 고치기 버튼');
   ok(!rterr.length, '교재 결과 화면 오류 없음 ' + rterr.join(' | '));
   await b.close(); srv.close();
   console.log(`통과 ${pass} · 실패 ${fail}`); process.exit(fail ? 1 : 0);
