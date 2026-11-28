@@ -60,6 +60,20 @@
   .wl .wrow a.row{margin-bottom:0;padding-right:150px}
   .wl .wrow .cls{position:absolute;right:12px;top:50%;transform:translateY(-50%);border:0;border-radius:999px;background:#ede4f4;color:#5a4a6a;padding:9px 14px;font-size:13px;font-family:inherit;cursor:pointer}
   @media (max-width:560px){ .wl .wrow a.row{padding-right:16px;padding-bottom:52px} .wl .wrow .cls{top:auto;bottom:10px;transform:none} }
+  .qchk button.fx{background:#fff;color:#7a5a12;border:1px solid #ecd9a6}
+  #fxBg{position:fixed;inset:0;background:rgba(30,40,35,.35);display:none;align-items:center;justify-content:center;z-index:80;padding:16px}
+  #fxBg.on{display:flex}
+  #fxBox{background:#fff;border-radius:20px;padding:20px 22px;max-width:440px;width:100%;display:flex;flex-direction:column;gap:12px;font-size:14.5px;color:#2b3a33}
+  #fxBox h3{margin:0;font-family:'Gowun Batang',serif;font-size:18px}
+  #fxBox .m{font-size:13.5px;color:#54655c}
+  #fxBox .modes{display:flex;gap:6px;flex-wrap:wrap}
+  #fxBox .modes button,#fxBox .nums button{border:0;border-radius:999px;background:#f2f5f3;color:#3d4a43;padding:9px 14px;font-family:inherit;font-size:14px;cursor:pointer}
+  #fxBox .modes button.on,#fxBox .nums button.on{background:#4a4266;color:#fff}
+  #fxBox .nums{display:flex;gap:6px;flex-wrap:wrap}
+  #fxBox .row{display:flex;gap:8px;justify-content:flex-end}
+  #fxBox .row button{border:0;border-radius:12px;padding:11px 16px;font-family:inherit;font-size:14.5px;cursor:pointer;background:#f2f5f3;color:#3d4a43}
+  #fxBox .row button.go{background:#4a4266;color:#fff}
+  #fxBox .row button:disabled{opacity:.5}
   .qchk .un{background:transparent;color:#8a978f;text-decoration:underline;padding:4px 2px;font-size:12.5px}
   textarea[data-rin]{min-height:150px!important;max-height:60vh;overflow:auto}
   .dft{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#eef4f1;color:#3e5c51;border-radius:12px;padding:8px 12px;font-size:13px;margin:6px 0}
@@ -391,6 +405,82 @@ async function alimSend(kind){   // kind: hwork_reply(답장 안내 — 과제�
   finally{ if(b){ b.disabled=false; b.textContent=label; } draw(); }
 }
 function alimSendReply(){ return alimSend('hwork_reply'); }
+/* 정답 고치기 · 오류 문항 — 이 과제 정답을 바꾸고(모두 정답 '*' · 복수 정답 '1,3') 이미 낸 제출을 모두 다시 채점 (2026-11-28 원장님 "채점에서 오류문항을 바로 체크하고 싶어요") */
+const HW_API='https://script.google.com/macros/s/AKfycbyrc0j6EmVLrlfZeSchetAcEzWPEFAEV1RHStr6ZTJPDJeH6pcvRDemfWU64puojmSDPg/exec';
+const CIRC='①②③④⑤';
+let FX=null;
+function fxType(q){ const d=(SUB.detail||{})[q]||{}; return d.type||'choice5'; }
+function fixable(q){ const t=fxType(q); return t!=='essay'; }
+function fxDisp(a, t){ if(a==='*') return '모두 정답'; if(t==='choice5') return String(a).split(',').map(x=>CIRC[Number(x)-1]||x).join(', '); return String(a); }
+function fxOk(a, mine){ if(a==='*') return true; const m=String(mine==null?'':mine).trim(); return m!=='' && String(a).split(',').map(x=>x.trim()).indexOf(m)>=0; }
+function fxCur(q){ const a=String(ANS[q]==null?'':ANS[q]); if(a==='*'||a==='모두 정답') return { mode:'all', set:[] };
+  const nums=a.match(/[①②③④⑤]/g)?a.match(/[①②③④⑤]/g).map(c=>String(CIRC.indexOf(c)+1)):a.split(/[,\s]+/).filter(Boolean); return { mode:'set', set:nums }; }
+function fixOpen(q){
+  const t=fxType(q), cur=fxCur(q);
+  FX={ q, t, mode:t==='text'?'all':cur.mode, set:t==='text'?[]:cur.set.slice() };
+  let bg=$('fxBg'); if(!bg){ bg=document.createElement('div'); bg.id='fxBg'; bg.innerHTML='<div id="fxBox"></div>'; document.body.appendChild(bg); bg.addEventListener('click',e=>{ if(e.target===bg) fixClose(); }); }
+  fxDraw(); bg.classList.add('on');
+}
+function fixClose(){ const bg=$('fxBg'); if(bg) bg.classList.remove('on'); FX=null; }
+function fxDraw(){
+  const F=FX, opts=F.t==='ox'?['O','X']:F.t==='choice5'?['1','2','3','4','5']:[];
+  $('fxBox').innerHTML=`<h3>${esc(F.q)}번 정답 고치기</h3>
+    <div class="m">지금 정답: <b>${esc(ANS[F.q]==null?'—':(fxCur(F.q).mode==='all'?'모두 정답':F.t==='text'?String(ANS[F.q]):fxDisp(fxCur(F.q).set.join(','), F.t)))}</b><br>저장하면 이 과제의 정답이 바뀌고, 이미 낸 제출을 모두 다시 채점합니다.</div>
+    <div class="modes"><button type="button" data-fxm="all" class="${F.mode==='all'?'on':''}">모두 정답 (오류 문항)</button>${opts.length?`<button type="button" data-fxm="set" class="${F.mode==='set'?'on':''}">정답 고르기</button>`:''}</div>
+    ${F.mode==='set'?`<div class="nums">${opts.map(o=>`<button type="button" data-fxn="${o}" class="${F.set.indexOf(o)>=0?'on':''}">${F.t==='choice5'?CIRC[Number(o)-1]:o}</button>`).join('')}</div><div class="m">${F.t==='choice5'?'여러 개를 고르면 그중 하나만 골라도 정답이에요(복수 정답).':'하나를 고르세요.'}</div>`:'<div class="m">어떤 답을 골랐든(빈 답 포함) 정답으로 채점합니다. 학생 결과 화면 정답 칸에는 「모두 정답」이 보여요.</div>'}
+    <div class="row"><button type="button" onclick="fixClose()">닫기</button><button type="button" class="go" id="fxGo" onclick="fixSave()">저장 · 다시 채점</button></div>`;
+  $('fxBox').querySelectorAll('[data-fxm]').forEach(b=>b.onclick=()=>{ F.mode=b.dataset.fxm; fxDraw(); });
+  $('fxBox').querySelectorAll('[data-fxn]').forEach(b=>b.onclick=()=>{ const n=b.dataset.fxn, i=F.set.indexOf(n);
+    if(F.t==='ox') F.set=[n]; else if(i>=0) F.set.splice(i,1); else F.set.push(n); F.set.sort(); fxDraw(); });
+}
+async function fixSave(){
+  const F=FX; if(!F) return;
+  const a=F.mode==='all'?'*':F.set.join(',');
+  if(!a){ toast('정답을 하나 이상 고르세요'); return; }
+  const disp=fxDisp(a, F.t), q=F.q;
+  if(!confirm(q+'번 정답을 「'+disp+'」(으)로 바꾸고, 이 과제에 이미 낸 제출을 모두 다시 채점할까요?')) return;
+  const by=await myName(); const b=$('fxGo'); if(b){ b.disabled=true; b.textContent='저장하는 중…'; }
+  try{
+    const hw=(await sb('/hwork_homeworks?select=id,data&teacher=eq.'+enc(SUB.teacher)+'&code=eq.'+enc(SUB.code)+'&limit=1'))[0];
+    if(!hw) throw new Error('과제를 찾지 못했어요');
+    const d=hw.data||{}; d.items=d.items||{}; d.items[q]=Object.assign({}, d.items[q]||{ type:F.t }, { ans:a });
+    // 원본 시트(H WORK 백엔드) 먼저 — 학생 제출 채점이 이 값을 쓴다(예비 경로)
+    try{ const r=await fetch(HW_API,{ method:'POST', body:JSON.stringify({ action:'saveHomework', data:d }) }); const j=await r.json(); if(!j||!j.ok) throw new Error((j&&(j.error||j.msg))||'시트 저장 실패'); }
+    catch(e){ throw new Error('과제 시트에 저장하지 못했어요 — '+e.message); }
+    await sb('/hwork_homeworks?id=eq.'+hw.id,{ method:'PATCH', body:JSON.stringify({ data:d }), headers:{ Prefer:'return=minimal' } });
+    // 문제 원문의 정답 글(교재·워크북·Shuefit)
+    try{ await sb('/hwork_src_items?code=eq.'+enc(SUB.code)+'&no=eq.'+enc(q),{ method:'PATCH', body:JSON.stringify({ ans:disp }), headers:{ Prefer:'return=minimal' } }); }catch(e){}
+    const rid=d.rd&&d.rd[q];
+    if(rid){ try{   // Shuefit 독서·문학 문항 은행도 같은 정답으로 — 원본을 다시 올려도 남게 지문 edits 에 기록
+      const it=(await sb('/reading_items?select=id,passage_id,level,code,v,ord,data&id=eq.'+rid))[0];
+      if(it){ it.data.ans=disp; await sb('/reading_items?id=eq.'+rid,{ method:'PATCH', body:JSON.stringify({ data:it.data }), headers:{ Prefer:'return=minimal' } });
+        const P=(await sb('/reading_passages?select=data&id=eq.'+enc(it.passage_id)))[0];
+        if(P){ P.data.edits=(P.data.edits||[]).concat([{ level:it.level, code:it.code, v:it.v, ord:it.ord, path:'ans', set:disp }]);
+          await sb('/reading_passages?id=eq.'+enc(it.passage_id),{ method:'PATCH', body:JSON.stringify({ data:P.data }), headers:{ Prefer:'return=minimal' } }); } }
+    }catch(e){} }
+    // 이미 낸 제출 다시 채점
+    const subs=await sb('/hwork_submissions?select=id,got,detail,review,review_at,answers&teacher=eq.'+enc(SUB.teacher)+'&code=eq.'+enc(SUB.code)+'&limit=2000');
+    let up=0, dn=0;
+    for(const x of subs){
+      const det=x.detail||{}, it=det[q]; if(!it || it.ok===null) continue;
+      const mine=it.mine!=null?it.mine:(x.answers||{})[q];
+      const ok=fxOk(a, mine), was=it.ok===true;
+      const det2=Object.assign({}, det); det2[q]=Object.assign({}, it, { ok, ans:a });
+      const body={ detail:det2 };
+      if(ok!==was){ body.got=(Number(x.got)||0)+(ok?1:-1); ok?up++:dn++; }
+      const rv=Object.assign({}, x.review||{});
+      if(ok && rv[q]){ delete rv[q]; body.review=rv; }
+      const left=Object.keys(det2).filter(k=>det2[k].ok===false && det2[k].type!=='essay' && !((rv[k]||{}).cleared_at||(rv[k]||{}).help||(rv[k]||{}).error));
+      if(!left.length && !x.review_at && ok && !was) body.review_at=nowKst();   // 남은 오답이 이 문항뿐이었으면 오답하기 끝
+      if(left.length && x.review_at && !ok && was) body.review_at=null;          // 정답이던 문항이 오답이 되면 다시 오답하기
+      await sb('/hwork_submissions?id=eq.'+x.id,{ method:'PATCH', body:JSON.stringify(body), headers:{ Prefer:'return=minimal' } });
+    }
+    if(window.shuegukActivity) shuegukActivity('H WORK', '정답 고침', SUB.code+' '+q+'번', '「'+disp+'」 · 다시 채점 '+subs.length+'건 (정답으로 '+up+' · 오답으로 '+dn+')', true);
+    fixClose();
+    alert(q+'번 정답을 「'+disp+'」(으)로 바꿨습니다.\n이 과제 제출 '+subs.length+'건을 다시 채점했어요 — 정답으로 바뀜 '+up+'건'+(dn?' · 오답으로 바뀜 '+dn+'건':'')+'.'+(d.bank?'\n(문법 문항 은행의 정답은 다른 과제도 쓰므로 그대로 두었습니다)':''));
+    location.reload();
+  }catch(e){ toast(e.message||'저장하지 못했어요'); if(b){ b.disabled=false; b.textContent='저장 · 다시 채점'; } }
+}
 /* 제출 초기화 — 이 제출(과 딸린 질문·답장·첨부·확인)을 지워 학생이 다시 풀게 한다 (2026-11-28 원장님 "제출 과제마다 교사페이지에서 초기화 버튼") */
 async function resetSub(){
   if(!SUB||!SUB.id) return;
@@ -678,7 +768,7 @@ function draw(){
       away:Number(SUB.away_n)>0?{ n:Number(SUB.away_n), sec:Number(SUB.away_sec)||0 }:null, time:SUB.timelog||null, reviewAt:SUB.review_at||'', qa:QA,
       hooks:{
         qhtml:q=>{ const x=QS[q]; if(!x) return null; return { pas:x.pid&&QP[x.pid]?`<div class="${STYLE}">${QP[x.pid]}</div>`:'', html:`<div class="${STYLE}">${x.html}</div>` }; },
-        composer:q=>(('checked' in SUB)?`<div class="qchk">${(SUB.checked||{})[q]?`<span class="on">♥ ${esc(SUB.checked[q].by)} 선생님 확인 · ${esc(String(SUB.checked[q].at).slice(5,16))}</span><button type="button" class="un" onclick="checkQ('${q}',false)">확인 취소</button>`:`<button type="button" onclick="checkQ('${q}',true)">잘 고쳤습니다 ♥</button>`}${classNeed(q)?`<button type="button" class="cls" onclick="classQ('${q}')" title="학생 오답하기 없이 이 문항을 클리어로 바꾸고, 질문이 있으면 「수업 시간에 직접 설명했어요.」 답장을 남깁니다">수업에서 처리 · 완료</button>`:''}</div>`:'')+`<div class="cmp"><span class="lab">학생에게 답장</span>${draftHtml(q)}${prevHtml(q)}<textarea data-rin="${q}" maxlength="5000" placeholder="답장을 적어 주세요. 학생 화면 이 문항에 바로 보입니다. 사진은 Ctrl+V 로 붙여 넣어도 돼요.">${esc(rtxt(q, keep))}</textarea>${reuseHtml(q)}${attHtml(q)}<button type="button" class="go" data-send="${q}">답장 보내기</button></div>`,
+        composer:q=>(('checked' in SUB)?`<div class="qchk">${(SUB.checked||{})[q]?`<span class="on">♥ ${esc(SUB.checked[q].by)} 선생님 확인 · ${esc(String(SUB.checked[q].at).slice(5,16))}</span><button type="button" class="un" onclick="checkQ('${q}',false)">확인 취소</button>`:`<button type="button" onclick="checkQ('${q}',true)">잘 고쳤습니다 ♥</button>`}${classNeed(q)?`<button type="button" class="cls" onclick="classQ('${q}')" title="학생 오답하기 없이 이 문항을 클리어로 바꾸고, 질문이 있으면 「수업 시간에 직접 설명했어요.」 답장을 남깁니다">수업에서 처리 · 완료</button>`:''}${fixable(q)?`<button type="button" class="fx" onclick="fixOpen('${q}')" title="이 과제의 정답을 고치고 이미 낸 제출을 모두 다시 채점합니다">정답 고치기 · 오류 문항</button>`:''}</div>`:'')+`<div class="cmp"><span class="lab">학생에게 답장</span>${draftHtml(q)}${prevHtml(q)}<textarea data-rin="${q}" maxlength="5000" placeholder="답장을 적어 주세요. 학생 화면 이 문항에 바로 보입니다. 사진은 Ctrl+V 로 붙여 넣어도 돼요.">${esc(rtxt(q, keep))}</textarea>${reuseHtml(q)}${attHtml(q)}<button type="button" class="go" data-send="${q}">답장 보내기</button></div>`,
         expl:q=>explHtml(q),
         files:f=>fsHtml(f),
         msgEdit:m=>msgEditHtml(m),
