@@ -56,9 +56,11 @@ function fake(rt, u, method, body) {
   if (rest.startsWith('/hwork_src_items')) { DB.calls.push({ fn: 'src', rest }); return rt.fulfill({ json: [{ no: '2', html: RQ(2), pid: 'wb-P1', type: '5지', ans: '③', essay: '', src: '건대부고3 24 1 중간', err: false, book: '문장 1권(기본·실력)', expl: '교사 해설 글', wrong: '① 첫 오답 ② 둘째 오답' }] }); }
   if (rest.startsWith('/hwork_src_passages')) return rt.fulfill({ json: [{ pid: 'wb-P1', html: '<div class="psg">교재 지문 글 나랏 말ᄊᆞ미</div>' }] });
   if (rest.startsWith('/students')) return rt.fulfill({ json: rest.includes('offset=0') ? [{ code: 'tok-kim', name: '김철수', school: '화정고', grade: '고1', enrolled: '재원', phone_student: '010-1234-5678' }, { school: '화정고', enrolled: '재원' }, { school: '능곡고', enrolled: '재원' }, { school: '옛학교', enrolled: '퇴원' }] : [] });
+  if (rest.startsWith('/hwork_submissions') && method === 'DELETE') { DB.subDel = (DB.subDel || []).concat([rest]); return rt.fulfill({ json: [DB.sub] }); }
   if (rest.startsWith('/hwork_submissions') && method === 'PATCH') { const b = JSON.parse(body); DB.subPatch = (DB.subPatch || []).concat([b]); Object.assign(DB.sub, b); return rt.fulfill({ status: 204, body: '' }); }
   if (rest.startsWith('/hwork_submissions')) { const m = rest.match(/id=eq\.(\d+)/); return rt.fulfill({ json: m && DB.sub && DB.sub.id == m[1] ? [DB.sub] : [] }); }
   if (rest.startsWith('/hwork_retests')) return rt.fulfill({ json: [] });
+  if (rest.startsWith('/hwork_reply_files') && method === 'GET') return rt.fulfill({ json: [] });
   if (rest.startsWith('/hwork_reply_files')) { DB.files = (DB.files || []).concat(JSON.parse(body)); return rt.fulfill({ status: 201, body: '' }); }
   if (rest.startsWith('/hwork_qa_drafts')) {   // 클로슈 답장 초안(리포트 092)
     if (method === 'PATCH') { DB.draftPatch = (DB.draftPatch || []).concat([{ rest, b: JSON.parse(body) }]); return rt.fulfill({ status: 204, body: '' }); }
@@ -265,6 +267,12 @@ function rpc(fn, p) {
   await tt.click('#todoBtn'); await tt.waitForFunction(() => document.getElementById('toast').textContent.includes('알림톡을 보냈어요'));
   const td = DB.posts.find(x => x.action === 'alimSend' && x.kind === 'hwork_todo');
   ok(td && /^T:55\|\d{4}-\d{2}-\d{2}$/.test(td.items[0].date) && td.items[0].to === '01012345678', '미완료 알림톡 — 하루 한 번 키 T:제출|날짜');
+  // 제출 초기화 — 확인 창 뒤 그 제출만 DELETE, 목록으로 돌아감 (2026-11-28)
+  ok((await tt.textContent('#resetBtn')) === '제출 초기화', '제출 초기화 버튼');
+  const dlg = []; tt.on('dialog', d => dlg.push(d.message()));
+  await Promise.all([tt.waitForURL(/hwork_teacher\.html/), tt.click('#resetBtn')]);
+  ok(dlg[0] && dlg[0].includes('초기화할까요') && dlg[0].includes(DB.sub.code), '제출 초기화 — 확인 창에 과제 이름');
+  ok(DB.subDel && DB.subDel.length === 1 && DB.subDel[0].includes('id=eq.55'), '제출 초기화 — 그 제출만 DELETE');
   await tt.close();
   // 학생이 다시 들어오면 하트 팝업 한 번
   S.checked = { '2': { at: '2026-11-17 21:00', by: '이현지' } }; S.done = { at: '2026-11-17 21:01', by: '이현지', note: '오답 이유를 잘 적었어요' }; S.seen = null;
